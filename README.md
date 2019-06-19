@@ -9,4 +9,5 @@ Platform for Integrated Landuse and Transportation Experiments and Simulations
 4. local (temp) data directory
    - urbansim outputs
    - activitysynth inputs
-5. remote data directory
+5. path to raw beam skims
+6. remote data directory
