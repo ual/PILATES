@@ -17,6 +17,9 @@ MUST USE PYTHON 2 to run this script.
 
 baseyear = False
 beam_bucket = 'urbansim-beam'
+skims_data_dir = 's3://' + beam_bucket
+skims_fname = '30.skims-smart-23April2019-baseline.csv.gz'
+skims_filepath = os.path.join(skims_data_dir, skims_fname)
 csv_fnames = {
     'parcels': 'parcels.csv',
     'buildings': 'buildings.csv',
@@ -27,15 +30,15 @@ csv_fnames = {
     'rentals': 'craigslist.csv',
     'units': 'units.csv',
     'mtc_skims': 'mtc_skims.csv',
-    'beam_skims_raw': '30.skims-smart-23April2019-baseline.csv.gz',
+    # 'beam_skims_raw': ,
     'zones': 'zones.csv',
     # the following nodes and edges .csv's aren't used by bayarea_urbansim
     # they're just being loaded here so they can be passed through to the
     # output data directory for use in activitysynth
-    'drive_nodes': 'bay_area_tertiary_strongly_nodes.csv',
-    'drive_edges': 'bay_area_tertiary_strongly_edges.csv',
-    'walk_nodes': 'bayarea_walk_nodes.csv',
-    'walk_edges': 'bayarea_walk_edges.csv',
+    'drive_nodes': 'drive_nodes.csv',
+    'drive_edges': 'drive_edges.csv',
+    'walk_nodes': 'walk_nodes.csv',
+    'walk_edges': 'walk_edges.csv',
 }
 data_store_fname = 'baus_model_data.h5'
 nodes_and_edges = False
@@ -54,6 +57,9 @@ if __name__ == "__main__":
         '--input-data-dir', '-i', action='store', dest='input_data_dir',
         help='full (pandas-compatible) path to input data directory',
         required=True)
+    parser.add_argument(
+        '--skims-filepath', '-s', action='store', dest='skims_filepath',
+        help='path to beam skims file')
     parser.add_argument(
         '--output-data-dir', '-o', action='store', dest='output_data_dir',
         help='full path to the LOCAL output data directory',
@@ -75,35 +81,34 @@ if __name__ == "__main__":
     if options.output_fname:
         data_store_fname = options.output_fname
 
+    if options.skims_filepath:
+        skims_filepath = options.skims_filepath
+
     input_data_dir = options.input_data_dir
     output_data_dir = options.output_data_dir
 
     try:
         parcels = pd.read_csv(
-            input_data_dir + csv_fnames['parcels'], index_col='parcel_id',
-            dtype={'parcel_id': int, 'block_id': str, 'apn': str})
+            os.path.join(input_data_dir, csv_fnames['parcels']),
+            index_col='parcel_id', dtype={
+                'parcel_id': int, 'block_id': str, 'apn': str})
     except ValueError:
         parcels = pd.read_csv(
-            input_data_dir + csv_fnames['parcels'], index_col='primary_id',
-            dtype={'primary_id': int, 'block_id': str, 'apn': str})
+            os.path.join(input_data_dir, csv_fnames['parcels']),
+            index_col='primary_id', dtype={
+                'primary_id': int, 'block_id': str, 'apn': str})
 
     buildings = pd.read_csv(
-        input_data_dir + csv_fnames['buildings'], index_col='building_id',
-        dtype={'building_id': int, 'parcel_id': int})
+        os.path.join(input_data_dir, csv_fnames['buildings']),
+        index_col='building_id', dtype={'building_id': int, 'parcel_id': int})
     buildings['res_sqft_per_unit'] = buildings[
         'residential_sqft'] / buildings['residential_units']
     buildings['res_sqft_per_unit'][
         buildings['res_sqft_per_unit'] == np.inf] = 0
 
-    # building_types = pd.read_csv(
-    #     d + 'building_types.csv',
-    #     index_col='building_type_id', dtype={'building_type_id': int})
-
-    # building_types.head()
-
     try:
         rentals = pd.read_csv(
-            input_data_dir + csv_fnames['rentals'],
+            os.path.join(input_data_dir, csv_fnames['rentals']),
             index_col='pid', dtype={
                 'pid': int, 'date': str, 'region': str,
                 'neighborhood': str, 'rent': float, 'sqft': float,
@@ -112,7 +117,7 @@ if __name__ == "__main__":
                 'state': str, 'bathrooms': str})
     except ValueError:
         rentals = pd.read_csv(
-            input_data_dir + csv_fnames['rentals'],
+            os.path.join(input_data_dir, csv_fnames['rentals']),
             index_col=0, dtype={
                 'date': str, 'region': str,
                 'neighborhood': str, 'rent': float, 'sqft': float,
@@ -121,19 +126,19 @@ if __name__ == "__main__":
                 'state': str, 'bathrooms': str})
 
     units = pd.read_csv(
-        input_data_dir + csv_fnames['units'], index_col='unit_id',
-        dtype={'unit_id': int, 'building_id': int})
+        os.path.join(input_data_dir, csv_fnames['units']),
+        index_col='unit_id', dtype={'unit_id': int, 'building_id': int})
 
     try:
         households = pd.read_csv(
-            input_data_dir + csv_fnames['households'],
+            os.path.join(input_data_dir, csv_fnames['households']),
             index_col='household_id', dtype={
                 'household_id': int, 'block_group_id': str, 'state': str,
                 'county': str, 'tract': str, 'block_group': str,
                 'building_id': int, 'unit_id': int, 'persons': float})
     except ValueError:
         households = pd.read_csv(
-            input_data_dir + csv_fnames['households'],
+            os.path.join(input_data_dir, csv_fnames['households']),
             index_col=0, dtype={
                 'household_id': int, 'block_group_id': str, 'state': str,
                 'county': str, 'tract': str, 'block_group': str,
@@ -142,38 +147,40 @@ if __name__ == "__main__":
 
     try:
         persons = pd.read_csv(
-            input_data_dir + csv_fnames['persons'], index_col='person_id',
-            dtype={'person_id': int, 'household_id': int})
+            os.path.join(input_data_dir, csv_fnames['persons']),
+            index_col='person_id', dtype={
+                'person_id': int, 'household_id': int})
     except ValueError:
         persons = pd.read_csv(
-            input_data_dir + csv_fnames['persons'], index_col=0,
-            dtype={'person_id': int, 'household_id': int})
+            os.path.join(input_data_dir, csv_fnames['persons']),
+            index_col=0, dtype={'person_id': int, 'household_id': int})
         persons.index.name = 'person_id'
 
     try:
         jobs = pd.read_csv(
-            input_data_dir + csv_fnames['jobs'], index_col='job_id',
-            dtype={'job_id': int, 'building_id': int})
+            os.path.join(input_data_dir, csv_fnames['jobs']),
+            index_col='job_id', dtype={'job_id': int, 'building_id': int})
     except ValueError:
         jobs = pd.read_csv(
-            input_data_dir + csv_fnames['jobs'], index_col=0,
-            dtype={'job_id': int, 'building_id': int})
+            os.path.join(input_data_dir, csv_fnames['jobs']),
+            index_col=0, dtype={'job_id': int, 'building_id': int})
         jobs.index.name = 'job_id'
 
     establishments = pd.read_csv(
-        input_data_dir + csv_fnames['establishments'],
+        os.path.join(input_data_dir, csv_fnames['establishments']),
         index_col='establishment_id', dtype={
             'establishment_id': int, 'building_id': int,
             'primary_id': int})
 
     zones = pd.read_csv(
-        input_data_dir + 'zones.csv', index_col='zone_id')
+        os.path.join(input_data_dir, csv_fnames['zones']), index_col='zone_id')
 
     mtc_skims = pd.read_csv(
-        input_data_dir + csv_fnames['mtc_skims'], index_col=0)
+        os.path.join(input_data_dir, csv_fnames['mtc_skims']), index_col=0)
 
-    beam_skims_raw = pd.read_csv(
-        input_data_dir + csv_fnames['beam_skims_raw'])
+    # note the beam skims are sourced from a separate data directory,
+    # by default in a remote s3 bucket
+    beam_skims_raw = pd.read_csv(skims_filepath)
     beam_skims_raw.rename(columns={
         'generalizedCost': 'gen_cost', 'origTaz': 'from_zone_id',
         'destTaz': 'to_zone_id'}, inplace=True)
@@ -219,14 +226,14 @@ if __name__ == "__main__":
 
     if nodes_and_edges:
 
-        drive_nodes = pd.read_csv(
-            input_data_dir + csv_fnames['drive_nodes']).set_index('osmid')
-        drive_edges = pd.read_csv(
-            input_data_dir + csv_fnames['drive_edges']).set_index('uniqueid')
-        walk_nodes = pd.read_csv(
-            input_data_dir + csv_fnames['walk_nodes']).set_index('osmid')
-        walk_edges = pd.read_csv(
-            input_data_dir + csv_fnames['walk_edges']).set_index('uniqueid')
+        drive_nodes = pd.read_csv(os.path.join(
+            input_data_dir, csv_fnames['drive_nodes'])).set_index('osmid')
+        drive_edges = pd.read_csv(os.path.join(
+            input_data_dir, csv_fnames['drive_edges'])).set_index('uniqueid')
+        walk_nodes = pd.read_csv(os.path.join(
+            input_data_dir, csv_fnames['walk_nodes'])).set_index('osmid')
+        walk_edges = pd.read_csv(os.path.join(
+            input_data_dir, csv_fnames['walk_edges'])).set_index('uniqueid')
 
         store.put('drive_nodes', drive_nodes, format='t')
         store.put('drive_edges', drive_edges, format='t')
