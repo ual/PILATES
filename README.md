@@ -1,5 +1,11 @@
-# P.I.L.A.T.E.S.
-**P**latform for **I**ntegrated **L**anduse **A**nd **T**ransportation **E**xperiments and **Simulation
+# PILATES
+**P**latform for \
+**I**ntegrated \
+**L**anduse \
+**A**nd \
+**T**ransportation \
+**E**xperiments and \
+**S**imulation
 
 PILATES is designed to facilitate the automated coordination of intra-simulation integration between UrbanSim, ActivitySynth, and a user-specified travel demand model.
 
