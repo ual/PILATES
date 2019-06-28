@@ -32,11 +32,11 @@ export ASYNTH_DATA_OUTPUT_FILE=${ASYNTH_DATA_OUTPUT_FILE:-model_data_output.h5}
 export ASYNTH_DATA_OUTPUT_FILEPATH="$ASYNTH_DATA_OUTPUT_PATH/$ASYNTH_DATA_OUTPUT_FILE"
 
 # define default values/behavior for command-line arguments
-export IN_YEAR=${1:?IN_YEAR \#1 not passed in}
-export OUT_YEAR=${2:?OUT_YEAR \#2 not passed in}
-export BAUS_ITER_FREQ=${3:?BAUS_ITER_FREQ \#3 not passed in}
-export SCENARIO=${4:?SCENARIO argument \#4 not passed in}
-export SKIMS_FNAME=${5:?SKIMS_FNAME argument not passed in}
+export IN_YEAR=${1:?ARG \#1 "IN_YEAR" \#1 not specified}
+export OUT_YEAR=${2:?ARG \#2 "OUT_YEAR" not specified}
+export BAUS_ITER_FREQ=${3:?ARG \#3 "BAUS_ITER_FREQ" not specified}
+export SCENARIO=${4:?ARG \#4 "SCENARIO" not specified}
+export SKIMS_FNAME=${5:?ARG \#5 "SKIMS_FNAME" not specified}
 export IN_YEAR_OUTPUT=${6:-off}
 
 export SKIMS_FILEPATH=s3://$SKIMS_BUCKET/$SKIMS_FNAME
@@ -58,9 +58,8 @@ fi
 
 # Make in-year model data .h5
 cd $PILATES_PATH/scripts \
-&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python \
-make_model_data_hdf.py -n -b \
--i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$BAUS_INPUT_DATA_YEAR \
+&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
+-n -b -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$BAUS_INPUT_DATA_YEAR \
 -s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
 
 

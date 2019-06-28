@@ -1,6 +1,6 @@
 FROM continuumio/miniconda3
 
-WORKDIR /home/ubuntu
+ENV HOME /home/ubuntu
 
 # env vars
 ENV CONDA_DIR /opt/conda
@@ -12,10 +12,10 @@ ENV PATH /opt/conda/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin:$PATH
 ENV PATH /opt/conda/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin:$PATH
 ENV PATH /opt/conda/envs/$CONDA_ENV_ASYNTH/bin:$PATH
 
-ENV PILATES_PATH $WORKDIR/PILATES
+ENV PILATES_PATH $HOME/PILATES
 ENV LOG_PATH $PILATES_PATH/logs
 
-ENV BAUS_PATH $WORKDIR/bayarea_urbansim
+ENV BAUS_PATH $HOME/bayarea_urbansim
 ENV BAUS_DATA_STORE_PATH $BAUS_PATH/data
 ENV BAUS_DATA_OUTPUT_PATH $BAUS_PATH/output
 ENV BAUS_DATA_OUTPUT_FILE model_data_output.h5
@@ -29,7 +29,7 @@ ARG BAUS_OUTPUT_BUCKET=urbansim-outputs
 ENV BAUS_OUTPUT_BUCKET $BAUS_OUTPUT_BUCKET
 ENV BAUS_OUTPUT_BUCKET_PATH s3://$BAUS_OUTPUT_BUCKET
 
-ENV ASYNTH_PATH $WORKDIR/activitysynth
+ENV ASYNTH_PATH $HOME/activitysynth
 ENV ASYNTH_DATA_PATH $ASYNTH_PATH/activitysynth/data
 ENV ASYNTH_DATA_OUTPUT_PATH $ASYNTH_PATH/activitysynth/output
 ENV ASYNTH_DATA_OUTPUT_FILE model_data_output.h5
@@ -39,41 +39,46 @@ ARG SKIMS_BUCKET=urbansim-beam
 ENV SKIMS_BUCKET $SKIMS_BUCKET
 
 
+# update ubuntu stuff
+RUN apt-get update \
+	&& apt-get install -y build-essential
+
 # Build Python envs
 RUN conda update conda
 
 # BAUS Estimation Python Environment
 RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4 \
 	python=2.7 \
-	numpy=1.10.0 \
+	numpy=1.11.0 \
 	scipy \
 	pandas \
+	s3fs \
 	geopandas \
 	scikit-learn \
 	git \
 	pip \
 	boto
 
-RUN git clone https://github.com/ual/bayarea_urbansim.git \
+RUN cd $HOME && git clone https://github.com/ual/bayarea_urbansim.git \
 	&& cd $BAUS_PATH \
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python -m pip install -r requirements.txt
 
 
 # BAUS Simulation Python Environment
 RUN conda create --quiet --yes -p $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5 --clone $CONDA_ENV_BAUS_ORCA_1_4
-RUN conda install -p $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5 -c udst orca
+RUN $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python -m pip install orca==1.5.1
 
 
-# ActivitySynth Python Environment
+# # # ActivitySynth Python Environment
 RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_ENV_ASYNTH \
 	python=3.6 \
 	pip \
-	pyarrow==0.12.1\
+	pyarrow==0.12.1 \
 	choicemodels \
 	urbansim_templates \
 	s3fs \
-	scipy < 1.3
-RUN git clone https://github.com/ual/activitysynth.git \
+	scipy==1.2.1
+RUN cd $HOME && git clone https://github.com/ual/activitysynth.git \
 	&& cd $ASYNTH_PATH \
 	&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python setup.py install
 RUN conda config --add channels udst
@@ -82,9 +87,9 @@ RUN conda install --quiet --yes -p $CONDA_DIR/envs/$CONDA_ENV_ASYNTH -c udst pan
 
 
 # Get PILATES repo from github
-RUN git clone https://github.com/ual/PILATES.git
+RUN cd $HOME && git clone https://github.com/ual/PILATES.git
 
 # Run PILATES and accept run-time arguments
-WORKDIR /home/ubuntu/PILATES
-ENTRYPOINT ["/bin/bash", "-c", "pilates.sh"]
+WORKDIR $PILATES_PATH
+ENTRYPOINT ["/bin/bash", "-c", ". pilates.sh"]
 CMD []
