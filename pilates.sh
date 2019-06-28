@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# exit when any command fails
+set -e
+
 # define default values for env vars if not set
 export CONDA_DIR=${CONDA_DIR:-~/anaconda3}
 export CONDA_ENV_BAUS_ORCA_1_4=${CONDA_ENV_BAUS_ORCA_1_4:-baus}
@@ -29,11 +32,11 @@ export ASYNTH_DATA_OUTPUT_FILE=${ASYNTH_DATA_OUTPUT_FILE:-model_data_output.h5}
 export ASYNTH_DATA_OUTPUT_FILEPATH="$ASYNTH_DATA_OUTPUT_PATH/$ASYNTH_DATA_OUTPUT_FILE"
 
 # define default values/behavior for command-line arguments
-export IN_YEAR=${1:?required run-time argument \#1 not passed in}
-export OUT_YEAR=${2:?required run-time argument \#2 not passed in}
-export BAUS_ITER_FREQ=${3:?required run-time argument \#3 not passed in}
-export SCENARIO=${4:?required run-time argument \#4 not passed in}
-export SKIMS_FNAME=${5:?required run-time argument \#5 not passed in}
+export IN_YEAR=${1:?IN_YEAR \#1 not passed in}
+export OUT_YEAR=${2:?OUT_YEAR \#2 not passed in}
+export BAUS_ITER_FREQ=${3:?BAUS_ITER_FREQ \#3 not passed in}
+export SCENARIO=${4:?SCENARIO argument \#4 not passed in}
+export SKIMS_FNAME=${5:?SKIMS_FNAME argument not passed in}
 export IN_YEAR_OUTPUT=${6:-off}
 
 export SKIMS_FILEPATH=s3://$SKIMS_BUCKET/$SKIMS_FNAME
