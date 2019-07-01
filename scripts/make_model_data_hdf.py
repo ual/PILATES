@@ -51,24 +51,24 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Make H5 store from csvs.')
 
     parser.add_argument(
-        '--baseyear', '-b', action='store_true',
+        '-b', '--baseyear', action='store_true',
         help='specify the simulation year')
     parser.add_argument(
-        '--input-data-dir', '-i', action='store', dest='input_data_dir',
+        '-i', '--input-data-dir', action='store', dest='input_data_dir',
         help='full (pandas-compatible) path to input data directory',
         required=True)
     parser.add_argument(
-        '--skims-filepath', '-s', action='store', dest='skims_filepath',
+        '-s', '--skims-filepath', action='store', dest='skims_filepath',
         help='path to beam skims file')
     parser.add_argument(
-        '--output-data-dir', '-o', action='store', dest='output_data_dir',
+        '-o', '--output-data-dir', action='store', dest='output_data_dir',
         help='full path to the LOCAL output data directory',
         required=True)
     parser.add_argument(
-        '--output-fname', '-f', action='store', dest='output_fname',
+        '-f', '--output-fname', action='store', dest='output_fname',
         help='filename of the .h5 datastore')
     parser.add_argument(
-        '--nodes-and-edges', '-n', action='store_true', dest='nodes_and_edges')
+        '-n', '--nodes-and-edges', action='store_true', dest='nodes_and_edges')
 
     options = parser.parse_args()
 

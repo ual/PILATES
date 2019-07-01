@@ -41,7 +41,7 @@ ENV SKIMS_BUCKET $SKIMS_BUCKET
 
 # update ubuntu stuff
 RUN apt-get update \
-	&& apt-get install -y build-essential
+	&& apt-get install -y build-essential zip unzip
 
 # Build Python envs
 RUN conda update conda
@@ -62,6 +62,13 @@ RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_E
 RUN cd $HOME && git clone https://github.com/ual/bayarea_urbansim.git \
 	&& cd $BAUS_PATH \
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python -m pip install -r requirements.txt
+
+ADD MTCDATA.zip $BAUS_PATH/data
+RUN cd $BAUS_PATH/data && unzip MTCDATA.zip && mv Current\ Large\ General\ Input\ Data/* ../
+
+RUN cd $HOME && git clone https://github.com/UDST/variable_generators.git \
+	&& cd variable_generators \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python setup.py install
 
 
 # BAUS Simulation Python Environment
