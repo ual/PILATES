@@ -57,70 +57,90 @@ fi
 
 
 # Make in-year model data .h5
+echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
 cd $PILATES_PATH/scripts \
 && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 -n -b -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$BAUS_INPUT_DATA_YEAR \
 -s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
+echo "########### DONE! ###########"
 
 
 # Run data pre-processing step
+echo "########### PRE-PROCESSING BAUS DATA ###########"
 cd $BAUS_PATH \
 && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
 --mode preprocessing
+echo "########### DONE! ###########"
 
 
 # Run bayarea_urbansim model estimation
+echo "########### RUNNING URBANSIM ESTIMATION ###########"
 cd $BAUS_PATH \
 && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
 --mode estimation
+echo "########### DONE! ###########"
 
 
-# # Run bayarea_urbansim simulation 
+# # Run bayarea_urbansim simulation
+echo "########### RUNNING URBANSIM SIMULATION ###########"
 cd $BAUS_PATH \
 && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python baus.py -c -o \
 -y $IN_YEAR,$OUT_YEAR -n $BAUS_ITER_FREQ --mode simulation
+echo "########### DONE! ###########"
 
 
 # generate in-year ouputs if specified
 if [[ $IN_YEAR_OUTPUT == "on" ]]; then
 
 	# Write base year baus outputs to csv
+	echo "########### PROCESSING ACTIVITYSYNTH DATA FOR IN-YEAR ###########"
 	cd $PILATES_PATH/scripts \
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python \
 	make_csvs_from_output_store.py -y $IN_YEAR -d $BAUS_DATA_OUTPUT_FILEPATH \
 	-o $ASYNTH_DATA_PATH
+	echo "########### DONE! ###########"
 
 	# Run activitysynth for base year
+	echo "########### RUNNING ACTIVITYSYNTH FOR IN-YEAR ###########"
 	cd $ASYNTH_PATH/activitysynth \
 	&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python run.py -o
+	echo "########### DONE! ###########"
 
 	# Write in-year activitysynth outputs to s3 as .csv and then 
 	# delete the output data from the default output data directory
 	# so that orca doesn't just append to it next time around
+	echo "########### SENDING IN-YEAR ACTIVITYSYNTH OUTPUTS TO S3 ###########"
 	cd $PILATES_PATH/scripts \
 	&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 	make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
 	-o $BAUS_OUTPUT_BUCKET_PATH/$(date +%d%B%Y)/$SCENARIO/$IN_YEAR -x
+	echo "########### DONE! ###########"
 
-	echo "Wrote ActivitySynth outputs for "
 fi
 
 
 # Write end year baus outputs to csv
+echo "########### PROCESSING ACTIVITYSYNTH DATA FOR END-YEAR ###########"
 cd $PILATES_PATH/scripts \
 && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python \
 make_csvs_from_output_store.py -y $OUT_YEAR -d $BAUS_DATA_OUTPUT_FILEPATH \
 -o $ASYNTH_DATA_PATH
+echo "########### DONE! ###########"
 
 
 # Run activitysynth for end-year
+echo "########### RUNNING ACTIVITYSYNTH FOR END-YEAR ###########"
 cd $ASYNTH_PATH/activitysynth \
 && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python run.py -o
+echo "########### DONE! ###########"
 
 
 # Write out-year activitysynth outputs to s3 as .csv
+echo "########### SENDING IN-YEAR ACTIVITYSYNTH OUTPUTS TO S3 ###########"
 cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
 -o $BAUS_OUTPUT_BUCKET_PATH/$(date +%d%B%Y)/$SCENARIO/$OUT_YEAR
+echo "########### DONE! ###########"
 
 
+echo "########### ALL DONE!!! ###########"
