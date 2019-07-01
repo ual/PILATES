@@ -13,19 +13,19 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Make csvs from H5 store.')
 
-    parser.add_argument('--year', '-y', action='store',
+    parser.add_argument('-y', '--year', action='store',
                         help='specify the simulation year')
     parser.add_argument(
-        '--datastore-filepath', '-d', action='store',
+        '-d', '--datastore-filepath', action='store',
         dest='datastore_filepath',
         help='full pandas-compatible path to the input data file',
         required=True)
     parser.add_argument(
-        '--output-data-dir', '-o', action='store', dest='output_data_dir',
+        '-o', '--output-data-dir', action='store', dest='output_data_dir',
         help='full pandas-compatible path to the output data directory',
         required=True)
     parser.add_argument(
-        '--delete-datastore', '-x', action='store_true', dest='drop_store',
+        '-x', '--delete-datastore', action='store_true', dest='drop_store',
         help='delete the datastore after extracting tables')
 
     options = parser.parse_args()
