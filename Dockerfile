@@ -98,5 +98,4 @@ RUN cd $HOME && git clone https://github.com/ual/PILATES.git
 
 # Run PILATES and accept run-time arguments
 WORKDIR $PILATES_PATH
-ENTRYPOINT ["/bin/bash", "-c", ". pilates.sh"]
-CMD []
+ENTRYPOINT ["bash", "pilates.sh"]

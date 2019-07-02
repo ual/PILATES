@@ -22,7 +22,6 @@ export BAUS_INPUT_BUCKET_PATH=s3://$BAUS_INPUT_BUCKET
 export BAUS_OUTPUT_BUCKET=${BAUS_OUTPUT_BUCKET:-urbansim-outputs}
 export BAUS_OUTPUT_BUCKET_PATH=s3://$BAUS_OUTPUT_BUCKET
 
-
 export SKIMS_BUCKET=${SKIMS_BUCKET:-urbansim-beam}
 
 export ASYNTH_PATH=${ASYNTH_PATH:-~/projects/activitysynth}
@@ -32,7 +31,8 @@ export ASYNTH_DATA_OUTPUT_FILE=${ASYNTH_DATA_OUTPUT_FILE:-model_data_output.h5}
 export ASYNTH_DATA_OUTPUT_FILEPATH="$ASYNTH_DATA_OUTPUT_PATH/$ASYNTH_DATA_OUTPUT_FILE"
 
 # define default values/behavior for command-line arguments
-export IN_YEAR=${1:?ARG \#1 "IN_YEAR" \#1 not specified}
+
+export IN_YEAR=${1:?ARG \#1 "IN_YEAR" not specified}
 export OUT_YEAR=${2:?ARG \#2 "OUT_YEAR" not specified}
 export BAUS_ITER_FREQ=${3:?ARG \#3 "BAUS_ITER_FREQ" not specified}
 export SCENARIO=${4:?ARG \#4 "SCENARIO" not specified}
@@ -82,7 +82,7 @@ echo "########### DONE! ###########"
 
 
 # # Run bayarea_urbansim simulation
-echo "########### RUNNING URBANSIM SIMULATION ###########"
+echo "########### RUNNING URBANSIM SIMULATION $IN_YEAR to $OUT_YEAR ###########"
 cd $BAUS_PATH \
 && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python baus.py -c -o \
 -y $IN_YEAR,$OUT_YEAR -n $BAUS_ITER_FREQ --mode simulation
