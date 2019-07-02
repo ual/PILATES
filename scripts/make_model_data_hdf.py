@@ -29,7 +29,7 @@ csv_fnames = {
     'establishments': 'establishments.csv',
     'households': 'households.csv',
     'persons': 'persons.csv',
-    'rentals': 'craigslist.csv',
+    'rentals': 'rentals.csv',
     'units': 'units.csv',
     'mtc_skims': 'mtc_skims.csv',
     # 'beam_skims_raw': ,
