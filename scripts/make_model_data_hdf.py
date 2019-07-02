@@ -77,9 +77,6 @@ if __name__ == "__main__":
     if options.baseyear:
         baseyear = options.baseyear
 
-    if options.nodes_and_edges:
-        nodes_and_edges = options.nodes_and_edges
-
     if options.output_fname:
         data_store_fname = options.output_fname
 
