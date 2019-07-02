@@ -63,8 +63,8 @@ RUN cd $HOME && git clone https://github.com/ual/bayarea_urbansim.git \
 	&& cd $BAUS_PATH \
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python -m pip install -r requirements.txt
 
-ADD MTCDATA.zip $BAUS_PATH/data
-RUN cd $BAUS_PATH/data && unzip MTCDATA.zip && mv Current\ Large\ General\ Input\ Data/* $BAUS_PATH/data/
+# ADD MTCDATA.zip $BAUS_PATH/data
+# RUN cd $BAUS_PATH/data && unzip MTCDATA.zip && mv Current\ Large\ General\ Input\ Data/* $BAUS_PATH/data/
 
 RUN cd $HOME && git clone https://github.com/UDST/variable_generators.git \
 	&& cd variable_generators \
