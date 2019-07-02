@@ -136,13 +136,13 @@ echo "########### DONE! ###########"
 
 
 # Write out-year activitysynth outputs to s3 as .csv
-echo "########### SENDING IN-YEAR ACTIVITYSYNTH OUTPUTS TO S3 OUTPUT BUCKET###########"
+echo "########### SENDING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 OUTPUT BUCKET###########"
 cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
 -o $BAUS_OUTPUT_BUCKET_PATH/$(date +%d%B%Y)/$SCENARIO/$OUT_YEAR
 echo "########### DONE! ###########"
 
-echo "########### SENDING IN-YEAR ACTIVITYSYNTH OUTPUTS TO S3 INPUT BUCKET###########"
+echo "########### SENDING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 INPUT BUCKET###########"
 cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
 -o $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$OUT_YEAR

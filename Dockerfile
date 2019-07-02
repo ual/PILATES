@@ -96,6 +96,7 @@ RUN conda install --quiet --yes -p $CONDA_DIR/envs/$CONDA_ENV_ASYNTH -c udst pan
 # Get PILATES repo from github
 RUN cd $HOME && git clone https://github.com/ual/PILATES.git
 
-# Run PILATES and accept run-time arguments
+# Run PILATES
 WORKDIR $PILATES_PATH
-ENTRYPOINT ["bash", "pilates.sh"]
+RUN chmod +x pilates.sh
+ENTRYPOINT ["./pilates.sh"]
