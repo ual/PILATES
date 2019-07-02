@@ -3,6 +3,8 @@ import numpy as np
 import argparse
 import os
 import sys
+import s3fs
+import zipfile
 
 """
 This script takes the individual UrbanSim input .csv files and
@@ -41,7 +43,7 @@ csv_fnames = {
     'walk_edges': 'walk_edges.csv',
 }
 data_store_fname = 'baus_model_data.h5'
-nodes_and_edges = False
+get_mtc_data = False
 
 
 if __name__ == "__main__":
@@ -68,7 +70,7 @@ if __name__ == "__main__":
         '-f', '--output-fname', action='store', dest='output_fname',
         help='filename of the .h5 datastore')
     parser.add_argument(
-        '-n', '--nodes-and-edges', action='store_true', dest='nodes_and_edges')
+        '-m', '--get-mtc-data', action='store_true', dest='get_mtc_data')
 
     options = parser.parse_args()
 
@@ -83,6 +85,9 @@ if __name__ == "__main__":
 
     if options.skims_filepath:
         skims_filepath = options.skims_filepath
+
+    if options.get_mtc_data:
+        get_mtc_data = options.get_mtc_data
 
     input_data_dir = options.input_data_dir
     output_data_dir = options.output_data_dir
@@ -224,24 +229,36 @@ if __name__ == "__main__":
     store.put('zones', zones, format='t')
     store.put('beam_skims_raw', beam_skims_raw, format='t')
 
-    if nodes_and_edges:
+    # the drive nodes/edges are only included here to get passed thru
+    # to activitysynth. the walk nodes/edges are actually used by
+    # BAUS to construct neighborhood-scale accessibility variables
+    drive_nodes = pd.read_csv(os.path.join(
+        input_data_dir, csv_fnames['drive_nodes'])).set_index('osmid')
+    drive_edges = pd.read_csv(os.path.join(
+        input_data_dir, csv_fnames['drive_edges'])).set_index('uniqueid')
+    walk_nodes = pd.read_csv(os.path.join(
+        input_data_dir, csv_fnames['walk_nodes'])).set_index('osmid')
+    walk_edges = pd.read_csv(os.path.join(
+        input_data_dir, csv_fnames['walk_edges'])).set_index('uniqueid')
 
-        drive_nodes = pd.read_csv(os.path.join(
-            input_data_dir, csv_fnames['drive_nodes'])).set_index('osmid')
-        drive_edges = pd.read_csv(os.path.join(
-            input_data_dir, csv_fnames['drive_edges'])).set_index('uniqueid')
-        walk_nodes = pd.read_csv(os.path.join(
-            input_data_dir, csv_fnames['walk_nodes'])).set_index('osmid')
-        walk_edges = pd.read_csv(os.path.join(
-            input_data_dir, csv_fnames['walk_edges'])).set_index('uniqueid')
-
-        store.put('drive_nodes', drive_nodes, format='t')
-        store.put('drive_edges', drive_edges, format='t')
-        store.put('walk_nodes', walk_nodes)
-        store.put('walk_edges', walk_edges)
+    store.put('drive_nodes', drive_nodes, format='t')
+    store.put('drive_edges', drive_edges, format='t')
+    store.put('walk_nodes', walk_nodes)
+    store.put('walk_edges', walk_edges)
 
     store.keys()
 
     store.close()
     print('UrbanSim model data now available at {0}'.format(
         os.path.abspath(output_filepath)))
+
+    if get_mtc_data:
+        print('Getting MTC data')
+        s3 = s3fs.S3FileSystem(anon=False)
+        with s3.open('urbansim-inputs/MTCDATA.zip', 'rb') as z:
+            with zipfile.ZipFile(z) as zip_file:
+                for zip_info in zip_file.infolist():
+                    if zip_info.filename[-1] == '/':
+                        continue
+                    zip_info.filename = zip_info.filename.split('/')[-1]
+                    zip_file.extract(zip_info, output_data_dir)
