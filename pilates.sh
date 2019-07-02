@@ -51,8 +51,10 @@ exec 2>&1
 # base data when its base data even though the year is 2010
 if [[ $IN_YEAR == 2010 ]]; then
 	export BAUS_INPUT_DATA_YEAR="base"
+	export INPUT_SCENARIO="base"
 else
 	export BAUS_INPUT_DATA_YEAR=$IN_YEAR
+	export INPUT_SCENARIO=$SCENARIO
 fi
 
 
@@ -60,7 +62,7 @@ fi
 echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
 cd $PILATES_PATH/scripts \
 && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
--n -b -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$BAUS_INPUT_DATA_YEAR \
+-n -b -i $BAUS_INPUT_BUCKET_PATH/$INPUT_SCENARIO/$BAUS_INPUT_DATA_YEAR \
 -s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
 echo "########### DONE! ###########"
 
