@@ -47,9 +47,11 @@ exec > >(tee $LOG_PATH/$(date +%d%B%Y_%H%M%S).log)
 exec 2>&1
 
 
-# Make in-year model data .h5
-echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
+# Different steps get run if simulating from base-year data
 if [[ $IN_YEAR == 2010 ]]; then
+
+	# Make in-year model data .h5 from base data
+	echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
 	cd $PILATES_PATH/scripts \
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 	-m -b -i $BAUS_INPUT_BUCKET_PATH/base/base \
@@ -62,24 +64,28 @@ if [[ $IN_YEAR == 2010 ]]; then
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
 	--mode preprocessing
 	echo "########### DONE! ###########"
+
+	# Run bayarea_urbansim model estimation
+	echo "########### RUNNING URBANSIM ESTIMATION ###########"
+	cd $BAUS_PATH \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
+	--mode estimation
+	echo "########### DONE! ###########"
+
 else
+
+	# Make in-year model data .h5 from intermediate year data
+	echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
 	cd $PILATES_PATH/scripts \
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 	-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$IN_YEAR \
 	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
 	echo "########### DONE! ###########"
+
 fi
 
 
-# Run bayarea_urbansim model estimation
-echo "########### RUNNING URBANSIM ESTIMATION ###########"
-cd $BAUS_PATH \
-&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
---mode estimation
-echo "########### DONE! ###########"
-
-
-# # Run bayarea_urbansim simulation
+# Run bayarea_urbansim simulation
 echo "########### RUNNING URBANSIM SIMULATION $IN_YEAR to $OUT_YEAR ###########"
 cd $BAUS_PATH \
 && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python baus.py -c -o \
@@ -140,7 +146,7 @@ make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
 -o $BAUS_OUTPUT_BUCKET_PATH/$(date +%d%B%Y)/$SCENARIO/$OUT_YEAR
 echo "########### DONE! ###########"
 
-echo "########### SENDING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 INPUT BUCKET###########"
+echo "########### COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 INPUT BUCKET###########"
 cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
 -o $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$OUT_YEAR
