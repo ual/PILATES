@@ -34,9 +34,11 @@ provided you have first defined these environment variables on your host machine
 
 
 ### Example use cases
-Use 2010 input data to generate base scenario synthetic activity plans for the year 2040 using 5 year intervals
+Use 2010 input data to generate base scenario synthetic activity plans for the year 2040 using 5 year intervals:
 - `docker run -it mxndrwgrdnr/pilates 2010 2040 5 base skims-baseline.csv.gz`
-Use 2010 input data to generate hi-tech scenario synthetic activity plans for the year 2010 AND 2025 using 5 year intervals
+
+Use 2010 input data to generate hi-tech scenario synthetic activity plans for the year 2010 AND 2025 using 5 year intervals:
 - `docker run -it mxndrwgrdnr/pilates 2010 2025 5 base skims-baseline.csv.gz on`
-Use the 2025 output data to generate hi-tech scenario synthetic activity plans for the year 2040 using 5 year intervals
+
+Use the 2025 output data to generate hi-tech scenario synthetic activity plans for the year 2040 using 5 year intervals:
 - `docker run -it mxndrwgrdnr/pilates 2025 2040 5 base skims-baseline.csv.gz`
