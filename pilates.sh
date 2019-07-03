@@ -54,21 +54,21 @@ if [[ $IN_YEAR == 2010 ]]; then
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 	-m -b -i $BAUS_INPUT_BUCKET_PATH/base/base \
 	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
+	echo "########### DONE! ###########"
+
+	# Run data pre-processing step
+	echo "########### PRE-PROCESSING BAUS DATA ###########"
+	cd $BAUS_PATH \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
+	--mode preprocessing
+	echo "########### DONE! ###########"
 else
 	cd $PILATES_PATH/scripts \
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 	-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$IN_YEAR \
 	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
+	echo "########### DONE! ###########"
 fi
-echo "########### DONE! ###########"
-
-
-# Run data pre-processing step
-echo "########### PRE-PROCESSING BAUS DATA ###########"
-cd $BAUS_PATH \
-&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
---mode preprocessing
-echo "########### DONE! ###########"
 
 
 # Run bayarea_urbansim model estimation
