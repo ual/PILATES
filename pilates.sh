@@ -47,23 +47,19 @@ exec > >(tee $LOG_PATH/$(date +%d%B%Y_%H%M%S).log)
 exec 2>&1
 
 
-# 2010 data can be base input data as well so we call it
-# base data when its base data even though the year is 2010
-if [[ $IN_YEAR == 2010 ]]; then
-	export BAUS_INPUT_DATA_YEAR="base"
-	export INPUT_SCENARIO="base"
-else
-	export BAUS_INPUT_DATA_YEAR=$IN_YEAR
-	export INPUT_SCENARIO=$SCENARIO
-fi
-
-
 # Make in-year model data .h5
 echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
-cd $PILATES_PATH/scripts \
-&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
--m -b -i $BAUS_INPUT_BUCKET_PATH/$INPUT_SCENARIO/$BAUS_INPUT_DATA_YEAR \
--s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
+if [[ $IN_YEAR == 2010 ]]; then
+	cd $PILATES_PATH/scripts \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
+	-m -b -i $BAUS_INPUT_BUCKET_PATH/base/base \
+	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
+else
+	cd $PILATES_PATH/scripts \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
+	-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$IN_YEAR \
+	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
+fi
 echo "########### DONE! ###########"
 
 
