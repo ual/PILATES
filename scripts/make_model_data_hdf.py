@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
         store.put('households_preproc', households, format='t')
         store.put('jobs_preproc', jobs, format='t')
-        store.put('buildings_preproc', buildings, format='t')
+        store.put('buildings_preproc', buildings, format='f')
 
     store.put('persons', persons, format='t')
     store.put('establishments', establishments, format='t')
