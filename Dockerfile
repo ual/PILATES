@@ -42,9 +42,8 @@ ENV SKIMS_BUCKET $SKIMS_BUCKET
 # update ubuntu stuff
 RUN apt-get update \
 	&& apt-get install -y build-essential zip unzip
-
-# Build Python envs
 RUN conda update conda
+
 
 # BAUS Estimation Python Environment
 RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4 \
@@ -62,9 +61,6 @@ RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_E
 RUN cd $HOME && git clone https://github.com/ual/bayarea_urbansim.git \
 	&& cd $BAUS_PATH \
 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python -m pip install -r requirements.txt
-
-# ADD MTCDATA.zip $BAUS_PATH/data
-# RUN cd $BAUS_PATH/data && unzip MTCDATA.zip && mv Current\ Large\ General\ Input\ Data/* $BAUS_PATH/data/
 
 RUN cd $HOME && git clone https://github.com/UDST/variable_generators.git \
 	&& cd variable_generators \
@@ -90,7 +86,6 @@ RUN cd $HOME && git clone https://github.com/ual/activitysynth.git \
 	&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python setup.py install
 RUN conda config --add channels udst
 RUN conda config --add channels conda-forge
-# RUN conda install --quiet --yes -p $CONDA_DIR/envs/$CONDA_ENV_ASYNTH pandana
 RUN $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python -m pip install pandana
 
 

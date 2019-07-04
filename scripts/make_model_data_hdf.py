@@ -32,11 +32,7 @@ csv_fnames = {
     'rentals': 'rentals.csv',
     'units': 'units.csv',
     'mtc_skims': 'mtc_skims.csv',
-    # 'beam_skims_raw': ,
     'zones': 'zones.csv',
-    # the following nodes and edges .csv's aren't used by bayarea_urbansim
-    # they're just being loaded here so they can be passed through to the
-    # output data directory for use in activitysynth
     'drive_nodes': 'drive_nodes.csv',
     'drive_edges': 'drive_edges.csv',
     'walk_nodes': 'walk_nodes.csv',
@@ -187,10 +183,14 @@ if __name__ == "__main__":
         'generalizedCost': 'gen_cost', 'origTaz': 'from_zone_id',
         'destTaz': 'to_zone_id'}, inplace=True)
 
-    # this data store is just a temp file that only needs to exist
-    # while the simulation is running. data is stored as csv's
-    # before and afterwards. therefore a temporary, relative filepath
-    # is specified here.
+    drive_nodes = pd.read_csv(os.path.join(
+        input_data_dir, csv_fnames['drive_nodes'])).set_index('osmid')
+    drive_edges = pd.read_csv(os.path.join(
+        input_data_dir, csv_fnames['drive_edges'])).set_index('uniqueid')
+    walk_nodes = pd.read_csv(os.path.join(
+        input_data_dir, csv_fnames['walk_nodes'])).set_index('osmid')
+    walk_edges = pd.read_csv(os.path.join(
+        input_data_dir, csv_fnames['walk_edges'])).set_index('uniqueid')
 
     output_filepath = os.path.join(output_data_dir, data_store_fname)
     if os.path.exists(output_filepath):
@@ -205,7 +205,6 @@ if __name__ == "__main__":
     # data pre-processing hasn't yet taken place if
     # starting with base-year input data
     if baseyear:
-
         store.put('households', households, format='t')
         store.put('jobs', jobs, format='t')
         store.put('buildings', buildings, format='t')
@@ -215,7 +214,6 @@ if __name__ == "__main__":
     # occurred and we simply rename the main data tables so that
     # bayarea_urbansim doesn't try to re-pre-process them
     else:
-
         store.put('households_preproc', households, format='t')
         store.put('jobs_preproc', jobs, format='t')
         store.put('buildings_preproc', buildings, format='f')
@@ -225,19 +223,6 @@ if __name__ == "__main__":
     store.put('mtc_skims', mtc_skims, format='t')
     store.put('zones', zones, format='t')
     store.put('beam_skims_raw', beam_skims_raw, format='t')
-
-    # the drive nodes/edges are only included here to get passed thru
-    # to activitysynth. the walk nodes/edges are actually used by
-    # BAUS to construct neighborhood-scale accessibility variables
-    drive_nodes = pd.read_csv(os.path.join(
-        input_data_dir, csv_fnames['drive_nodes'])).set_index('osmid')
-    drive_edges = pd.read_csv(os.path.join(
-        input_data_dir, csv_fnames['drive_edges'])).set_index('uniqueid')
-    walk_nodes = pd.read_csv(os.path.join(
-        input_data_dir, csv_fnames['walk_nodes'])).set_index('osmid')
-    walk_edges = pd.read_csv(os.path.join(
-        input_data_dir, csv_fnames['walk_edges'])).set_index('uniqueid')
-
     store.put('drive_nodes', drive_nodes, format='t')
     store.put('drive_edges', drive_edges, format='t')
     store.put('walk_nodes', walk_nodes)
