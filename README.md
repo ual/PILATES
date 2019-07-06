@@ -40,6 +40,6 @@ Use the 2025 output data to generate hi-tech scenario synthetic activity plans f
 ### Setting up AWS S3 access
 The Dockerfile defines three environment variables corresponding to the names of three s3 buckets that PILATES will use for reading and writing data: `$BAUS_INPUT_BUCKET` (default: urbansim-inputs), `$BAUS_OUTPUT_BUCKET` (default: urbansim-outputs), and `$SKIMS_BUCKET` (default: urbansim-beam). The defaults can be replaced via build-arguments if building the image from the Dockerfile. Once built however, PILATES must have access to whichever buckets have been specified. The easiest way to ensure access is to deploy the PILATES image on an AWS EC2 instance created with an IAM role that has access to these buckets, which case the PILATES image will simply inherit the credentials of its host machine. If you are running PILATES locally, however, or for some reason the IAM-based inheritance doesn't work, you can simply pass your AWS credentials to the PILATES image as additional environment variables using the `-e` flag in `docker run` like so:
 ```
-docker run -it -e $AWS_ACCESS_KEY_ID -e $AWS_SECRET_ACCESS_KEY mxndrwgrdnr/pilates 2010 2040 5 base skims-baseline.csv.gz
+docker run -it -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY mxndrwgrdnr/pilates 2010 2040 5 base skims-baseline.csv.gz
 ```
 provided you have first defined these environment variables on your host machine.
