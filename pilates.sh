@@ -48,7 +48,7 @@ export IN_YEAR_OUTPUT=${7:-off}
 
 ((LAST_YEAR = START_YEAR + N_YEARS))
 
-while ((START_YEAR < LAST_YEAR)); do
+while ((START_YEAR <= LAST_YEAR)); do
 	echo "########### RUNNING BEAM FOR YEAR $START_YEAR ###########"
 
     #running beam under root so that we can map outputs
