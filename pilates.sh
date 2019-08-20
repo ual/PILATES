@@ -17,12 +17,12 @@ export BAUS_DATA_STORE_PATH=$BAUS_PATH/data
 export BAUS_DATA_OUTPUT_PATH=$BAUS_PATH/output
 export BAUS_DATA_OUTPUT_FILE=${BAUS_DATA_OUTPUT_FILE:-model_data_output.h5}
 export BAUS_DATA_OUTPUT_FILEPATH=$BAUS_DATA_OUTPUT_PATH/$BAUS_DATA_OUTPUT_FILE
-export BAUS_INPUT_BUCKET=${BAUS_INPUT_BUCKET:-urbansim-inputs}
+export BAUS_INPUT_BUCKET=${BAUS_INPUT_BUCKET:-beam-urbansim-inputs}
 export BAUS_INPUT_BUCKET_PATH=s3://$BAUS_INPUT_BUCKET
-export BAUS_OUTPUT_BUCKET=${BAUS_OUTPUT_BUCKET:-urbansim-outputs}
+export BAUS_OUTPUT_BUCKET=${BAUS_OUTPUT_BUCKET:-beam-urbansim-outputs}
 export BAUS_OUTPUT_BUCKET_PATH=s3://$BAUS_OUTPUT_BUCKET
 
-export SKIMS_BUCKET=${SKIMS_BUCKET:-urbansim-beam}
+#export SKIMS_BUCKET=${SKIMS_BUCKET:-urbansim-beam}
 
 export ASYNTH_PATH=${ASYNTH_PATH:-~/projects/activitysynth}
 export ASYNTH_DATA_PATH=$ASYNTH_PATH/activitysynth/data
@@ -54,10 +54,11 @@ while ((START_YEAR < LAST_YEAR)); do
     #running beam under root so that we can map outputs
     cd /
 	beam/bin/beam --config $BEAM_CONFIG
-    cd ~
+    cd -
 
-	# COPY SKIMS TO S3
+	SKIMS_FILEPATH=$(find /output -name "*.skims.csv.gz"|sort -r|head -n 1)
 
+    echo "Skim file $SKIM_FILES"
    	echo "########### DONE! ###########"
 
     # What is the end year of the BAUS run
@@ -68,34 +69,34 @@ while ((START_YEAR < LAST_YEAR)); do
 
         # Make in-year model data .h5 from base data
         echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
-    #	cd $PILATES_PATH/scripts \
-    #	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
-    #	-m -b -i $BAUS_INPUT_BUCKET_PATH/base/base \
-    #	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
+    	cd $PILATES_PATH/scripts \
+    	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
+    	-m -b -i $BAUS_INPUT_BUCKET_PATH/base/base \
+    	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
         echo "########### DONE! ###########"
 
         # Run data pre-processing step
         echo "########### PRE-PROCESSING BAUS DATA ###########"
-    #	cd $BAUS_PATH \
-    #	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
-    #	--mode preprocessing
+    	cd $BAUS_PATH \
+    	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
+    	--mode preprocessing
         echo "########### DONE! ###########"
 
         # Run bayarea_urbansim model estimation
         echo "########### RUNNING URBANSIM ESTIMATION ###########"
-    #	cd $BAUS_PATH \
-    #	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
-    #	--mode estimation
+    	cd $BAUS_PATH \
+    	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
+    	--mode estimation
         echo "########### DONE! ###########"
 
     else
 
         # Make in-year model data .h5 from intermediate year data
         echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
-    #	cd $PILATES_PATH/scripts \
-    #	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
-    #	-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$START_YEAR \
-    #	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
+    	cd $PILATES_PATH/scripts \
+    	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
+    	-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$START_YEAR \
+    	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
         echo "########### DONE! ###########"
 
     fi
@@ -103,9 +104,9 @@ while ((START_YEAR < LAST_YEAR)); do
 
     # Run bayarea_urbansim simulation
     echo "########### RUNNING URBANSIM SIMULATION $START_YEAR to $END_YEAR ###########"
-    #cd $BAUS_PATH \
-    #&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python baus.py -c -o \
-    #-y $START_YEAR,$END_YEAR -n $BAUS_ITER_FREQ --mode simulation
+    cd $BAUS_PATH \
+    && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python baus.py -c -o \
+    -y $START_YEAR,$END_YEAR -n $BAUS_ITER_FREQ --mode simulation
     echo "########### DONE! ###########"
 
 
@@ -141,31 +142,31 @@ while ((START_YEAR < LAST_YEAR)); do
 
     # Write end year baus outputs to csv
     echo "########### PROCESSING ACTIVITYSYNTH DATA FOR END-YEAR ###########"
-    #cd $PILATES_PATH/scripts \
-    #&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python \
-    #make_csvs_from_output_store.py -y $END_YEAR -d $BAUS_DATA_OUTPUT_FILEPATH \
-    #-o $ASYNTH_DATA_PATH
+    cd $PILATES_PATH/scripts \
+    && $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python \
+    make_csvs_from_output_store.py -y $END_YEAR -d $BAUS_DATA_OUTPUT_FILEPATH \
+    -o $ASYNTH_DATA_PATH
     echo "########### DONE! ###########"
 
 
     # Run activitysynth for end-year
     echo "########### RUNNING ACTIVITYSYNTH FOR END-YEAR ###########"
-    #cd $ASYNTH_PATH/activitysynth \
-    #&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python run.py -o
+    cd $ASYNTH_PATH/activitysynth \
+    && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python run.py -o
     echo "########### DONE! ###########"
 
 
     # Write out-year activitysynth outputs to s3 as .csv
     echo "########### SENDING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 OUTPUT BUCKET###########"
-    #cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-    #make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-    #-o $BAUS_OUTPUT_BUCKET_PATH/$(date +%d%B%Y)/$SCENARIO/$END_YEAR
+    cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
+    make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
+    -o $BAUS_OUTPUT_BUCKET_PATH/$(date +%d%B%Y)/$SCENARIO/$END_YEAR
     echo "########### DONE! ###########"
 
     echo "########### COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 INPUT BUCKET###########"
-    #cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-    #make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-    #-o $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$END_YEAR
+    cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
+    make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
+    -o $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$END_YEAR
     echo "########### DONE! ###########"
 
     ((START_YEAR = $START_YEAR + BEAM_BAUS_ITER_FREQ))
