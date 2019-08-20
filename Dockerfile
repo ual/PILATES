@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3
+FROM beammodel/beam:0.8.0
 
 ENV HOME /home/ubuntu
 
