@@ -37,10 +37,10 @@ export N_YEARS=${2:?ARG \#2 "N_YEARS" not specified}
 export BEAM_BAUS_ITER_FREQ=${3:?ARG \#3 "BEAM_BAUS_ITER_FREQ" not specified}
 export BAUS_ITER_FREQ=${4:?ARG \#4 "BAUS_ITER_FREQ" not specified}
 export SCENARIO=${5:?ARG \#5 "SCENARIO" not specified}
-export SKIMS_FNAME=${6:?ARG \#6 "SKIMS_FNAME" not specified}
+export BEAM_CONFIG=${6:?ARG \#6 "BEAM_CONFIG" not specified}
 export IN_YEAR_OUTPUT=${7:-off}
 
-export SKIMS_FILEPATH=s3://$SKIMS_BUCKET/$SKIMS_FNAME
+#export SKIMS_FILEPATH=s3://$SKIMS_BUCKET/$SKIMS_FNAME
 
 # send stdout and stderr to console and logs
 #exec > >(tee $LOG_PATH/$(date +%d%B%Y_%H%M%S).log)
@@ -51,7 +51,7 @@ export SKIMS_FILEPATH=s3://$SKIMS_BUCKET/$SKIMS_FNAME
 while ((START_YEAR < LAST_YEAR)); do
 	echo "########### RUNNING BEAM FOR YEAR $START_YEAR ###########"
 
-	# RUN BEAM HERE
+	/beam/bin/beam --config $BEAM_CONFIG
 
 	# COPY SKIMS TO S3
 

@@ -90,7 +90,7 @@ RUN $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python -m pip install pandana
 
 
 # Get PILATES repo from github
-RUN cd $HOME && git clone https://github.com/ual/PILATES.git
+RUN cd $HOME && git clone https://github.com/LBNL-UCB-STI/PILATES.git
 
 # Run PILATES
 WORKDIR $PILATES_PATH
