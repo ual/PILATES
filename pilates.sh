@@ -58,7 +58,7 @@ while ((START_YEAR < LAST_YEAR)); do
 
 	SKIMS_FILEPATH=$(find /output -name "*.skims.csv.gz"|sort -r|head -n 1)
 
-    echo "Skim file $SKIM_FILES"
+    echo "Skim file $SKIMS_FILEPATH"
    	echo "########### DONE! ###########"
 
     # What is the end year of the BAUS run
