@@ -51,7 +51,10 @@ export IN_YEAR_OUTPUT=${7:-off}
 while ((START_YEAR < LAST_YEAR)); do
 	echo "########### RUNNING BEAM FOR YEAR $START_YEAR ###########"
 
-	/beam/bin/beam --config $BEAM_CONFIG
+    #running beam under root so that we can map outputs
+    cd /
+	beam/bin/beam --config $BEAM_CONFIG
+    cd ~
 
 	# COPY SKIMS TO S3
 
