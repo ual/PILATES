@@ -4,10 +4,10 @@
 set -e
 
 # define default values for env vars if not set
-#export CONDA_DIR=${CONDA_DIR:-~/anaconda3}
-#export CONDA_ENV_BAUS_ORCA_1_4=${CONDA_ENV_BAUS_ORCA_1_4:-baus}
-#export CONDA_ENV_BAUS_ORCA_1_5=${CONDA_ENV_BAUS_ORCA_1_5:-baus_output}
-#export CONDA_ENV_ASYNTH=${CONDA_ENV_ASYNTH:-activitysynth}
+export CONDA_DIR=${CONDA_DIR:-~/anaconda3}
+export CONDA_ENV_BAUS_ORCA_1_4=${CONDA_ENV_BAUS_ORCA_1_4:-baus}
+export CONDA_ENV_BAUS_ORCA_1_5=${CONDA_ENV_BAUS_ORCA_1_5:-baus_output}
+export CONDA_ENV_ASYNTH=${CONDA_ENV_ASYNTH:-activitysynth}
 
 export PILATES_PATH=${PILATES_PATH:-~/projects/PILATES}
 export LOG_PATH=$PILATES_PATH/logs
@@ -52,6 +52,8 @@ while ((START_YEAR < LAST_YEAR)); do
 	echo "########### RUNNING BEAM FOR YEAR $START_YEAR ###########"
 
 	# RUN BEAM HERE
+
+	# COPY SKIMS TO S3
 
    	echo "########### DONE! ###########"
 
@@ -168,7 +170,9 @@ done
 
 echo "########### RUNNING BEAM FOR YEAR $START_YEAR ###########"
 
-# RUN BEAM HERE
+    # RUN BEAM HERE
+
+	# COPY ALL OUTPUTS TO S3
 
 echo "########### DONE! ###########"
 
