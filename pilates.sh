@@ -48,6 +48,11 @@ export IN_YEAR_OUTPUT=${7:-off}
 
 ((LAST_YEAR = START_YEAR + N_YEARS))
 
+echo "START_YEAR: $START_YEAR"
+echo "LAST_YEAR: $LAST_YEAR"
+echo "BAUS_INPUT_BUCKET_PATH: $BAUS_INPUT_BUCKET_PATH"
+echo "BAUS_OUTPUT_BUCKET_PATH: $BAUS_OUTPUT_BUCKET_PATH"
+
 while ((START_YEAR < LAST_YEAR)); do
 	echo "########### RUNNING BEAM FOR YEAR $START_YEAR ###########"
 
@@ -167,6 +172,15 @@ while ((START_YEAR < LAST_YEAR)); do
     cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
     make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
     -o $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$END_YEAR
+    echo "########### DONE! ###########"
+
+    # Write out-year activitysynth outputs to $BAUS_OUTPUT_BUCKET_PATH folder
+    # The same folder must be used as for beam param `beam.exchange.scenario.folder`
+    # Now it looks like `beam.exchange.scenario.folder="/output/urbansim-outputs"`
+    echo "########### COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO OUTPUT BUCKET TO BE BEAM INPUT ###########"
+    cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
+    make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
+    -o $BAUS_OUTPUT_BUCKET_PATH/
     echo "########### DONE! ###########"
 
     ((START_YEAR = $START_YEAR + BEAM_BAUS_ITER_FREQ))
