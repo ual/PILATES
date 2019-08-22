@@ -86,7 +86,7 @@ RUN cd $HOME && git clone https://github.com/ual/activitysynth.git \
 	&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python setup.py install
 RUN conda config --add channels udst
 RUN conda config --add channels conda-forge
-RUN $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python -m pip install pandana
+RUN $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python -m pip install pandana==0.4.1
 
 
 # Get PILATES repo from github
