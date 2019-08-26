@@ -67,8 +67,7 @@ while ((START_YEAR < LAST_YEAR)); do
 
 	# Fine the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
 	SKIMS_FILEPATH=$(find /beam-project/output/sfbay -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
-
-    echo "Skim file $SKIMS_FILEPATH"
+    	echo "Skim file $SKIMS_FILEPATH"
    	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
     # What is the end year of the BAUS run
@@ -183,6 +182,7 @@ while ((START_YEAR < LAST_YEAR)); do
     # The same folder must be used as for beam param `beam.exchange.scenario.folder`
     # Now it looks like `beam.exchange.scenario.folder="/output/urbansim-outputs"`
     echo "########### COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO OUTPUT BUCKET TO BE BEAM INPUT ########### $(date +"%Y-%m-%d_%H-%M-%S")"
+	echo "copying to $BAUS_OUTPUT_BUCKET_PATH"
     cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
     make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
     -o $BAUS_OUTPUT_BUCKET_PATH/
