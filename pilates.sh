@@ -61,7 +61,7 @@ while ((START_YEAR < LAST_YEAR)); do
     	if [[ $SKIP_FIRST_BEAM == "off" ]]; then
 		echo "Running from config: $BEAM_CONFIG" 
 	    cd /beam
-		beam/bin/beam --config $BEAM_CONFIG
+		/beam/bin/beam --config $BEAM_CONFIG
 	    cd -
 	fi
 
