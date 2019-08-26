@@ -66,7 +66,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	fi
 
 	# Fine the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
-	SKIMS_FILEPATH=$(find /beam-project/output -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
+	SKIMS_FILEPATH=$(find /beam-project/output/sfbay -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
 
     echo "Skim file $SKIMS_FILEPATH"
    	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
@@ -193,9 +193,19 @@ done
 
 echo "########### RUNNING BEAM FOR YEAR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
-    # RUN BEAM HERE
+	echo "Running from config: $BEAM_CONFIG" 
+	    cd /beam-project
+		/beam/bin/beam --config $BEAM_CONFIG
+	    cd -
 
 	# COPY ALL OUTPUTS TO S3
+	RUN_DATE=$(date +"%Y-%m-%d_%H-%M-%S")
+	TO_COPY=$(find /beam-project/output/sfbay -mindepth 1 -maxdepth 1 -type d -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
+	echo "Uploading BEAM output from local path: $TO_COPY" 
+	sudo aws --region us-east-2 s3 cp $TO_COPY s3://pilates-outputs/"$SCENARIO"_"$RUN_DATE"/beam --recursive
+    	((LAST_START_YEAR = $START_YEAR - BEAM_BAUS_ITER_FREQ))
+	echo "Uploading BAUS output from local path: $BAUS_OUTPUT_BUCKET_PATH/$LAST_START_YEAR" 
+	sudo aws --region us-east-2 s3 cp $BAUS_OUTPUT_BUCKET_PATH/$LAST_START_YEAR s3://pilates-outputs/"$SCENARIO"_"$RUN_DATE"/urbansim --recursive
 
 echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
