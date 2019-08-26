@@ -58,7 +58,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	echo "########### RUNNING BEAM FOR YEAR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
     	#running beam under root so that we can map outputs
-    	if [[ $SKIP_FIRST_BEAM == "off" ]]; then
+    	if [[ ($SKIP_FIRST_BEAM == "off") || ($START_YEAR != ${1})  ]]; then
 		echo "Running from config: $BEAM_CONFIG" 
 	    cd /beam-project
 		/beam/bin/beam --config $BEAM_CONFIG
