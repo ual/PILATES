@@ -60,7 +60,7 @@ while ((START_YEAR < LAST_YEAR)); do
     	#running beam under root so that we can map outputs
     	if [[ $SKIP_FIRST_BEAM == "off" ]]; then
 		echo "Running from config: $BEAM_CONFIG" 
-	    cd /beam
+	    cd /beam-project
 		/beam/bin/beam --config $BEAM_CONFIG
 	    cd -
 	fi
