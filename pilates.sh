@@ -66,7 +66,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	fi
 
 	# Fine the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
-	SKIMS_FILEPATH=$(find ~/git/beam/output -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
+	SKIMS_FILEPATH=$(find /beam-project/output -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
 
     echo "Skim file $SKIMS_FILEPATH"
    	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
