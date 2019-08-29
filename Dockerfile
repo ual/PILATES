@@ -88,6 +88,21 @@ RUN conda config --add channels udst
 RUN conda config --add channels conda-forge
 RUN $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python -m pip install pandana==0.4.1
 
+RUN apt update
+RUN apt install npm -y
+RUN npm cache clean -f
+RUN npm install -g n
+RUN n stable
+RUN npm install -g npm
+RUN curl -sL https://deb.nodesource.com/setup_8.x | bash -
+RUN apt-get install -y nodejs
+RUN apt-get install -y libgtkextra-dev libgconf2-dev libnss3 libasound2 libxtst-dev libxss1
+RUN pip install pandas
+RUN pip install plotly
+RUN pip install psutil requests
+RUN conda install -c plotly plotly-orca
+RUN apt-get install -y xvfb
+
 
 # Get PILATES repo from github
 RUN cd $HOME && git clone https://github.com/LBNL-UCB-STI/PILATES.git
