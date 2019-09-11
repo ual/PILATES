@@ -206,11 +206,11 @@ echo "########### RUNNING BEAM FOR YEAR $START_YEAR ########### $(date +"%Y-%m-%
 	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
         upload_last_beam_output.py -o $TO_COPY -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/beam
 
-    	((LAST_START_YEAR = $START_YEAR - BEAM_BAUS_ITER_FREQ))
+    	#((LAST_START_YEAR = $START_YEAR - BEAM_BAUS_ITER_FREQ))
 
-	echo "Uploading BAUS output from local path: $BAUS_OUTPUT_BUCKET_PATH/$LAST_START_YEAR"
+	echo "Uploading BAUS output from local path: $BAUS_OUTPUT_BUCKET_PATH"
 	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-        upload_last_beam_output.py -o $BAUS_OUTPUT_BUCKET_PATH/$LAST_START_YEAR -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/urbansim
+        upload_last_beam_output.py -o $BAUS_OUTPUT_BUCKET_PATH -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/urbansim
 
 echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
