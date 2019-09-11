@@ -200,8 +200,8 @@ echo "########### RUNNING BEAM FOR YEAR $START_YEAR ########### $(date +"%Y-%m-%
 
 	# COPY ALL OUTPUTS TO S3
 	RUN_DATE=$(date +"%Y-%m-%d_%H-%M-%S")
-	TO_COPY=$(find /beam-project/output/sfbay -mindepth 1 -maxdepth 1 -type d -printf "%T@ %Tc &%p\n"  | sort -r | cut -d '&' -f 2)
-        #TO_COPY='/beam-project/output/sfbay'
+	#TO_COPY=$(find /beam-project/output/sfbay -mindepth 1 -maxdepth 1 -type d -printf "%T@ %Tc &%p\n"  | sort -r | cut -d '&' -f 2)
+  TO_COPY='/beam-project/output/sfbay'
 	echo "Uploading BEAM output from local path: $TO_COPY"
 	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
         upload_last_beam_output.py -o $TO_COPY -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/beam
