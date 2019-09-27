@@ -80,6 +80,7 @@ RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_E
 	choicemodels \
 	urbansim_templates \
 	s3fs \
+	awscli \
 	scipy==1.2.1
 RUN cd $HOME && git clone https://github.com/ual/activitysynth.git \
 	&& cd $ASYNTH_PATH \
