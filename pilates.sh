@@ -78,7 +78,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	if [[ $START_YEAR == 2010 ]]; then
 
 		# Make in-year model data .h5 from base data
-		echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ########### $(date +"%Y-%m-%d_%H-%M-%S")"
+		echo "########### MAKING MODEL DATA HDF STORE FOR BAUS FOR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 			-m -b -i $BAUS_INPUT_BUCKET_PATH/base/base \
@@ -102,7 +102,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	else
 
 		# Make in-year model data .h5 from intermediate year data
-		echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ########### $(date +"%Y-%m-%d_%H-%M-%S")"
+		echo "########### MAKING MODEL DATA HDF STORE FOR BAUS FOR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 			-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$START_YEAR \
