@@ -22,6 +22,7 @@ export BAUS_INPUT_BUCKET_PATH=/output/$BAUS_INPUT_BUCKET
 export BAUS_OUTPUT_BUCKET=${BAUS_OUTPUT_BUCKET:-urbansim-outputs}
 export BAUS_OUTPUT_BUCKET_PATH=/output/$BAUS_OUTPUT_BUCKET
 export BEAM_EXCHANGE_SCENARIO_FOLDER=$BAUS_OUTPUT_BUCKET_PATH
+export BAUS_OUTPUT_BUCKET_PATH=$BAUS_OUTPUT_BUCKET_PATH/$SCENARIO
 
 #export SKIMS_BUCKET=${SKIMS_BUCKET:-urbansim-beam}
 
@@ -61,7 +62,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	#running beam under root so that we can map outputs
 	if [[ ($SKIP_FIRST_BEAM == "off") || ($START_YEAR != ${1})  ]]; then
 		echo "Running from config: $BEAM_CONFIG"
-		export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$SCENARIO/$START_YEAR/beam
+		export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/beam
 		echo "Beam env was set. $(env | grep '^BEAM_OUTPUT=')"
 		cd /beam-project
 		/beam/bin/beam --config $BEAM_CONFIG
@@ -146,7 +147,7 @@ while ((START_YEAR < LAST_YEAR)); do
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 			make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-			-o $BAUS_OUTPUT_BUCKET_PATH/$SCENARIO/$START_YEAR/urbansim -x
+			-o $BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/urbansim -x
 		echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 	fi
@@ -172,7 +173,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	echo "########### SENDING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 OUTPUT BUCKET########### $(date +"%Y-%m-%d_%H-%M-%S")"
 	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 		make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-		-o $BAUS_OUTPUT_BUCKET_PATH/$SCENARIO/$END_YEAR/urbansim
+		-o $BAUS_OUTPUT_BUCKET_PATH/$END_YEAR/urbansim
 	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 	echo "########### COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 INPUT BUCKET########### $(date +"%Y-%m-%d_%H-%M-%S")"
@@ -197,7 +198,7 @@ done
 echo "########### RUNNING BEAM FOR YEAR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 echo "Running from config: $BEAM_CONFIG"
-export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$SCENARIO/$START_YEAR/beam
+export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/beam
 echo "Beam env was set. $(env | grep '^BEAM_OUTPUT=')"
 cd /beam-project
 /beam/bin/beam --config $BEAM_CONFIG
@@ -214,11 +215,21 @@ cd -
 
 #((LAST_START_YEAR = $START_YEAR - BEAM_BAUS_ITER_FREQ))
 
-#echo "Uploading BAUS output from local path: $BAUS_OUTPUT_BUCKET_PATH"
-#aws --region us-east-2 s3 cp $BAUS_OUTPUT_BUCKET_PATH s3://pilates-outputs/"$SCENARIO"_"$RUN_DATE"/urbansim --recursive
+#       ################       ##############         #######        ################
+#             ####             ###                   ###    ###            ####
+#             ####             ###                   ###                   ####
+#             ####             ###                     ####                ####
+#             ####             #########                 ####              ####
+#             ####             ###                         ###             ####
+#             ####             ###                          ###            ####
+#             ####             ###                  ###    ###             ####
+#             ####             ##############         #######              ####
+
+echo "Uploading complete output from local path: $BAUS_OUTPUT_BUCKET_PATH"
+aws --region us-east-2 s3 cp $BAUS_OUTPUT_BUCKET_PATH s3://inm-test-run-pilates/pilates-outputs/"$SCENARIO"_"$RUN_DATE" --recursive
+
 #cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 	#      upload_last_beam_output.py -o $BAUS_OUTPUT_BUCKET_PATH -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/urbansim
 
 echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
-
 echo "########### ALL DONE!!! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
