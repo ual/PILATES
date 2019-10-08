@@ -21,6 +21,7 @@ export BAUS_INPUT_BUCKET=${BAUS_INPUT_BUCKET:-urbansim-inputs}
 export BAUS_INPUT_BUCKET_PATH=/output/$BAUS_INPUT_BUCKET
 export BAUS_OUTPUT_BUCKET=${BAUS_OUTPUT_BUCKET:-urbansim-outputs}
 export BAUS_OUTPUT_BUCKET_PATH=/output/$BAUS_OUTPUT_BUCKET
+export BEAM_EXCHANGE_SCENARIO_FOLDER=$BAUS_OUTPUT_BUCKET_PATH
 
 #export SKIMS_BUCKET=${SKIMS_BUCKET:-urbansim-beam}
 
@@ -60,14 +61,15 @@ while ((START_YEAR < LAST_YEAR)); do
 	#running beam under root so that we can map outputs
 	if [[ ($SKIP_FIRST_BEAM == "off") || ($START_YEAR != ${1})  ]]; then
 		echo "Running from config: $BEAM_CONFIG"
-		export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/beam
+		export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$SCENARIO/$START_YEAR/beam
+		echo "Beam env was set. $(env | grep '^BEAM_OUTPUT=')"
 		cd /beam-project
 		/beam/bin/beam --config $BEAM_CONFIG
 		cd -
 	fi
 
 	# Fine the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
-	SKIMS_FILEPATH=$(find $BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/beam -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
+	SKIMS_FILEPATH=$(find $BEAM_OUTPUT -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
 	echo "Skim file $SKIMS_FILEPATH"
 	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
@@ -78,7 +80,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	if [[ $START_YEAR == 2010 ]]; then
 
 		# Make in-year model data .h5 from base data
-		echo "########### MAKING MODEL DATA HDF STORE FOR BAUS FOR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
+		echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 			-m -b -i $BAUS_INPUT_BUCKET_PATH/base/base \
@@ -102,7 +104,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	else
 
 		# Make in-year model data .h5 from intermediate year data
-		echo "########### MAKING MODEL DATA HDF STORE FOR BAUS FOR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
+		echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
 			-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$START_YEAR \
@@ -144,7 +146,7 @@ while ((START_YEAR < LAST_YEAR)); do
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 			make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-			-o $BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/urbansim -x
+			-o $BAUS_OUTPUT_BUCKET_PATH/$SCENARIO/$START_YEAR/urbansim -x
 		echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 	fi
@@ -170,7 +172,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	echo "########### SENDING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 OUTPUT BUCKET########### $(date +"%Y-%m-%d_%H-%M-%S")"
 	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 		make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-		-o $BAUS_OUTPUT_BUCKET_PATH/$END_YEAR/urbansim
+		-o $BAUS_OUTPUT_BUCKET_PATH/$SCENARIO/$END_YEAR/urbansim
 	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 	echo "########### COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 INPUT BUCKET########### $(date +"%Y-%m-%d_%H-%M-%S")"
@@ -179,14 +181,14 @@ while ((START_YEAR < LAST_YEAR)); do
 		-o $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$END_YEAR
 	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
-	# Write out-year activitysynth outputs to $BAUS_OUTPUT_BUCKET_PATH folder
+	# Write out-year activitysynth outputs to $BEAM_EXCHANGE_SCENARIO_FOLDER folder
 	# The same folder must be used as for beam param `beam.exchange.scenario.folder`
 	# Now it looks like `beam.exchange.scenario.folder="/output/urbansim-outputs"`
 	echo "########### COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO OUTPUT BUCKET TO BE BEAM INPUT ########### $(date +"%Y-%m-%d_%H-%M-%S")"
-	echo "copying to $BAUS_OUTPUT_BUCKET_PATH"
+	echo "copying to $BEAM_EXCHANGE_SCENARIO_FOLDER"
 	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 		make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-		-o $BAUS_OUTPUT_BUCKET_PATH/
+		-o $BEAM_EXCHANGE_SCENARIO_FOLDER/
 	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 	((START_YEAR = $START_YEAR + BEAM_BAUS_ITER_FREQ))
@@ -194,8 +196,9 @@ done
 
 echo "########### RUNNING BEAM FOR YEAR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
-echo "Running from config: $BEAM_CONFIG" 
-export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/beam
+echo "Running from config: $BEAM_CONFIG"
+export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$SCENARIO/$START_YEAR/beam
+echo "Beam env was set. $(env | grep '^BEAM_OUTPUT=')"
 cd /beam-project
 /beam/bin/beam --config $BEAM_CONFIG
 cd -
@@ -207,14 +210,14 @@ cd -
 #echo "Uploading BEAM output from local path: $TO_COPY"
 #aws --region us-east-2 s3 cp $TO_COPY s3://pilates-outputs/"$SCENARIO"_"$RUN_DATE"/beam --recursive
 #cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-#      upload_last_beam_output.py -o $TO_COPY -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/beam
+	#      upload_last_beam_output.py -o $TO_COPY -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/beam
 
 #((LAST_START_YEAR = $START_YEAR - BEAM_BAUS_ITER_FREQ))
 
 #echo "Uploading BAUS output from local path: $BAUS_OUTPUT_BUCKET_PATH"
 #aws --region us-east-2 s3 cp $BAUS_OUTPUT_BUCKET_PATH s3://pilates-outputs/"$SCENARIO"_"$RUN_DATE"/urbansim --recursive
 #cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-#      upload_last_beam_output.py -o $BAUS_OUTPUT_BUCKET_PATH -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/urbansim
+	#      upload_last_beam_output.py -o $BAUS_OUTPUT_BUCKET_PATH -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/urbansim
 
 echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
