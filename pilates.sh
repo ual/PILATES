@@ -71,8 +71,8 @@ while ((START_YEAR < LAST_YEAR)); do
 		SKIMS_FILEPATH=$(find $BEAM_OUTPUT -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
 		echo "Skim file from beam: $SKIMS_FILEPATH"
 	else
-		SKIMS_FILEPATH=$INITIAL_SKIMS_PATH
-		echo "Initial skim file: $SKIMS_FILEPATH"
+		SKIMS_FILEPATH=s3:$INITIAL_SKIMS_PATH
+		echo "Initial skim file:$SKIMS_FILEPATH"
 	fi
 
 	
