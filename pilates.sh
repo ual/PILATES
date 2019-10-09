@@ -20,10 +20,8 @@ export BAUS_DATA_OUTPUT_FILEPATH=$BAUS_DATA_OUTPUT_PATH/$BAUS_DATA_OUTPUT_FILE
 export BAUS_INPUT_BUCKET=${BAUS_INPUT_BUCKET:-urbansim-inputs}
 export BAUS_INPUT_BUCKET_PATH=/output/$BAUS_INPUT_BUCKET
 export BAUS_OUTPUT_BUCKET=${BAUS_OUTPUT_BUCKET:-urbansim-outputs}
-export BAUS_OUTPUT_BUCKET_PATH=/output/$BAUS_OUTPUT_BUCKET
-export BEAM_EXCHANGE_SCENARIO_FOLDER=$BAUS_OUTPUT_BUCKET_PATH
-
-#export SKIMS_BUCKET=${SKIMS_BUCKET:-urbansim-beam}
+export PILATES_BASE_OUTPUT_PATH=/output/$BAUS_OUTPUT_BUCKET
+export BEAM_EXCHANGE_SCENARIO_FOLDER=$PILATES_BASE_OUTPUT_PATH
 
 export ASYNTH_PATH=${ASYNTH_PATH:-~/projects/activitysynth}
 export ASYNTH_DATA_PATH=$ASYNTH_PATH/activitysynth/data
@@ -31,18 +29,18 @@ export ASYNTH_DATA_OUTPUT_PATH=$ASYNTH_PATH/activitysynth/output
 export ASYNTH_DATA_OUTPUT_FILE=${ASYNTH_DATA_OUTPUT_FILE:-model_data_output.h5}
 export ASYNTH_DATA_OUTPUT_FILEPATH="$ASYNTH_DATA_OUTPUT_PATH/$ASYNTH_DATA_OUTPUT_FILE"
 
-# define default values/behavior for command-line arguments
-
 export START_YEAR=${1:?ARG \#1 "IN_YEAR" not specified}
 export N_YEARS=${2:?ARG \#2 "N_YEARS" not specified}
 export BEAM_BAUS_ITER_FREQ=${3:?ARG \#3 "BEAM_BAUS_ITER_FREQ" not specified}
 export BAUS_ITER_FREQ=${4:?ARG \#4 "BAUS_ITER_FREQ" not specified}
 export SCENARIO=${5:?ARG \#5 "SCENARIO" not specified}
 export BEAM_CONFIG=${6:?ARG \#6 "BEAM_CONFIG" not specified}
-export SKIP_FIRST_BEAM=${7:-off}
+export INITIAL_SKIMS_PATH=${7:?ARG \#7 "INITIAL_SKIMS_PATH" not specified}
 export IN_YEAR_OUTPUT=${8:-off}
 
-export BAUS_OUTPUT_BUCKET_PATH=$BAUS_OUTPUT_BUCKET_PATH/$SCENARIO
+# to distinguish urbansim output for beam (which will be in /output/$BAUS_OUTPUT_BUCKET) 
+# and results of whole pilates run (which will be in /output/$BAUS_OUTPUT_BUCKET/$SCENARIO)
+export PILATES_BASE_OUTPUT_PATH=$PILATES_BASE_OUTPUT_PATH/$SCENARIO
 
 #export SKIMS_FILEPATH=s3://$SKIMS_BUCKET/$SKIMS_FNAME
 
@@ -55,24 +53,29 @@ export BAUS_OUTPUT_BUCKET_PATH=$BAUS_OUTPUT_BUCKET_PATH/$SCENARIO
 echo "START_YEAR: $START_YEAR"
 echo "LAST_YEAR: $LAST_YEAR"
 echo "BAUS_INPUT_BUCKET_PATH: $BAUS_INPUT_BUCKET_PATH"
-echo "BAUS_OUTPUT_BUCKET_PATH: $BAUS_OUTPUT_BUCKET_PATH"
+echo "PILATES_BASE_OUTPUT_PATH: $PILATES_BASE_OUTPUT_PATH"
 
 while ((START_YEAR < LAST_YEAR)); do
 	echo "########### RUNNING BEAM FOR YEAR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
-	#running beam under root so that we can map outputs
-	if [[ ($SKIP_FIRST_BEAM == "off") || ($START_YEAR != ${1})  ]]; then
+	# running beam or using initial skims file path if this is first iteration
+	if [[ ( -z "$INITIAL_SKIMS_PATH" ) || ($START_YEAR != ${1})  ]]; then
 		echo "Running from config: $BEAM_CONFIG"
-		export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/beam
+		export BEAM_OUTPUT=$PILATES_BASE_OUTPUT_PATH/$START_YEAR/beam
 		echo "Beam env was set. $(env | grep '^BEAM_OUTPUT=')"
 		cd /beam-project
 		/beam/bin/beam --config $BEAM_CONFIG
 		cd -
+
+		# Find the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
+		SKIMS_FILEPATH=$(find $BEAM_OUTPUT -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
+		echo "Skim file from beam: $SKIMS_FILEPATH"
+	else
+		SKIMS_FILEPATH=$INITIAL_SKIMS_PATH
+		echo "Initial skim file: $SKIMS_FILEPATH"
 	fi
 
-	# Fine the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
-	SKIMS_FILEPATH=$(find $BEAM_OUTPUT -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
-	echo "Skim file $SKIMS_FILEPATH"
+	
 	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 	# What is the end year of the BAUS run
@@ -148,11 +151,10 @@ while ((START_YEAR < LAST_YEAR)); do
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 			make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-			-o $BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/urbansim -x
+			-o $PILATES_BASE_OUTPUT_PATH/$START_YEAR/urbansim -x
 		echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 	fi
-
 
 	# Write end year baus outputs to csv
 	echo "########### PROCESSING ACTIVITYSYNTH DATA FOR END-YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
@@ -174,7 +176,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	echo "########### SENDING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 OUTPUT BUCKET########### $(date +"%Y-%m-%d_%H-%M-%S")"
 	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 		make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-		-o $BAUS_OUTPUT_BUCKET_PATH/$END_YEAR/urbansim
+		-o $PILATES_BASE_OUTPUT_PATH/$END_YEAR/urbansim
 	echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 	echo "########### COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO S3 INPUT BUCKET########### $(date +"%Y-%m-%d_%H-%M-%S")"
@@ -199,22 +201,11 @@ done
 echo "########### RUNNING BEAM FOR YEAR $START_YEAR ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 
 echo "Running from config: $BEAM_CONFIG"
-export BEAM_OUTPUT=$BAUS_OUTPUT_BUCKET_PATH/$START_YEAR/beam
+export BEAM_OUTPUT=$PILATES_BASE_OUTPUT_PATH/$START_YEAR/beam
 echo "Beam env was set. $(env | grep '^BEAM_OUTPUT=')"
 cd /beam-project
 /beam/bin/beam --config $BEAM_CONFIG
 cd -
-
-# COPY ALL OUTPUTS TO S3
-#RUN_DATE=$(date +"%Y-%m-%d_%H-%M-%S")
-#TO_COPY=$(find /beam-project/output/sfbay -mindepth 1 -maxdepth 1 -type d -printf "%T@ %Tc &%p\n"  | sort -r | cut -d '&' -f 2)
-#TO_COPY='/beam-project/output/sfbay'
-#echo "Uploading BEAM output from local path: $TO_COPY"
-#aws --region us-east-2 s3 cp $TO_COPY s3://pilates-outputs/"$SCENARIO"_"$RUN_DATE"/beam --recursive
-#cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-	#      upload_last_beam_output.py -o $TO_COPY -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/beam
-
-#((LAST_START_YEAR = $START_YEAR - BEAM_BAUS_ITER_FREQ))
 
 #       ################       ##############         #######        ################
 #             ####             ###                   ###    ###            ####
@@ -226,11 +217,7 @@ cd -
 #             ####             ###                  ###    ###             ####
 #             ####             ##############         #######              ####
 
-echo "Uploading complete output from local path: $BAUS_OUTPUT_BUCKET_PATH"
-aws --region us-east-2 s3 cp $BAUS_OUTPUT_BUCKET_PATH s3://inm-test-run-pilates/pilates-outputs/"$SCENARIO"_"$RUN_DATE" --recursive
+echo "Uploading complete output from local path: $PILATES_BASE_OUTPUT_PATH"
+aws --region us-east-2 s3 cp $PILATES_BASE_OUTPUT_PATH s3://inm-test-run-pilates/pilates-outputs/"$SCENARIO"_"$(date +"%Y-%m-%d_%H-%M-%S")" --recursive
 
-#cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-	#      upload_last_beam_output.py -o $BAUS_OUTPUT_BUCKET_PATH -b pilates-outputs -s ${SCENARIO}_${RUN_DATE}/urbansim
-
-echo "########### DONE! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
 echo "########### ALL DONE!!! ########### $(date +"%Y-%m-%d_%H-%M-%S")"
