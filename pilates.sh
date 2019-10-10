@@ -35,9 +35,9 @@ export BEAM_BAUS_ITER_FREQ=${3:?ARG \#3 "BEAM_BAUS_ITER_FREQ" not specified}
 export BAUS_ITER_FREQ=${4:?ARG \#4 "BAUS_ITER_FREQ" not specified}
 export SCENARIO=${5:?ARG \#5 "SCENARIO" not specified}
 export BEAM_CONFIG=${6:?ARG \#6 "BEAM_CONFIG" not specified}
-export INITIAL_SKIMS_PATH=${7:?ARG \#7 "INITIAL_SKIMS_PATH" not specified}
-export OUTPUT_BUCKET_BASE_PATH=${8:?ARG \#7 "OUTPUT_BUCKET_BASE_PATH" not specified}
-export IN_YEAR_OUTPUT=${9:-off}
+export OUTPUT_BUCKET_BASE_PATH=${7:?ARG \#7 "OUTPUT_BUCKET_BASE_PATH" not specified}
+export IN_YEAR_OUTPUT=${8:-off}
+export INITIAL_SKIMS_PATH=${9:-""}
 
 scenarioWithDate="$SCENARIO"_"$(date +"%Y-%m-%d_%H-%M-%S")"
 export PILATES_OUTPUT_PATH=$PILATES_OUTPUT_PATH/$scenarioWithDate
