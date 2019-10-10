@@ -54,7 +54,7 @@ echo "S3_BUCKET_PATH: $S3_BUCKET_PATH"
 echoMilestone(){
   mnumber=${1:-''}
   mtext=${2:-DONE}
-  echo "MILESTONE #$mnumber $(date +"%Y-%m-%d_%H-%M-%S")  $mtext  ###########"
+  echo "MILESTONE $(date +"%Y-%m-%d_%H-%M-%S") #$mnumber  $mtext  ###########"
 }
 
 uploadDirectoryToS3(){
