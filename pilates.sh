@@ -165,7 +165,7 @@ while ((START_YEAR < LAST_YEAR)); do
 		echoMilestone 2 "MAKING MODEL DATA HDF STORE FOR BAUS)"
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
-			-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$START_YEAR \
+			-m -i $BAUS_INPUT_BUCKET_PATH/$START_YEAR \
 			-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH \
 			&& echoMilestone 2
 
@@ -233,22 +233,8 @@ while ((START_YEAR < LAST_YEAR)); do
 		&& echoMilestone 7
 
 	echoMilestone 8 "COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO INPUT BUCKET"
-	cp -r $PILATES_OUTPUT_PATH/$END_YEAR/urbansim $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$END_YEAR
+	cp -r $PILATES_OUTPUT_PATH/$END_YEAR/urbansim $BAUS_INPUT_BUCKET_PATH/$END_YEAR
 	echoMilestone 8
-
-#	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-#		make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-#		-o $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$END_YEAR \
-#		&& echoMilestone 8
-
-	# Write out-year activitysynth outputs to $BEAM_EXCHANGE_SCENARIO_FOLDER folder
-	# The same folder must be used as for beam param `beam.exchange.scenario.folder`
-	# Now it looks like `beam.exchange.scenario.folder="/output/urbansim-outputs"`
-#	echoMilestone 9 "COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO OUTPUT BUCKET TO BE BEAM INPUT. to $BEAM_EXCHANGE_SCENARIO_FOLDER"
-#	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
-#		make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-#		-o $BEAM_EXCHANGE_SCENARIO_FOLDER/ \
-#		&& echoMilestone 9
 
   uploadDirectoryToS3 "$PILATES_OUTPUT_PATH/$END_YEAR/urbansim" "$S3_BUCKET_PATH/$END_YEAR/urbansim" &
 
