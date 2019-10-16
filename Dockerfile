@@ -106,7 +106,7 @@ RUN apt-get install -y xvfb
 
 
 # Get PILATES repo from github
-RUN cd $HOME && git clone -b inm/change-output-structure-and-upload-results-on-s3 --single-branch https://github.com/LBNL-UCB-STI/PILATES.git
+RUN cd $HOME && git clone https://github.com/LBNL-UCB-STI/PILATES.git
 
 # Run PILATES
 WORKDIR $PILATES_PATH
