@@ -57,7 +57,8 @@ RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_E
 	scikit-learn \
 	git \
 	pip \
-	boto
+	boto \
+	PyTables
 
 RUN cd $HOME && git clone https://github.com/ual/bayarea_urbansim.git \
 	&& cd $BAUS_PATH \
