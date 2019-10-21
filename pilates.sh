@@ -17,10 +17,6 @@ export BAUS_DATA_STORE_PATH=$BAUS_PATH/data
 export BAUS_DATA_OUTPUT_PATH=$BAUS_PATH/output
 export BAUS_DATA_OUTPUT_FILE=${BAUS_DATA_OUTPUT_FILE:-model_data_output.h5}
 export BAUS_DATA_OUTPUT_FILEPATH=$BAUS_DATA_OUTPUT_PATH/$BAUS_DATA_OUTPUT_FILE
-export BAUS_INPUT_BUCKET=${BAUS_INPUT_BUCKET:-urbansim-inputs}
-export BAUS_INPUT_BUCKET_PATH=/output/$BAUS_INPUT_BUCKET
-export BAUS_OUTPUT_BUCKET=${BAUS_OUTPUT_BUCKET:-urbansim-outputs}
-export PILATES_OUTPUT_PATH=/output/$BAUS_OUTPUT_BUCKET
 
 export ASYNTH_PATH=${ASYNTH_PATH:-~/projects/activitysynth}
 export ASYNTH_DATA_PATH=$ASYNTH_PATH/activitysynth/data
@@ -32,29 +28,28 @@ export START_YEAR=${1:?ARG \#1 "IN_YEAR" not specified}
 export N_YEARS=${2:?ARG \#2 "N_YEARS" not specified}
 export BEAM_BAUS_ITER_FREQ=${3:?ARG \#3 "BEAM_BAUS_ITER_FREQ" not specified}
 export BAUS_ITER_FREQ=${4:?ARG \#4 "BAUS_ITER_FREQ" not specified}
-export SCENARIO=${5:?ARG \#5 "SCENARIO" not specified}
+export OUTPUT_FOLDER=${5:?ARG \#5 "OUTPUT_FOLDER" not specified}
 export BEAM_CONFIG=${6:?ARG \#6 "BEAM_CONFIG" not specified}
-export OUTPUT_BUCKET_BASE_PATH=${7:?ARG \#7 "OUTPUT_BUCKET_BASE_PATH" not specified}
+export S3_OUTPUT_PATH=${7:?ARG \#7 "S3_OUTPUT_PATH" not specified}
 export S3_DATA_REGION=${8:?ARG \#8 "S3_DATA_REGION" not specified}
-export IN_YEAR_OUTPUT=${9:-off}
-export INITIAL_SKIMS_PATH=${10:-""}
+export INPUT_DATA_PATH=${9:?ARG \#9 "INPUT_DATA_PATH" not specified}
+export OUTPUT_DATA_PATH=${10:?ARG \#10 "OUTPUT_DATA_PATH" not specified}
+export IN_YEAR_OUTPUT=${11:-off}
+export INITIAL_SKIMS_PATH=${12:-""}
 
-export BEAM_INITIAL_URBANSIM_DATA=$PILATES_OUTPUT_PATH/initial
-export BAUS_INITIAL_DATA=$BAUS_INPUT_BUCKET_PATH/initial
+export BEAM_INITIAL_URBANSIM_DATA=$OUTPUT_DATA_PATH/initial
+export BAUS_INITIAL_DATA=$INPUT_DATA_PATH/initial
 
-scenarioWithDate="$SCENARIO"_"$(date '+%Y-%m-%d_%H:%M:%S')"
-export PILATES_OUTPUT_PATH=$PILATES_OUTPUT_PATH/$scenarioWithDate
-
-# output bucket should already contain scenario name and date_time
-export S3_BUCKET_PATH=s3:$OUTPUT_BUCKET_BASE_PATH
+export OUTPUT_DATA_PATH=$OUTPUT_DATA_PATH/$OUTPUT_FOLDER
+export S3_OUTPUT_URL=s3:S3_OUTPUT_PATH
 
 ((LAST_YEAR = START_YEAR + N_YEARS))
 
 echo "START_YEAR: $START_YEAR"
 echo "LAST_YEAR: $LAST_YEAR"
-echo "BAUS_INPUT_BUCKET_PATH: $BAUS_INPUT_BUCKET_PATH"
-echo "PILATES_OUTPUT_PATH: $PILATES_OUTPUT_PATH"
-echo "S3_BUCKET_PATH: $S3_BUCKET_PATH"
+echo "INPUT_DATA_PATH: $INPUT_DATA_PATH"
+echo "OUTPUT_DATA_PATH: $OUTPUT_DATA_PATH"
+echo "S3_OUTPUT_URL: $S3_OUTPUT_URL"
 
 echoMilestone(){
   mnumber=${1:-''}
@@ -101,7 +96,7 @@ EOL
 # if we do not skip initial beam run then copy urbansim data for first beam run into corresponding directory
 if [[ -z "$INITIAL_SKIMS_PATH" ]]; then
   echoMilestone 0 "copy initial urbansim data for first beam run"
-  cp -r $BEAM_INITIAL_URBANSIM_DATA $PILATES_OUTPUT_PATH/$START_YEAR/urbansim
+  cp -r $BEAM_INITIAL_URBANSIM_DATA $OUTPUT_DATA_PATH/$START_YEAR/urbansim
   echoMilestone 0
 fi
 
@@ -109,22 +104,22 @@ while ((START_YEAR < LAST_YEAR)); do
 
 	# running beam or using initial skims file path if this is first iteration
 	if [[ ( -z "$INITIAL_SKIMS_PATH" ) || ($START_YEAR != ${1})  ]]; then
-		BEAM_OUTPUT=$PILATES_OUTPUT_PATH/$START_YEAR/beam
-		URBANSIM_DATA=$PILATES_OUTPUT_PATH/$START_YEAR/urbansim
+		BEAM_OUTPUT=$OUTPUT_DATA_PATH/$START_YEAR/beam
+		URBANSIM_DATA=$OUTPUT_DATA_PATH/$START_YEAR/urbansim
 		generatedBeamConfig=$(prepareBeamConfig $BEAM_CONFIG $BEAM_OUTPUT $URBANSIM_DATA $START_YEAR)
 		echoMilestone 1 "RUNNING BEAM FOR YEAR $START_YEAR with config '$generatedBeamConfig' with urbasim data '$URBANSIM_DATA'"
 		cd /beam-project
 		/beam/bin/beam --config $generatedBeamConfig
 		cd -
 
-		uploadDirectoryToS3 "$BEAM_OUTPUT" "$S3_BUCKET_PATH/$START_YEAR/beam" &
+		uploadDirectoryToS3 "$BEAM_OUTPUT" "$S3_OUTPUT_URL/$START_YEAR/beam" &
 
 		# Find the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
 		SKIMS_FILEPATH=$(find $BEAM_OUTPUT -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
 		echo "From beam skim file: $SKIMS_FILEPATH"
 	else
 		echoMilestone 1 "skipping beam for year $START_YEAR"
-		mkdir -p $PILATES_OUTPUT_PATH/$START_YEAR/beam-was-skipped
+		mkdir -p $OUTPUT_DATA_PATH/$START_YEAR/beam-was-skipped
 
 		SKIMS_FILEPATH=s3:$INITIAL_SKIMS_PATH
 		echo "Initial skim file:$SKIMS_FILEPATH"
@@ -166,7 +161,7 @@ while ((START_YEAR < LAST_YEAR)); do
 		echoMilestone 2 "MAKING MODEL DATA HDF STORE FOR BAUS)"
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
-			-m -i $BAUS_INPUT_BUCKET_PATH/$START_YEAR \
+			-m -i $INPUT_DATA_PATH/$START_YEAR \
 			-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH \
 			&& echoMilestone 2
 
@@ -205,7 +200,7 @@ while ((START_YEAR < LAST_YEAR)); do
 		cd $PILATES_PATH/scripts \
 			&& $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 			make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-			-o $PILATES_OUTPUT_PATH/$START_YEAR/urbansim -x \
+			-o $OUTPUT_DATA_PATH/$START_YEAR/urbansim -x \
 			&& echoMilestone "4.3"
 
 	fi
@@ -230,29 +225,29 @@ while ((START_YEAR < LAST_YEAR)); do
 	echoMilestone 7 "SENDING END-YEAR ACTIVITYSYNTH OUTPUTS TO OUTPUT BUCKET"
 	cd $PILATES_PATH/scripts && $CONDA_DIR/envs/$CONDA_ENV_ASYNTH/bin/python \
 		make_csvs_from_output_store.py -d $ASYNTH_DATA_OUTPUT_FILEPATH \
-		-o $PILATES_OUTPUT_PATH/$END_YEAR/urbansim \
+		-o $OUTPUT_DATA_PATH/$END_YEAR/urbansim \
 		&& echoMilestone 7
 
 	echoMilestone 8 "COPYING END-YEAR ACTIVITYSYNTH OUTPUTS TO INPUT BUCKET"
-	cp -r $PILATES_OUTPUT_PATH/$END_YEAR/urbansim $BAUS_INPUT_BUCKET_PATH/$END_YEAR
+	cp -r $OUTPUT_DATA_PATH/$END_YEAR/urbansim $INPUT_DATA_PATH/$END_YEAR
 	echoMilestone 8
 
-  uploadDirectoryToS3 "$PILATES_OUTPUT_PATH/$END_YEAR/urbansim" "$S3_BUCKET_PATH/$END_YEAR/urbansim" &
+  uploadDirectoryToS3 "$OUTPUT_DATA_PATH/$END_YEAR/urbansim" "$S3_OUTPUT_URL/$END_YEAR/urbansim" &
 
 	((START_YEAR = $START_YEAR + BEAM_BAUS_ITER_FREQ))
 
 done
 
 echoMilestone 10 "RUNNING BEAM FOR YEAR $START_YEAR with config: $BEAM_CONFIG"
-BEAM_OUTPUT=$PILATES_OUTPUT_PATH/$START_YEAR/beam
-URBANSIM_DATA=$PILATES_OUTPUT_PATH/$START_YEAR/urbansim
+BEAM_OUTPUT=$OUTPUT_DATA_PATH/$START_YEAR/beam
+URBANSIM_DATA=$OUTPUT_DATA_PATH/$START_YEAR/urbansim
 generatedBeamConfig=$(prepareBeamConfig $BEAM_CONFIG $BEAM_OUTPUT $URBANSIM_DATA $START_YEAR)
 cd /beam-project
 /beam/bin/beam --config $generatedBeamConfig
 cd -
 echoMilestone 10
 
-uploadDirectoryToS3 "$BEAM_OUTPUT" "$S3_BUCKET_PATH/$START_YEAR/beam" &
+uploadDirectoryToS3 "$BEAM_OUTPUT" "$S3_OUTPUT_URL/$START_YEAR/beam" &
 
 # waiting for all background jobs to be finished
 wait
