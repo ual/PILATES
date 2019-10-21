@@ -35,15 +35,18 @@ export BAUS_ITER_FREQ=${4:?ARG \#4 "BAUS_ITER_FREQ" not specified}
 export SCENARIO=${5:?ARG \#5 "SCENARIO" not specified}
 export BEAM_CONFIG=${6:?ARG \#6 "BEAM_CONFIG" not specified}
 export OUTPUT_BUCKET_BASE_PATH=${7:?ARG \#7 "OUTPUT_BUCKET_BASE_PATH" not specified}
-export IN_YEAR_OUTPUT=${8:-off}
-export INITIAL_SKIMS_PATH=${9:-""}
+export S3_DATA_REGION=${8:?ARG \#8 "S3_DATA_REGION" not specified}
+export IN_YEAR_OUTPUT=${9:-off}
+export INITIAL_SKIMS_PATH=${10:-""}
 
 export BEAM_INITIAL_URBANSIM_DATA=$PILATES_OUTPUT_PATH/initial
 export BAUS_INITIAL_DATA=$BAUS_INPUT_BUCKET_PATH/initial
 
-scenarioWithDate="$SCENARIO"_"$(date '+%Y-%m-%d')"
+scenarioWithDate="$SCENARIO"_"$(date '+%Y-%m-%d_%H:%M:%S')"
 export PILATES_OUTPUT_PATH=$PILATES_OUTPUT_PATH/$scenarioWithDate
-export S3_BUCKET_PATH=s3:$OUTPUT_BUCKET_BASE_PATH/$scenarioWithDate
+
+# output bucket should already contain scenario name and date_time
+export S3_BUCKET_PATH=s3:$OUTPUT_BUCKET_BASE_PATH
 
 ((LAST_YEAR = START_YEAR + N_YEARS))
 
@@ -60,8 +63,8 @@ echoMilestone(){
 }
 
 uploadDirectoryToS3(){
-  echoMilestone "uploadToS3" "COPYING OUTPUTS TO S3 BUCKET from $1 to $2"
-  aws --region us-east-2 s3 cp $1 $2 --recursive
+  echoMilestone "uploadToS3" "COPYING OUTPUTS from local path $1 to s3 bucket $S3_DATA_REGION : $2"
+  aws --region $S3_DATA_REGION s3 cp $1 $2 --recursive
   echoMilestone "uploadToS3"
 }
 
@@ -95,13 +98,12 @@ EOL
   echo $generatedConfigFile
 }
 
-#1. get rid of one data copy (in BAUS_OUTPUT_BUCKET_PATH) and corresponding (#3 in above picture) call of make_csvs_from_output_store.py
-#3. point beam to urbansim data (<scenario>/<current year>) before every beam run
-#4. store every path used as beam input so we will be able to rerun beam with the same input data
-
-
-###2. replace one call  (#2 in above picture) of make_csvs_from_output_store.py with cp command
-###5. change the format of the date-stamp to YYYY-MM-DD
+# if we do not skip initial beam run then copy urbansim data for first beam run into corresponding directory
+if [[ -z "$INITIAL_SKIMS_PATH" ]]; then
+  echoMilestone 0 "copy initial urbansim data for first beam run"
+  cp -r $BEAM_INITIAL_URBANSIM_DATA $PILATES_OUTPUT_PATH/$START_YEAR/urbansim
+  echoMilestone 0
+fi
 
 while ((START_YEAR < LAST_YEAR)); do
 
@@ -109,9 +111,6 @@ while ((START_YEAR < LAST_YEAR)); do
 	if [[ ( -z "$INITIAL_SKIMS_PATH" ) || ($START_YEAR != ${1})  ]]; then
 		BEAM_OUTPUT=$PILATES_OUTPUT_PATH/$START_YEAR/beam
 		URBANSIM_DATA=$PILATES_OUTPUT_PATH/$START_YEAR/urbansim
-		if [[ $START_YEAR == ${1} ]]; then
-		  URBANSIM_DATA=$BEAM_INITIAL_URBANSIM_DATA
-		fi
 		generatedBeamConfig=$(prepareBeamConfig $BEAM_CONFIG $BEAM_OUTPUT $URBANSIM_DATA $START_YEAR)
 		echoMilestone 1 "RUNNING BEAM FOR YEAR $START_YEAR with config '$generatedBeamConfig' with urbasim data '$URBANSIM_DATA'"
 		cd /beam-project
@@ -125,6 +124,8 @@ while ((START_YEAR < LAST_YEAR)); do
 		echo "From beam skim file: $SKIMS_FILEPATH"
 	else
 		echoMilestone 1 "skipping beam for year $START_YEAR"
+		mkdir -p $PILATES_OUTPUT_PATH/$START_YEAR/beam-was-skipped
+
 		SKIMS_FILEPATH=s3:$INITIAL_SKIMS_PATH
 		echo "Initial skim file:$SKIMS_FILEPATH"
 	fi
