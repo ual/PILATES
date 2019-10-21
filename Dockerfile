@@ -42,6 +42,7 @@ ENV SKIMS_BUCKET $SKIMS_BUCKET
 # update ubuntu stuff
 RUN apt-get update \
 	&& apt-get install -y build-essential zip unzip
+RUN conda install -c anaconda setuptools
 RUN conda update conda
 
 
