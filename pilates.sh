@@ -115,7 +115,7 @@ while ((START_YEAR < LAST_YEAR)); do
 		/beam/bin/beam --config $generatedBeamConfig
 		cd -
 
-		uploadDirectoryToS3 "$BEAM_OUTPUT" "$S3_OUTPUT_URL/$START_YEAR/beam" &
+		uploadDirectoryToS3 "$BEAM_OUTPUT/*" "$S3_OUTPUT_URL/$START_YEAR/beam" &
 
 		# Find the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
 		SKIMS_FILEPATH=$(find $BEAM_OUTPUT -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
@@ -124,10 +124,10 @@ while ((START_YEAR < LAST_YEAR)); do
 		echoMilestone 1 "skipping beam for year $START_YEAR"
 		SKIMS_FILEPATH=s3:$INITIAL_SKIMS_PATH
 
-		mkdir -p $OUTPUT_DATA_PATH/$START_YEAR/beam/beam-was-skipped
-		echo "initial skims file was taken from $SKIMS_FILEPATH" > $OUTPUT_DATA_PATH/$START_YEAR/beam/beam-was-skipped/skims-file-source.log
+		mkdir -p $OUTPUT_DATA_PATH/$START_YEAR/beam-was-skipped
+		echo "initial skim file was taken from $SKIMS_FILEPATH" > $OUTPUT_DATA_PATH/$START_YEAR/beam-was-skipped/skim-file-source.log
 
-		uploadDirectoryToS3 "$OUTPUT_DATA_PATH/$START_YEAR/beam" "$S3_OUTPUT_URL/$START_YEAR" &
+		uploadDirectoryToS3 "$OUTPUT_DATA_PATH/$START_YEAR/beam-was-skipped" "$S3_OUTPUT_URL/$START_YEAR/beam-was-skipped" &
 
 		echo "Initial skim file:$SKIMS_FILEPATH"
 	fi
