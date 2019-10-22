@@ -96,6 +96,7 @@ EOL
 # if we do not skip initial beam run then copy urbansim data for first beam run into corresponding directory
 if [[ -z "$INITIAL_SKIMS_PATH" ]]; then
   echoMilestone 0 "copy initial urbansim data for first beam run"
+  mkdir -p $OUTPUT_DATA_PATH/$START_YEAR/urbansim
   cp -r $BEAM_INITIAL_URBANSIM_DATA $OUTPUT_DATA_PATH/$START_YEAR/urbansim
   echoMilestone 0
 fi
