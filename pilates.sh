@@ -122,12 +122,17 @@ while ((START_YEAR < LAST_YEAR)); do
 		echo "From beam skim file: $SKIMS_FILEPATH"
 	else
 		echoMilestone 1 "skipping beam for year $START_YEAR"
-		SKIMS_FILEPATH=s3:$INITIAL_SKIMS_PATH
 
-		mkdir -p $OUTPUT_DATA_PATH/$START_YEAR/beam-was-skipped
-		echo "initial skim file was taken from $SKIMS_FILEPATH" > $OUTPUT_DATA_PATH/$START_YEAR/beam-was-skipped/skim-file-source.log
+    SKIPPED_BEAM_PATH=$OUTPUT_DATA_PATH/$START_YEAR/beam-was-skipped
+		mkdir -p $SKIPPED_BEAM_PATH
+    aws --region $S3_DATA_REGION s3 cp s3:$INITIAL_SKIMS_PATH $SKIPPED_BEAM_PATH
 
-		uploadDirectoryToS3 "$OUTPUT_DATA_PATH/$START_YEAR/beam-was-skipped" "$S3_OUTPUT_URL/$START_YEAR/beam-was-skipped" &
+		# Find the most recent skims.csv.gz output in the output directory, we add timestamp in the find command to ensure this
+		SKIMS_FILEPATH=$(find $SKIPPED_BEAM_PATH -name "*.skims.csv.gz" -printf "%T@ %Tc &%p\n"  | sort -r | head -n 1 | cut -d '&' -f 2)
+
+		echo "initial skim file was taken from $SKIMS_FILEPATH" > $SKIPPED_BEAM_PATH/skim-file-source.log
+
+		uploadDirectoryToS3 "$SKIPPED_BEAM_PATH" "$S3_OUTPUT_URL/$START_YEAR/beam-was-skipped" &
 
 		echo "Initial skim file:$SKIMS_FILEPATH"
 	fi
