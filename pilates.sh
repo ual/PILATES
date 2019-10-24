@@ -26,7 +26,7 @@ export ASYNTH_DATA_OUTPUT_FILEPATH="$ASYNTH_DATA_OUTPUT_PATH/$ASYNTH_DATA_OUTPUT
 
 export START_YEAR=${1:?ARG \#1 "IN_YEAR" not specified}
 export N_YEARS=${2:?ARG \#2 "N_YEARS" not specified}
-export BEAM_BAUS_ITER_FREQ=${3:?ARG \#3 "BEAM_BAUS_ITER_FREQ" not specified}
+export BEAM_ITER_FREQ=${3:?ARG \#3 "BEAM_ITER_FREQ" not specified}
 export BAUS_ITER_FREQ=${4:?ARG \#4 "BAUS_ITER_FREQ" not specified}
 export OUTPUT_FOLDER=${5:?ARG \#5 "OUTPUT_FOLDER" not specified}
 export BEAM_CONFIG=${6:?ARG \#6 "BEAM_CONFIG" not specified}
@@ -140,7 +140,7 @@ while ((START_YEAR < LAST_YEAR)); do
 	echoMilestone 1
 
 	# What is the end year of the BAUS run
-	((END_YEAR = START_YEAR + BEAM_BAUS_ITER_FREQ))
+	((END_YEAR = START_YEAR + BEAM_ITER_FREQ))
 
 	# Different steps get run if simulating from base-year data
 	if [[ $START_YEAR == ${1} ]]; then
@@ -246,7 +246,7 @@ while ((START_YEAR < LAST_YEAR)); do
 
   uploadDirectoryToS3 "$OUTPUT_DATA_PATH/$END_YEAR/urbansim" "$S3_OUTPUT_URL/$END_YEAR/urbansim" &
 
-	((START_YEAR = $START_YEAR + BEAM_BAUS_ITER_FREQ))
+	((START_YEAR = $START_YEAR + BEAM_ITER_FREQ))
 
 done
 
