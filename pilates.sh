@@ -59,7 +59,7 @@ echoMilestone(){
 
 uploadDirectoryToS3(){
   echoMilestone "uploadToS3" "COPYING OUTPUTS from local path $1 to s3 bucket $S3_DATA_REGION : $2"
-  aws --region $S3_DATA_REGION s3 cp $1 $2 --recursive
+  aws --region $S3_DATA_REGION s3 cp $1 $2 --recursive --quiet
   echoMilestone "uploadToS3"
 }
 
