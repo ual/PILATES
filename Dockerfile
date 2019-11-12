@@ -42,6 +42,7 @@ ENV SKIMS_BUCKET $SKIMS_BUCKET
 # update ubuntu stuff
 RUN apt-get update \
 	&& apt-get install -y build-essential zip unzip
+RUN conda install -c anaconda setuptools
 RUN conda update conda
 
 
@@ -56,7 +57,8 @@ RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_E
 	scikit-learn \
 	git \
 	pip \
-	boto
+	boto \
+	PyTables
 
 RUN cd $HOME && git clone https://github.com/ual/bayarea_urbansim.git \
 	&& cd $BAUS_PATH \
