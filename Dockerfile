@@ -5,11 +5,9 @@ ENV HOME /home/ubuntu
 # env vars
 ENV CONDA_DIR /opt/conda
 ENV PATH $CONDA_DIR/bin:$PATH
-ENV CONDA_ENV_BAUS_ORCA_1_4 BAUS_orca_1_4
-ENV CONDA_ENV_BAUS_ORCA_1_5 BAUS_orca_1_5
+ENV CONDA_ENV_BAUS baus
 ENV CONDA_ENV_ASYNTH activitysynth
-ENV PATH /opt/conda/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin:$PATH
-ENV PATH /opt/conda/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin:$PATH
+ENV PATH /opt/conda/envs/$CONDA_ENV_BAUS/bin:$PATH
 ENV PATH /opt/conda/envs/$CONDA_ENV_ASYNTH/bin:$PATH
 
 ENV PILATES_PATH $HOME/PILATES
@@ -45,31 +43,21 @@ RUN apt-get update \
 RUN conda update conda
 
 
-# BAUS Estimation Python Environment
-RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4 \
-	python=2.7 \
-	numpy=1.11.0 \
-	scipy \
-	pandas \
-	s3fs \
-	geopandas \
-	scikit-learn \
-	git \
-	pip \
-	boto
+# BAUS Python Environment
+RUN conda create --quiet --yes --channel conda-forge -p $CONDA_DIR/envs/$CONDA_ENV_BAUS
 
 RUN cd $HOME && git clone https://github.com/ual/bayarea_urbansim.git \
 	&& cd $BAUS_PATH \
-	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python -m pip install -r requirements.txt
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python -m pip install -r requirements_ual.txt
 
-RUN cd $HOME && git clone https://github.com/UDST/variable_generators.git \
-	&& cd variable_generators \
-	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python setup.py install
+# RUN cd $HOME && git clone https://github.com/UDST/variable_generators.git \
+# 	&& cd variable_generators \
+# 	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python setup.py install
 
 
-# BAUS Simulation Python Environment
-RUN conda create --quiet --yes -p $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5 --clone $CONDA_ENV_BAUS_ORCA_1_4
-RUN $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python -m pip install orca==1.5.1
+# # BAUS Simulation Python Environment
+# RUN conda create --quiet --yes -p $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5 --clone $CONDA_ENV_BAUS_ORCA_1_4
+# RUN $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python -m pip install orca==1.5.1
 
 
 # # # ActivitySynth Python Environment
