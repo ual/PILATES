@@ -5,8 +5,7 @@ set -e
 
 # define default values for env vars if not set
 export CONDA_DIR=${CONDA_DIR:-~/anaconda3}
-export CONDA_ENV_BAUS_ORCA_1_4=${CONDA_ENV_BAUS_ORCA_1_4:-baus}
-export CONDA_ENV_BAUS_ORCA_1_5=${CONDA_ENV_BAUS_ORCA_1_5:-baus_output}
+export CONDA_ENV_BAUS=${CONDA_ENV_BAUS:-baus}
 export CONDA_ENV_ASYNTH=${CONDA_ENV_ASYNTH:-activitysynth}
 
 export PILATES_PATH=${PILATES_PATH:-~/projects/PILATES}
@@ -53,7 +52,7 @@ if [[ $IN_YEAR == 2010 ]]; then
 	# Make in-year model data .h5 from base data
 	echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
 	cd $PILATES_PATH/scripts \
-	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS/bin/python make_model_data_hdf.py \
 	-m -b -i $BAUS_INPUT_BUCKET_PATH/base/base \
 	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
 	echo "########### DONE! ###########"
@@ -61,14 +60,14 @@ if [[ $IN_YEAR == 2010 ]]; then
 	# Run data pre-processing step
 	echo "########### PRE-PROCESSING BAUS DATA ###########"
 	cd $BAUS_PATH \
-	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS/bin/python baus.py -c \
 	--mode preprocessing
 	echo "########### DONE! ###########"
 
 	# Run bayarea_urbansim model estimation
 	echo "########### RUNNING URBANSIM ESTIMATION ###########"
 	cd $BAUS_PATH \
-	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python baus.py -c \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS/bin/python baus.py -c \
 	--mode estimation
 	echo "########### DONE! ###########"
 
@@ -77,7 +76,7 @@ else
 	# Make in-year model data .h5 from intermediate year data
 	echo "########### MAKING MODEL DATA HDF STORE FOR BAUS ###########"
 	cd $PILATES_PATH/scripts \
-	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python make_model_data_hdf.py \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS/bin/python make_model_data_hdf.py \
 	-m -i $BAUS_INPUT_BUCKET_PATH/$SCENARIO/$IN_YEAR \
 	-s $SKIMS_FILEPATH -o $BAUS_DATA_STORE_PATH
 	echo "########### DONE! ###########"
@@ -88,7 +87,7 @@ fi
 # Run bayarea_urbansim simulation
 echo "########### RUNNING URBANSIM SIMULATION $IN_YEAR to $OUT_YEAR ###########"
 cd $BAUS_PATH \
-&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_5/bin/python baus.py -c -o \
+&& $CONDA_DIR/envs/$CONDA_ENV_BAUS/bin/python baus.py -c -o \
 -y $IN_YEAR,$OUT_YEAR -n $BAUS_ITER_FREQ --mode simulation
 echo "########### DONE! ###########"
 
@@ -99,7 +98,7 @@ if [[ $IN_YEAR_OUTPUT == "on" ]]; then
 	# Write base year baus outputs to csv
 	echo "########### PROCESSING ACTIVITYSYNTH DATA FOR IN-YEAR ###########"
 	cd $PILATES_PATH/scripts \
-	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python \
+	&& $CONDA_DIR/envs/$CONDA_ENV_BAUS/bin/python \
 	make_csvs_from_output_store.py -y $IN_YEAR -d $BAUS_DATA_OUTPUT_FILEPATH \
 	-o $ASYNTH_DATA_PATH
 	echo "########### DONE! ###########"
@@ -126,7 +125,7 @@ fi
 # Write end year baus outputs to csv
 echo "########### PROCESSING ACTIVITYSYNTH DATA FOR END-YEAR ###########"
 cd $PILATES_PATH/scripts \
-&& $CONDA_DIR/envs/$CONDA_ENV_BAUS_ORCA_1_4/bin/python \
+&& $CONDA_DIR/envs/$CONDA_ENV_BAUS/bin/python \
 make_csvs_from_output_store.py -y $OUT_YEAR -d $BAUS_DATA_OUTPUT_FILEPATH \
 -o $ASYNTH_DATA_PATH
 echo "########### DONE! ###########"
