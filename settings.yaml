@@ -1,0 +1,45 @@
+# lu - land use (e.g. urbansim)
+# ad - activity demand (e.g. activitysim)
+# tm - travel model (e.g. BEAM)
+
+region: austin
+scenario: base
+start_year: 2010
+end_year: 2050
+lu_freq: 1
+tm_freq: 5
+
+lu_image: mxndrwgrdnr/usim_block_model
+ad_image: mxdnrwgrdnr/activitysim
+tm_image: beam/beam
+
+lu_bucket: austin-urbansim
+ad_bucket: austin-activitysim
+tm_bucket: austin-skims
+
+validation_metrics:
+  - commute_dists
+  - mode_shares
+  - auto_ownership
+  - density_gradients:
+    - rent:
+      - access:
+        - var: employment
+        - cost: minutes
+        - levels:
+          - 15
+          - 45
+    - jobs:
+      - access:
+        - var: employment
+        - cost: minutes
+        - levels:
+          - 15
+          - 45
+    - population:
+      - access:
+        - var: employment
+        - cost: minutes
+        - levels:
+          - 15
+          - 45
