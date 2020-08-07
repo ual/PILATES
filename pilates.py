@@ -48,7 +48,7 @@ if __name__ == '__main__':
         sim_year = year
 
         # run urbansim
-        docker.run(
+        client.containers.run(
             land_use_image,
             "-i {0} -o {1} -f {2} -b {3} -s {4}".format(
                 sim_year, sim_year + travel_model_freq,
@@ -58,15 +58,15 @@ if __name__ == '__main__':
 
         # run activitysim
         sim_year = sim_year + travel_model_freq
-        docker.run(
+        client.containers.run(
             activity_demand_image,
-            '-w=/activitysim/{0} -y {1} -s {2} -b {3}'.format(
-                asim_subdir, sim_year, scenario, asim_bucket))
+            command='-y {0} -s {1} -b {2} -w'.format(
+                sim_year, scenario, asim_bucket))
 
         # copy activitysim outputs to beam inputs
 
         # run beam
-        docker.run(
+        client.containers.run(
             travel_model_image,
             "-y {0}".format(sim_year))
 
