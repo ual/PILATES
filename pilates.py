@@ -25,7 +25,9 @@ if __name__ == '__main__':
     client = docker.from_env()
 
     # read config
-    configs = yaml.open('settings.yaml')
+    with open('settings.yaml') as file:
+        configs = yaml.load(file, Loader=yaml.FullLoader)
+
     land_use_image = configs['land_use_image']
     activity_demand_image = configs['activity_demand_image']
     travel_model_image = configs['travel_model_image']
@@ -46,28 +48,29 @@ if __name__ == '__main__':
     for year in range(start_year, end_year, travel_model_freq):
 
         sim_year = year
+        print(sim_year, sim_year + travel_model_freq)
 
-        # run urbansim
-        client.containers.run(
-            land_use_image,
-            "-i {0} -o {1} -f {2} -b {3} -s {4}".format(
-                sim_year, sim_year + travel_model_freq,
-                land_use_freq, usim_bucket, scenario))
+    #     # run urbansim
+    #     client.containers.run(
+    #         land_use_image,
+    #         "-i {0} -o {1} -f {2} -b {3} -s {4}".format(
+    #             sim_year, sim_year + travel_model_freq,
+    #             land_use_freq, usim_bucket, scenario))
 
-        # copy urbansim outputs to activitysim inputs
+    #     # copy urbansim outputs to activitysim inputs
 
-        # run activitysim
-        sim_year = sim_year + travel_model_freq
-        client.containers.run(
-            activity_demand_image,
-            command='-y {0} -s {1} -b {2} -w'.format(
-                sim_year, scenario, asim_bucket))
+    #     # run activitysim
+    #     sim_year = sim_year + travel_model_freq
+    #     client.containers.run(
+    #         activity_demand_image,
+    #         command='-y {0} -s {1} -b {2} -w'.format(
+    #             sim_year, scenario, asim_bucket))
 
-        # copy activitysim outputs to beam inputs
+    #     # copy activitysim outputs to beam inputs
 
-        # run beam
-        client.containers.run(
-            travel_model_image,
-            "-y {0}".format(sim_year))
+    #     # run beam
+    #     client.containers.run(
+    #         travel_model_image,
+    #         "-y {0}".format(sim_year))
 
-        # copy beam skims to urbansim inputs
+    #     # copy beam skims to urbansim inputs

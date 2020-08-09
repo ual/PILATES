@@ -1,21 +1,19 @@
-# lu - land use (e.g. urbansim)
-# ad - activity demand (e.g. activitysim)
-# tm - travel model (e.g. BEAM)
 
 region: austin
 scenario: base
 start_year: 2010
 end_year: 2050
-lu_freq: 1
-tm_freq: 5
+land_use_freq: 1
+activity_demand_freq: 5
+travel_model_freq: 5
 
-lu_image: mxndrwgrdnr/usim_block_model
-ad_image: mxdnrwgrdnr/activitysim
-tm_image: beam/beam
+land_use_image: mxndrwgrdnr/usim_block_model
+activity_demand_image: mxdnrwgrdnr/activitysim
+travel_model_image: beam/beam
 
-lu_bucket: austin-urbansim
-ad_bucket: austin-activitysim
-tm_bucket: austin-skims
+land_use_bucket: austin-urbansim
+activity_demand_bucket: austin-activitysim
+travel_model_bucket: austin-skims
 
 validation_metrics:
   - commute_dists
