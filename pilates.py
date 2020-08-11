@@ -48,6 +48,7 @@ if __name__ == '__main__':
     usim_bucket = region_to_usim_bucket[region]
     asim_bucket = region_to_asim_bucket[region]
     asim_subdir = region_to_asim_subdir[region]
+    asim_workdir = os.path.join('/activitysim', asim_subdir)
 
     start_year = configs['start_year']
     end_year = configs['end_year']
@@ -67,16 +68,18 @@ if __name__ == '__main__':
         # run urbansim
         # TO DO: FIX STDOUT PRINTING SO IT DOESN'T LOOK LIKE GARBAGE
         # TO DO: FIX PYPROJ ERRORS (prob use "conda run -n" as entrypoint)
-        usim = client.containers.run(
-            land_use_image,
-            command="-i {0} -o {1} -v {2} -b {3} --scenario {4} -u {5}".format(
-                year, forecast_year,
-                land_use_freq, usim_bucket, scenario, beam_skims_url),
-            stderr=True, detach=True, remove=True)
-        for log in usim.logs(stream=True, stderr=True, stdout=True):
-            print(log)
+        # usim = client.containers.run(
+        #     land_use_image,
+        #     command="-i {0} -o {1} -v {2} -b {3} --scenario {4} -u {5}".format(
+        #         year, forecast_year,
+        #         land_use_freq, usim_bucket, scenario, beam_skims_url),
+        #     stderr=True, detach=True, remove=True)
+        # for log in usim.logs(stream=True, stderr=True, stdout=True):
+        #     print(log)
 
         # copy urbansim outputs to activitysim inputs
+        print('Copying {0} {1} outputs to {2} input directory'.format(
+            forecast_year, land_use_image, activity_demand_image))
         formattable_data_path = os.path.join(
             '{0}', '{1}', '{2}', '{3}', 'model_data.h5')
         usim_data_path = formattable_data_path.format(
@@ -90,18 +93,21 @@ if __name__ == '__main__':
         # run activitysim
         print("Generating activity plans for the year {0}".format(
             forecast_year))
-        client.containers.run(
-            activity_demand_image,
-            command='-y {0} -s {1} -b {2} -w'.format(
-                forecast_year, scenario, asim_bucket))
+        asim = client.containers.run(
+            activity_demand_image, working_dir=asim_workdir,
+            command='-y {0} -s {1} -b {2} -u {3}'.format(
+                forecast_year, scenario, asim_bucket, beam_skims_url),
+            stderr=True, detach=True, remove=True)
+        for log in asim.logs(stream=True, stderr=True, stdout=True):
+            print(log)
 
         break
 
-    #     # copy activitysim outputs to beam inputs
+        # # copy activitysim outputs to beam inputs
 
-    #     # run beam
-    #     client.containers.run(
-    #         travel_model_image,
-    #         "-y {0}".format(sim_year))
+        # # run beam
+        # client.containers.run(
+        #     travel_model_image,
+        #     "-y {0}".format(sim_year))
 
-    #     # copy beam skims to urbansim inputs
+        # # copy beam skims to urbansim inputs
