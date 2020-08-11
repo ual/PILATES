@@ -1,5 +1,7 @@
 import yaml
 import docker
+import os
+import s3fs
 
 
 region_to_asim_subdir = {
@@ -50,7 +52,6 @@ if __name__ == '__main__':
     start_year = configs['start_year']
     end_year = configs['end_year']
     land_use_freq = configs['land_use_freq']
-    activity_demand_freq = configs['activity_demand_freq']
     travel_model_freq = configs['travel_model_freq']
     beam_skims_url = configs['beam_skims_url']
 
@@ -58,10 +59,10 @@ if __name__ == '__main__':
     client = docker.from_env()
     for year in range(start_year, end_year, travel_model_freq):
 
-        sim_year = year
+        forecast_year = year + travel_model_freq
         print(
             "Simulating land use development from {0} to {1} with {2}.".format(
-                sim_year, sim_year + travel_model_freq, land_use_image))
+                year, forecast_year, land_use_image))
 
         # run urbansim
         # TO DO: FIX STDOUT PRINTING SO IT DOESN'T LOOK LIKE GARBAGE
@@ -69,21 +70,32 @@ if __name__ == '__main__':
         usim = client.containers.run(
             land_use_image,
             command="-i {0} -o {1} -v {2} -b {3} --scenario {4} -u {5}".format(
-                sim_year, sim_year + travel_model_freq,
+                year, forecast_year,
                 land_use_freq, usim_bucket, scenario, beam_skims_url),
             stderr=True, detach=True, remove=True)
         for log in usim.logs(stream=True, stderr=True, stdout=True):
             print(log)
 
-        break
-    #     # copy urbansim outputs to activitysim inputs
+        # copy urbansim outputs to activitysim inputs
+        formattable_data_path = os.path.join(
+            '{0}', '{1}', '{2}', '{3}', 'model_data.h5')
+        usim_data_path = formattable_data_path.format(
+            usim_bucket, 'output', scenario, forecast_year)
+        asim_data_path = formattable_data_path.format(
+            asim_bucket, 'input', scenario, forecast_year)
+        s3fs.S3FileSystem.read_timeout = 84600
+        s3 = s3fs.S3FileSystem(config_kwargs={'read_timeout': 86400})
+        s3.cp(usim_data_path, asim_data_path)
 
-    #     # run activitysim
-    #     sim_year = sim_year + travel_model_freq
-    #     client.containers.run(
-    #         activity_demand_image,
-    #         command='-y {0} -s {1} -b {2} -w'.format(
-    #             sim_year, scenario, asim_bucket))
+        # run activitysim
+        print("Generating activity plans for the year {0}".format(
+            forecast_year))
+        client.containers.run(
+            activity_demand_image,
+            command='-y {0} -s {1} -b {2} -w'.format(
+                forecast_year, scenario, asim_bucket))
+
+        break
 
     #     # copy activitysim outputs to beam inputs
 

@@ -4,7 +4,6 @@ scenario: base
 start_year: 2010
 end_year: 2050
 land_use_freq: 1
-activity_demand_freq: 1
 travel_model_freq: 1
 beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/austin/austin-prod-200k-skims-with-h3-index-final__2020-04-18_09-44-24_wga/ITERS/it.0/0.skimsOD.UrbanSim.Full.csv.gz
 
