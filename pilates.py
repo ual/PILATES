@@ -1,6 +1,5 @@
 import yaml
 import docker
-import argparse
 
 
 region_to_asim_subdir = {
@@ -21,7 +20,14 @@ region_to_asim_bucket = {
     'sfbay': 'bayarea-activitysim'
 }
 
+region_to_skims_bucket = {
+    'austin': 'austin-skims',
+    'detroit': 'detroit-skims',
+    'sfbay': 'bayarea-skims'
+}
+
 if __name__ == '__main__':
+
     client = docker.from_env()
 
     # read config
@@ -44,18 +50,21 @@ if __name__ == '__main__':
     land_use_freq = configs['land_use_freq']
     activity_demand_freq = configs['activity_demand_freq']
     travel_model_freq = configs['travel_model_freq']
+    beam_skims_url = configs['beam_skims_url']
 
     for year in range(start_year, end_year, travel_model_freq):
 
         sim_year = year
         print(sim_year, sim_year + travel_model_freq)
 
-    #     # run urbansim
-    #     client.containers.run(
-    #         land_use_image,
-    #         "-i {0} -o {1} -f {2} -b {3} -s {4}".format(
-    #             sim_year, sim_year + travel_model_freq,
-    #             land_use_freq, usim_bucket, scenario))
+        # copy base year skims to urbansim data bucket
+
+        # run urbansim
+        client.containers.run(
+            land_use_image,
+            "-i {0} -o {1} -v {2} -b {3} --scenario {4} -u {5}".format(
+                sim_year, sim_year + travel_model_freq,
+                land_use_freq, usim_bucket, scenario, beam_skims_url))
 
     #     # copy urbansim outputs to activitysim inputs
 
