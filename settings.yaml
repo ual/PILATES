@@ -4,11 +4,11 @@ scenario: base
 start_year: 2010
 end_year: 2050
 land_use_freq: 1
-travel_model_freq: 1
+travel_model_freq: 2
 beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/austin/austin-prod-200k-skims-with-h3-index-final__2020-04-18_09-44-24_wga/ITERS/it.0/0.skimsOD.UrbanSim.Full.csv.gz
 
 land_use_image: mxndrwgrdnr/usim_block_model
-activity_demand_image: mxdnrwgrdnr/activitysim
+activity_demand_image: mxndrwgrdnr/activitysim
 travel_model_image: beam/beam
 
 land_use_bucket: austin-urbansim
