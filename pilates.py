@@ -20,6 +20,8 @@ region_to_asim_bucket = {
     'sfbay': 'bayarea-activitysim'
 }
 
+# TO DO: get usim and asim to read skims from bucket
+# with prefixes instead of URL
 region_to_skims_bucket = {
     'austin': 'austin-skims',
     'detroit': 'detroit-skims',
@@ -52,20 +54,28 @@ if __name__ == '__main__':
     travel_model_freq = configs['travel_model_freq']
     beam_skims_url = configs['beam_skims_url']
 
+    # make sure user that executes pilates.py can run docker without sudo
+    client = docker.from_env()
     for year in range(start_year, end_year, travel_model_freq):
 
         sim_year = year
-        print(sim_year, sim_year + travel_model_freq)
-
-        # copy base year skims to urbansim data bucket
+        print(
+            "Simulating land use development from {0} to {1} with {2}.".format(
+                sim_year, sim_year + travel_model_freq, land_use_image))
 
         # run urbansim
-        client.containers.run(
+        # TO DO: FIX STDOUT PRINTING SO IT DOESN'T LOOK LIKE GARBAGE
+        # TO DO: FIX PYPROJ ERRORS (prob use "conda run -n" as entrypoint)
+        usim = client.containers.run(
             land_use_image,
-            "-i {0} -o {1} -v {2} -b {3} --scenario {4} -u {5}".format(
+            command="-i {0} -o {1} -v {2} -b {3} --scenario {4} -u {5}".format(
                 sim_year, sim_year + travel_model_freq,
-                land_use_freq, usim_bucket, scenario, beam_skims_url))
+                land_use_freq, usim_bucket, scenario, beam_skims_url),
+            stderr=True, detach=True, remove=True)
+        for log in usim.logs(stream=True, stderr=True, stdout=True):
+            print(log)
 
+        break
     #     # copy urbansim outputs to activitysim inputs
 
     #     # run activitysim
