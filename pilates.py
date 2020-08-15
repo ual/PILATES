@@ -57,10 +57,10 @@ if __name__ == '__main__':
 
     # make sure user that executes pilates.py can run docker without sudo
     client = docker.from_env()
-    # for year in range(start_year, end_year, travel_model_freq):
-    for year in [start_year]:
+    for year in range(start_year, end_year, travel_model_freq):
 
         forecast_year = year + travel_model_freq
+
         print(
             "Simulating land use development from {0} to {1} with {2}.".format(
                 year, forecast_year, land_use_image))
@@ -87,20 +87,26 @@ if __name__ == '__main__':
             asim_bucket, 'input', scenario, forecast_year)
 
         print('Copying data from {0} to {1} input directory'.format(
-            asim_data_path, usim_data_path))
+            usim_data_path, asim_data_path))
 
         s3fs.S3FileSystem.read_timeout = 84600
         s3 = s3fs.S3FileSystem(config_kwargs={'read_timeout': 86400})
-        s3.cp(usim_data_path, asim_data_path)
+        try:
+            s3.cp(usim_data_path, asim_data_path)
+        except FileNotFoundError:
+            raise FileNotFoundError("Fuck.")
 
         # run activitysim
         print("Generating activity plans for the year {0} with {1}".format(
             forecast_year, activity_demand_image))
 
-        # only copy results to urbansim inputs if not base year. usually
-        # only the case for warm start or debugging.
+        # if generating activities for the base year, don't overwrite
+        # urbansim input data ("-w"). usually only the case for warm
+        # starts or debugging.
         if forecast_year == start_year:
             formattable_asim_cmd_str = '-y {0} -s {1} -b {2} -u {3}'
+
+        # otherwise use the "-w" flag to copy results to urbansim inputs
         else:
             formattable_asim_cmd_str = '-y {0} -s {1} -b {2} -u {3} -w'
 
@@ -111,10 +117,6 @@ if __name__ == '__main__':
             stdout=True, stderr=True, detach=True, remove=True)
         for log in asim.logs(stream=True, stderr=True, stdout=True):
             print(log)
-
-        break
-
-        # # copy activitysim outputs to beam inputs
 
         # # run beam
         # client.containers.run(
