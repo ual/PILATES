@@ -43,3 +43,10 @@ The Dockerfile defines three environment variables corresponding to the names of
 docker run -it -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY mxndrwgrdnr/pilates 2010 2040 5 base skims-baseline.csv.gz
 ```
 provided you have first defined these environment variables on your host machine.
+
+
+# TO DO:
+  [ ] delete old inputs before copying new ones so that if a process fails the next one won't use out-dated results.
+  [x] convert asim output to .h5 only, handle beam/usim output conversion solely in pilates
+  [ ] Fix stdout print so it doesn't look ugly
+  [ ] Fix pyproj errors in usim image
