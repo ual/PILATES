@@ -17,6 +17,8 @@ This repository is comprised primarily of the following:
 
 ## Running PILATES
 
+NOTE: use austin as the test region. detroit still has a couple bugs.
+
 ### Setting up your environment
 1. Make sure docker is running on your machine and that you've either pre-downloaded the required container images (specified in `settings.yaml`) or that you've signed into a valid docker account with dockerhub access.
 2. Make sure your Python environment has `docker-py`, `s3fs`, and `pyyaml` installed.
@@ -28,6 +30,7 @@ Simply run: `python pilates.py` with optional flags `-v` for verbose output and 
 
 # TO DO:
 
+- [ ] fix detroit -- currently failing in activitysim models.py line 1452 bc blocks table has no zone_id.
 - [ ] delete old inputs before copying new ones so that if a process fails the next one won't use out-dated results.
 - [x] convert asim output to .h5 only, handle beam/usim output conversion solely in pilates
 - [ ] Fix stdout print so it doesn't look ugly
