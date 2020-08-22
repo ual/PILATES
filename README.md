@@ -28,7 +28,7 @@ Simply run: `python pilates.py` with optional flags `-v` for verbose output and 
 
 # TO DO:
 
-   [ ] delete old inputs before copying new ones so that if a process fails the next one won't use out-dated results.
-   [x] convert asim output to .h5 only, handle beam/usim output conversion solely in pilates
-   [ ] Fix stdout print so it doesn't look ugly
-   [ ] Fix pyproj errors in usim image
+- [ ] delete old inputs before copying new ones so that if a process fails the next one won't use out-dated results.
+- [x] convert asim output to .h5 only, handle beam/usim output conversion solely in pilates
+- [ ] Fix stdout print so it doesn't look ugly
+- [ ] Fix pyproj errors in usim image
