@@ -1,4 +1,4 @@
-# PILATES
+# PILATES (v2)
 **P**latform for \
 **I**ntegrated \
 **L**anduse \
@@ -9,41 +9,22 @@
 
 PILATES is designed to facilitate the automated coordination of intra-simulation integration between UrbanSim, ActivitySynth, and a user-specified travel demand model.
 
-This repository is comprised of the following:
-1. **pilates.sh** -- a single executable bash script responisble for orchestrating the execution of all simulations and intermediate data-transformation scripts managing command-line arguments and environment variables
-2. Two intermediate data-transformation scripts located in the **scripts/** directory, responsible for packaging and unpackaging data inputs and outputs to meet the specifications required by individual simulation platforms utilized within PILATES.
-3. A **Dockerfile** containing the instructions used to build a PILATES container image. The easiest way to get PILATES running to just pull the image down from dockerhub (`docker pull mxndrwgrdnr/pilates`) but the Dockerfile allows you to build an image yourself (`docker build -t <name> .`) and make whatever changes you'd like at build-time.
+This repository is comprised primarily of the following:
+1. **pilates.py** -- a single executable bash script responisble for orchestrating the execution of all simulations and intermediate data-transformation scripts managing command-line arguments and environment variables
+2. **settings.yaml** -- a config file for managing and defining high-level system parameters (e.g. modeling region, data paths, simulation years, etc.)
 
 
 
-### Running PILATES
-Once the PILATES container image is installed you can run it by executing `docker run -it mxndrwgrdnr/pilates` + the following positional arguments:
-- `[start year]`, *required*, e.g. 2010, the first simulation year corresponding to the vintage of your input data.
-- `[end year]`, *required*, e.g. 2040, the final simulation year and **the year for which synthetic activity plans will be generated.**
-- `[intra-simulation frequency]`, *required*, e.g. 5, the interval (in simulation years) at which the simulation models are run, should be a whole number divisor of the simulation duration (end year - start year).
-- `[scenario]`, *required*, e.g. base, has no operational effect on simulations but helps specify the filepaths for reading inputs from and writing outputs to.
-- `[skims filename]`, *required*, e.g. skims-baseline.csv.gz, name of the compressed .csv containing travel model skims located on s3 in the designated skims bucket (see "Setting up AWS S3 accesss below").
-- `[in-year outputs on]`, *optional*, e.g. on, appending "on" as the optional 6th positional argument will cause PILATES to generate activity plans for the start year, which otherwise it would not. 
+## Running PILATES
 
+### Setting up your environment
+1. Make sure docker is running on your machine and that you've either pre-downloaded the required container images (specified in `settings.yaml`) or that you've signed into a valid docker account with dockerhub access.
+2. Make sure your Python environment has `docker-py`, `s3fs`, and `pyyaml` installed.
+3. Make sure you are running PILATES on an ec2 instance with read/write access to the s3 buckets specified in `settings.yaml`. These buckets must contain the base year input data, organized using filepath prefixes as specified in [line 33](https://github.com/ual/PILATES/blob/v2/pilates.py#L33) of `pilates.py`.
+   - NOTE: if your ec2 instance is associated with the same AWS organization as the s3 buckets this should work automatically. If not, you can simply sign into the right AWS account using the AWS CLI, and `s3fs` should be able to read the credentials from your session. If that still doesn't work, you can always pass the right AWS credentials to the s3fs client directly in the `pilates.py` script.
 
-### Example use cases
-Use 2010 input data to generate base scenario synthetic activity plans for the year 2040 using 5 year intervals:
-- `docker run -it mxndrwgrdnr/pilates 2010 2040 5 base skims-baseline.csv.gz`
-
-Use 2010 input data to generate hi-tech scenario synthetic activity plans for the year 2010 AND 2025 using 5 year intervals:
-- `docker run -it mxndrwgrdnr/pilates 2010 2025 5 base skims-baseline.csv.gz on`
-
-Use the 2025 output data to generate hi-tech scenario synthetic activity plans for the year 2040 using 5 year intervals:
-- `docker run -it mxndrwgrdnr/pilates 2025 2040 5 base skims-2025.csv.gz`
-
-
-### Setting up AWS S3 access
-The Dockerfile defines three environment variables corresponding to the names of three s3 buckets that PILATES will use for reading and writing data: `$BAUS_INPUT_BUCKET` (default: urbansim-inputs), `$BAUS_OUTPUT_BUCKET` (default: urbansim-outputs), and `$SKIMS_BUCKET` (default: urbansim-beam). The defaults can be replaced via build-arguments if building the image from the Dockerfile. Once built however, PILATES must have access to whichever buckets have been specified. The easiest way to ensure access is to deploy the PILATES image on an AWS EC2 instance created with an IAM role that has access to these buckets, which case the PILATES image will simply inherit the credentials of its host machine. If you are running PILATES locally, however, or for some reason the IAM-based inheritance doesn't work, you can simply pass your AWS credentials to the PILATES image as additional environment variables using the `-e` flag in `docker run` like so:
-```
-docker run -it -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY mxndrwgrdnr/pilates 2010 2040 5 base skims-baseline.csv.gz
-```
-provided you have first defined these environment variables on your host machine.
-
+### Executing the full workflow
+Simply run: `python pilates.py` with optional flags `-v` for verbose output and `-p` to 
 
 # TO DO:
   [ ] delete old inputs before copying new ones so that if a process fails the next one won't use out-dated results.
