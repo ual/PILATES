@@ -24,10 +24,11 @@ This repository is comprised primarily of the following:
    - NOTE: if your ec2 instance is associated with the same AWS organization as the s3 buckets this should work automatically. If not, you can simply sign into the right AWS account using the AWS CLI, and `s3fs` should be able to read the credentials from your session. If that still doesn't work, you can always pass the right AWS credentials to the s3fs client directly in the `pilates.py` script.
 
 ### Executing the full workflow
-Simply run: `python pilates.py` with optional flags `-v` for verbose output and `-p` to 
+Simply run: `python pilates.py` with optional flags `-v` for verbose output and `-p` to force docker to pull the latest versions of all specified images.
 
 # TO DO:
-  [ ] delete old inputs before copying new ones so that if a process fails the next one won't use out-dated results.
-  [x] convert asim output to .h5 only, handle beam/usim output conversion solely in pilates
-  [ ] Fix stdout print so it doesn't look ugly
-  [ ] Fix pyproj errors in usim image
+
+   [ ] delete old inputs before copying new ones so that if a process fails the next one won't use out-dated results.
+   [x] convert asim output to .h5 only, handle beam/usim output conversion solely in pilates
+   [ ] Fix stdout print so it doesn't look ugly
+   [ ] Fix pyproj errors in usim image
