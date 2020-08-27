@@ -1,4 +1,4 @@
-FROM beammodel/beam:0.8.5
+FROM beammodel/beam:0.8.6
 
 ENV HOME /home/ubuntu
 
