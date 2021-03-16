@@ -1,4 +1,5 @@
 # PILATES SETTINGS
+all_local: True
 region: sfbay
 scenario: base
 start_year: 2010
@@ -17,8 +18,8 @@ travel_model_image: beammodel/beam:0.8.6.2
 # beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/sfbay/sfbay-smartbaseline-full-TAZ-activitySimSkims-allTimePeriods-byR5-fixed__2021-02-20_11-57-40_dnv/ITERS/it.10/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 path_to_beam_skims: pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 beam_local_config: beam.conf
-beam_local_input_folder_name: test
-beam_local_output_folder_name: beam_output
+beam_local_input_folder: pilates/beam/test/
+beam_local_output_folder: pilates/beam/beam_output/
 region_to_beam_subdir:
   example: beamville 
   sfbay: sf-light 
@@ -32,6 +33,8 @@ region_to_usim_bucket:
 
 # ACTIVITYSIM SETTINGS
 activity_demand_image: mxndrwgrdnr/activitysim
+asim_local_input_folder: pilates/activitysim/data/
+asim_local_output_folder: pilates/activitysim/output/
 region_to_asim_subdir:
   austin: austin_mp 
   detroit: detroit 

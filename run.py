@@ -40,8 +40,8 @@ if __name__ == '__main__':
     household_sample_size = configs['household_sample_size']
     path_to_beam_skims = configs['path_to_beam_skims']
     beam_local_config = configs['beam_local_config']
-    beam_local_input_folder_name = configs['beam_local_input_folder_name']
-    beam_local_output_folder_name = configs['beam_local_output_folder_name']
+    beam_local_input_folder = configs['beam_local_input_folder']
+    beam_local_output_folder = configs['beam_local_output_folder']
     usim_bucket = configs['region_to_usim_bucket'][region]
     asim_bucket = configs['region_to_asim_bucket'][region]
     asim_subdir = configs['region_to_asim_subdir'][region]
@@ -82,9 +82,8 @@ if __name__ == '__main__':
 
     for year in range(start_year, end_year, travel_model_freq):
 
-        forecast_year = year + travel_model_freq
-
         if land_use_freq > 0:
+            forecast_year = year + travel_model_freq
             print_str = (
                 "Simulating land use development from {0} "
                 "to {1} with {2}.".format(year, forecast_year, land_use_image))
@@ -122,29 +121,40 @@ if __name__ == '__main__':
                     usim_data_path, asim_data_path)
                 formatted_print(print_str)
                 s3.cp(usim_data_path, asim_data_path)
+        else:
+            forecast_year = year
 
         # 3. PREPROCESS DATA FOR ACTIVITYSIM
         asim_data_dir = os.path.join('pilates', 'activitysim', 'data')
 
         # parse skims
-        if not os.path.exists(os.path.join(asim_data_dir, "skims.omx")):
-            create_skims_from_beam(asim_data_dir, configs)
+        if configs['all_local']:
+            if not os.path.exists(os.path.join(asim_data_dir, "skims.omx")):
+                create_skims_from_beam(asim_data_dir, configs)
 
-        # # 3. RUN ACTIVITYSIM
-        # print_str = (
-        #     "Generating activity plans for the year "
-        #     "{0} with {1}".format(
-        #         forecast_year, activity_demand_image))
-        # formatted_print(print_str)
-        # formattable_asim_cmd = '-y {0} -s {1} -b {2} -u {3} -h {4} -w'
-        # asim = client.containers.run(
-        #     activity_demand_image, working_dir=asim_workdir,
-        #     command=formattable_asim_cmd.format(
-        #         forecast_year, scenario, asim_bucket, path_to_beam_skims,
-        #         household_sample_size),
-        #     stdout=docker_stdout, stderr=True, detach=True, remove=True)
-        # for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
-        #     print(log)
+        # 3. RUN ACTIVITYSIM
+        print_str = (
+            "Generating activity plans for the year "
+            "{0} with {1}".format(
+                forecast_year, activity_demand_image))
+        formatted_print(print_str)
+        formattable_asim_cmd = '-y {0} -s {1} -b {2} -u {3} -h {4} -w'
+        asim = client.containers.run(
+            activity_demand_image, working_dir=asim_workdir,
+            volumes={
+                os.path.abspath(configs['asim_local_input_folder']): {
+                    'bind': os.path.join(asim_workdir, 'data'),
+                    'mode': 'rw'},
+                # os.path.abspath(configs['asim_local_output_folder']): {
+                #     'bind': os.path.join(asim_workdir, 'data'),
+                #     'mode': 'rw'}
+            },
+            command=formattable_asim_cmd.format(
+                forecast_year, scenario, asim_bucket, path_to_beam_skims,
+                household_sample_size),
+            stdout=docker_stdout, stderr=True, detach=True, remove=True)
+        for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
+            print(log)
 
         # asim_beam_data_path = formattable_s3_path.format(
         #     bucket=asim_bucket, io='output', scenario=scenario,
@@ -189,19 +199,19 @@ if __name__ == '__main__':
         #         s3.cp(asim_data_path, usim_data_path)
 
         # # run beam
-        # if not os.path.exists(beam_local_output_folder_name):
-        #     os.mkdir(beam_local_output_folder_name)
+        # if not os.path.exists(beam_local_output_folder):
+        #     os.mkdir(beam_local_output_folder
 
         # path_to_beam_config = os.path.join(
-        #     beam_local_input_folder_name, "input", beam_subdir,
+        #     beam_local_input_folder, "input", beam_subdir,
         #     beam_local_config)
         # client.containers.run(
         #     travel_model_image,
         #     volumes={
-        #         beam_local_input_folder_name: {
-        #             'bind': '/app/{0}'.format(beam_local_input_folder_name),
+        #         beam_local_input_folder: {
+        #             'bind': '/app/{0}'.format(beam_local_input_folder),
         #             'mode': 'rw'},
-        #         beam_local_output_folder_name: {
+        #         beam_local_output_folder: {
         #             'bind': '/app/output',
         #             'mode': 'rw'}},
         #     command="--config={0}".format(path_to_beam_config),
@@ -209,3 +219,4 @@ if __name__ == '__main__':
         # )
 
         # # copy beam skims to ???
+        break
