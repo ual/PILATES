@@ -33,7 +33,7 @@ If the right input data is stored in `pilates/activitysim/data`, the ActivitySim
 2. **skims.omx** - the input skims file. This file can be generated directly from BEAM output skims using the `pilates/activitysim/preprocessor.py` module.
 After the simulation completes two output files will be generated, **asim_outputs.zip** and **model_data.h5**, for use by BEAM and UrbanSim, respectively.
 
-### 3. Executing the full workflow
+## 3. Executing the full workflow
 ```
 usage: run.py [-v] [-p] [-h HOUSEHOLD_SAMPLE_SIZE]
 
