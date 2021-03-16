@@ -24,14 +24,15 @@ This repository is comprised primarily of the following:
 ## 2. I/O
 
 ### S3
-PILATES is designed to read/write on AWS S3 unless otherwise specified. This means you must PILATES on a machine with read/write access to the s3 buckets specified in `settings.yaml`. These buckets have to contain the base year input data, organized according to the filepath prefixes as specified in [line 73](https://github.com/ual/PILATES/blob/v2/run.py#L73) of `run.py`.
+PILATES is designed to read/write on AWS S3 unless otherwise specified. This means you must run PILATES on a machine with read/write access to the s3 buckets specified in `settings.yaml`. These buckets have to contain the base year input data, organized according to the filepath prefixes as specified in [line 73](https://github.com/ual/PILATES/blob/v2/run.py#L73) of `run.py`.
    - NOTE: PILATES uses the `s3fs` library to interact with AWS S3. See the [docs](https://s3fs.readthedocs.io/en/latest/#credentials) for more details about how PILATES expects `s3fs` to automatically load your AWS credentials.
 
 ### local [WORK IN PROGRESS]
 If the right input data is stored in `pilates/activitysim/data`, the ActivitySim container will know to use the local copies rather than downloading from S3 on-the-fly when the local directory is mounted by docker. The local directory needs to have two files in it in order to avoid calling S3:
 1. **model_data.h5** - an UrbanSim-formatted HDF5 datastore
 2. **skims.omx** - the input skims file. This file can be generated directly from BEAM output skims using the `pilates/activitysim/preprocessor.py` module.
-After the simulation completes two output files will be generated, **asim_outputs.zip** and **model_data.h5**, for use by BEAM and UrbanSim, respectively.
+
+After the ActivitySim completes, two output files will be generated in `pilates/activitysim/output/`, **asim_outputs.zip** and **model_data.h5**, for use by BEAM and UrbanSim, respectively.
 
 ## 3. Executing the full workflow
 ```
