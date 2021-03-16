@@ -76,40 +76,44 @@ if __name__ == '__main__':
 
         forecast_year = year + travel_model_freq
 
-        print_str = (
-            "Simulating land use development from {0} "
-            "to {1} with {2}.".format(year, forecast_year, land_use_image))
-        formatted_print(print_str)
-
-        # 1. RUN URBANSIM
-        formattable_usim_cmd = (
-            '-y {0} -o {1} -v {2} -b {3} --scenario {4} -u {5} -w')
-        usim_cmd = formattable_usim_cmd.format(
-            year, forecast_year, land_use_freq, usim_bucket,
-            scenario, beam_skims_url)
-        usim = client.containers.run(
-            land_use_image,
-            command=usim_cmd, stdout=docker_stdout,
-            stderr=True, detach=True, remove=True)
-        for log in usim.logs(stream=True, stderr=True, stdout=docker_stdout):
-            print(log)
-
-        # 2. COPY URBANSIM OUTPUT --> ACTIVITYSIM INPUT
-        usim_data_path = formattable_s3_path.format(
-            bucket=usim_bucket, io='output', scenario=scenario,
-            year=forecast_year, fname='model_data.h5')
-        asim_data_path = formattable_s3_path.format(
-            bucket=asim_bucket, io='input', scenario=scenario,
-            year=forecast_year, fname='model_data.h5')
-
-        if not s3.exists(usim_data_path):
-            raise FileNotFoundError(
-                "{0} failed to generate output data.".format(land_use_image))
-        else:
-            print_str = 'Copying data from {0} to {1} input directory'.format(
-                usim_data_path, asim_data_path)
+        if land_use_freq > 0:
+            print_str = (
+                "Simulating land use development from {0} "
+                "to {1} with {2}.".format(year, forecast_year, land_use_image))
             formatted_print(print_str)
-            s3.cp(usim_data_path, asim_data_path)
+
+            # 1. RUN URBANSIM
+            formattable_usim_cmd = (
+                '-y {0} -o {1} -v {2} -b {3} --scenario {4} -u {5} -w')
+            usim_cmd = formattable_usim_cmd.format(
+                year, forecast_year, land_use_freq, usim_bucket,
+                scenario, beam_skims_url)
+            usim = client.containers.run(
+                land_use_image,
+                command=usim_cmd, stdout=docker_stdout,
+                stderr=True, detach=True, remove=True)
+            for log in usim.logs(
+                    stream=True, stderr=True, stdout=docker_stdout):
+                print(log)
+
+            # 2. COPY URBANSIM OUTPUT --> ACTIVITYSIM INPUT
+            usim_data_path = formattable_s3_path.format(
+                bucket=usim_bucket, io='output', scenario=scenario,
+                year=forecast_year, fname='model_data.h5')
+            asim_data_path = formattable_s3_path.format(
+                bucket=asim_bucket, io='input', scenario=scenario,
+                year=forecast_year, fname='model_data.h5')
+
+            if not s3.exists(usim_data_path):
+                raise FileNotFoundError(
+                    "{0} failed to generate output data.".format(
+                        land_use_image))
+            else:
+                print_str = (
+                    'Copying data from {0} to {1} input directory').format(
+                    usim_data_path, asim_data_path)
+                formatted_print(print_str)
+                s3.cp(usim_data_path, asim_data_path)
 
         # 3. RUN ACTIVITYSIM
         print_str = (
