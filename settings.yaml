@@ -19,26 +19,26 @@ beam_local_config: beam.conf
 beam_local_input_folder_name: test
 beam_local_output_folder_name: beam_output
 region_to_beam_subdir:
-  - example: beamville 
-  - sfbay: sf-light 
+  example: beamville 
+  sfbay: sf-light 
 
 # URBANSIM SETTINGS
 land_use_image: mxndrwgrdnr/usim_block_model
 region_to_usim_bucket:
-  - austin: austin-urbansim
-  - detroit: detroit-urbansim
-  - sfbay: bayarea-urbansim
+  austin: austin-urbansim
+  detroit: detroit-urbansim
+  sfbay: bayarea-urbansim
 
 # ACTIVITYSIM SETTINGS
 activity_demand_image: mxndrwgrdnr/activitysim
 region_to_asim_subdir:
-  - austin: austin_mp 
-  - detroit: detroit 
-  - sfbay: bay_area
+  austin: austin_mp 
+  detroit: detroit 
+  sfbay: bay_area
 region_to_asim_bucket:
-  - austin: austin-activitysim
-  - detroit: detroit-activitysim
-  - sfbay: bayarea-activitysim
+  austin: austin-activitysim
+  detroit: detroit-activitysim
+  sfbay: bayarea-activitysim
 periods:
   - EA
   - AM
@@ -70,55 +70,55 @@ hwy_paths:
   - HOV3
   - HOV3TOLL
 beam_asim_hwy_measure_map:
-  - TIME: TIME_minutes
-  - DIST: DIST_miles
-  - BTOLL: null
-  - VTOLL: VTOLL_FAR
+  TIME: TIME_minutes
+  DIST: DIST_miles
+  BTOLL: null
+  VTOLL: VTOLL_FAR
 beam_asim_transit_measure_map:
-  - WAIT: null
-  - TOTIVT: TOTIVT_IVT_minutes
-  - KEYIVT: KEYIVT_minutes
-  - FERRYIVT: FERRYIVT_minutes
-  - FAR: VTOLL_FAR
-  - DTIM: DTIM_minutes
-  - DDIST: DDIST_miles
-  - WAUX: WAUX_minutes
-  - WEGR: WEGR_minutes
-  - WACC: WACC_minutes
-  - IWAIT: null
-  - XWAIT: null
-  - BOARDS: BOARDS
-  - IVT: TOTIVT_IVT_minutes
+  WAIT: null
+  TOTIVT: TOTIVT_IVT_minutes
+  KEYIVT: KEYIVT_minutes
+  FERRYIVT: FERRYIVT_minutes
+  FAR: VTOLL_FAR
+  DTIM: DTIM_minutes
+  DDIST: DDIST_miles
+  WAUX: WAUX_minutes
+  WEGR: WEGR_minutes
+  WACC: WACC_minutes
+  IWAIT: null
+  XWAIT: null
+  BOARDS: BOARDS
+  IVT: TOTIVT_IVT_minutes
 
 
 
 validation_metrics:
-  - growth:
+  growth:
     - population
     - employment
     - residential_units
-  - commute_dists
-  - mode_shares
-  - auto_ownership
-  - density_gradients:
-    - rent:
-      - access:
-        - var: employment
-        - cost: minutes
-        - levels:
+  commute_dists:
+  mode_shares:
+  auto_ownership:
+  density_gradients:
+    rent:
+      access:
+        var: employment
+        cost: minutes
+        levels:
           - 15
           - 45
-    - jobs:
-      - access:
-        - var: employment
-        - cost: minutes
-        - levels:
+    jobs:
+      access:
+        var: employment
+        cost: minutes
+        levels:
           - 15
           - 45
-    - population:
-      - access:
-        - var: employment
-        - cost: minutes
-        - levels:
+    population:
+      access:
+        var: employment
+        cost: minutes
+        levels:
           - 15
           - 45
