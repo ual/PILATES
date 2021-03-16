@@ -21,7 +21,7 @@ This repository is comprised primarily of the following:
 2. Change other relevant parameters in `settings.yaml` (probably only [L2-10](https://github.com/ual/PILATES/blob/v2/settings.yaml#L2-L10))
 3. Make sure your Python environment has `docker-py`, `s3fs`, and `pyyaml` installed.
 
-## 2. I/O
+### 2. I/O
 
 #### S3
 PILATES is designed to read/write on AWS S3 unless otherwise specified. This means you must PILATES on a machine with read/write access to the s3 buckets specified in `settings.yaml`. These buckets have to contain the base year input data, organized according to the filepath prefixes as specified in [line 73](https://github.com/ual/PILATES/blob/v2/run.py#L73) of `run.py`.
@@ -33,7 +33,7 @@ If the right input data is stored in `pilates/activitysim/data`, the ActivitySim
 2. **skims.omx** - the input skims file. This file can be generated directly from BEAM output skims using the `pilates/activitysim/preprocessor.py` module.
 After the simulation completes two output files will be generated, **asim_outputs.zip** and **model_data.h5**, for use by BEAM and UrbanSim, respectively.
 
-## 3. Executing the full workflow
+### 3. Executing the full workflow
 ```
 usage: run.py [-v] [-p] [-h HOUSEHOLD_SAMPLE_SIZE]
 
