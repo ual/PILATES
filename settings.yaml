@@ -1,19 +1,96 @@
-
-region: austin
+# PILATES SETTINGS
+region: sfbay
 scenario: base
 start_year: 2010
 end_year: 2050
-land_use_freq: 1
+land_use_freq: 0  # zero turns off land use models completely
 travel_model_freq: 5
-beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/austin/austin-prod-200k-skims-with-h3-index-final__2020-04-18_09-44-24_wga/ITERS/it.0/0.skimsOD.UrbanSim.Full.csv.gz
+household_sample_size: 0  # zero means no sampling, whole pop.
+docker_stdout: False
+pull_latest: False
 
+
+# BEAM SETTINGS
+travel_model_image: beammodel/beam:0.8.6.2
+# beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/austin/austin-prod-200k-skims-with-h3-index-final__2020-04-18_09-44-24_wga/ITERS/it.0/0.skimsOD.UrbanSim.Full.csv.gz
+# beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/detroit/detroit-200k__2020-05-29_22-09-51_mgd/ITERS/it.10/10.skimsOD.UrbanSim.Full.csv.gz
+beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/sfbay/sfbay-smartbaseline-full-TAZ-activitySimSkims-allTimePeriods-byR5-fixed__2021-02-20_11-57-40_dnv/ITERS/it.10/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+beam_local_config: beam.conf
+beam_local_input_folder_name: test
+beam_local_output_folder_name: beam_output
+region_to_beam_subdir:
+  - example: beamville 
+  - sfbay: sf-light 
+
+# URBANSIM SETTINGS
 land_use_image: mxndrwgrdnr/usim_block_model
-activity_demand_image: mxndrwgrdnr/activitysim
-travel_model_image: beam/beam
+region_to_usim_bucket:
+  - austin: austin-urbansim
+  - detroit: detroit-urbansim
+  - sfbay: bayarea-urbansim
 
-land_use_bucket: austin-urbansim
-activity_demand_bucket: austin-activitysim
-travel_model_bucket: austin-skims
+# ACTIVITYSIM SETTINGS
+activity_demand_image: mxndrwgrdnr/activitysim
+region_to_asim_subdir:
+  - austin: austin_mp 
+  - detroit: detroit 
+  - sfbay: bay_area
+region_to_asim_bucket:
+  - austin: austin-activitysim
+  - detroit: detroit-activitysim
+  - sfbay: bayarea-activitysim
+periods:
+  - EA
+  - AM
+  - MD
+  - PM
+  - EV
+transit_paths:
+  - DRV_COM_WLK
+  - DRV_HVY_WLK
+  - DRV_LOC_WLK
+  - DRV_LRF_WLK
+  - DRV_EXP_WLK
+  - WLK_COM_DRV   
+  - WLK_HVY_DRV
+  - WLK_LOC_DRV
+  - WLK_LRF_DRV
+  - WLK_EXP_DRV
+  - WLK_COM_WLK
+  - WLK_HVY_WLK
+  - WLK_LOC_WLK
+  - WLK_LRF_WLK
+  - WLK_EXP_WLK
+  - WLK_TRN_WLK
+hwy_paths:
+  - SOV
+  - SOVTOLL
+  - HOV2
+  - HOV2TOLL
+  - HOV3
+  - HOV3TOLL
+beam_asim_hwy_measure_map:
+  - TIME: TIME_minutes
+  - DIST: DIST_miles
+  - BTOLL: null
+  - VTOLL: VTOLL_FAR
+beam_asim_transit_measure_map:
+  - WAIT: null
+  - TOTIVT: TOTIVT_IVT_minutes
+  - KEYIVT: KEYIVT_minutes
+  - FERRYIVT: FERRYIVT_minutes
+  - FAR: VTOLL_FAR
+  - DTIM: DTIM_minutes
+  - DDIST: DDIST_miles
+  - WAUX: WAUX_minutes
+  - WEGR: WEGR_minutes
+  - WACC: WACC_minutes
+  - IWAIT: null
+  - XWAIT: null
+  - BOARDS: BOARDS
+  - IVT: TOTIVT_IVT_minutes
+
+
 
 validation_metrics:
   - growth:
