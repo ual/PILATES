@@ -12,7 +12,7 @@ PILATES is designed to facilitate the automated coordination of intra-simulation
 This repository is comprised primarily of the following:
 1. **run.py** -- an executable python script responisble for orchestrating the execution of all simulations and intermediate data-transformation scripts managing command-line arguments and environment variables
 2. **settings.yaml** -- a config file for managing and defining high-level system parameters (e.g. modeling region, data paths, simulation years, etc.)
-3. **pre-/post-processors** -- [WORK IN PROGRESS] these are python modules located in the `pilates/` directory responsible for transforming, archiving, and handing off the input/output data for each of the three major system components.
+3. **container dirs** -- [WORK IN PROGRESS] The subdirectories of `pilates/` contain container-specific file structures (for mounting) and Python modules responsible for transforming, archiving, and handing off the input/output data for each of the three major system components.
 
 
 ## Running PILATES
