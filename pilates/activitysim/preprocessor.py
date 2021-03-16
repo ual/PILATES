@@ -29,27 +29,23 @@ beam_skims_types = {'timePeriod': str,
 
 def _load_raw_beam_skims(settings):
 
-    if settings.get('beam_skims_url', False):
-        beam_skims_url = settings.get('beam_skims_url')
+    path_to_beam_skims = settings.get('path_to_beam_skims', False)
+
+    if not path_to_beam_skims:
+        logger.info("No remote path to BEAM skims specified at runtime.")
+        return
     else:
         try:
-            beam_skims_url = settings['beam_skims_url']
-            logger.info(
-                "No remote path to BEAM skims specified at runtime. "
-                "Trying default URL: {0}".format(beam_skims_url))
+            # load skims from disk or url
+            skims = pd.read_csv(path_to_beam_skims, dtype=beam_skims_types)
         except KeyError:
             raise KeyError(
-                "Couldn't find skims at the default URL either. See "
-                "simulation.py --help or configs/settings.yaml "
-                "for more ideas.")
-
-    # load skims from url
-    skims = pd.read_csv(beam_skims_url, dtype=beam_skims_types)
+                "Couldn't find input skims at {0}".format(path_to_beam_skims))
 
     return skims
 
 
-def create_skim_object(data_dir):
+def _create_skim_object(data_dir):
     skims_path = os.path.join(data_dir, 'skims.omx')
     skims_exist = os.path.exists(skims_path)
 
@@ -64,7 +60,7 @@ def create_skim_object(data_dir):
         return True
 
 
-def create_skims_by_mode(settings):
+def _create_skims_by_mode(settings):
     """
     Returns 2 OD pandas dataframe for auto and transit
     """
@@ -93,7 +89,7 @@ def create_skims_by_mode(settings):
     return auto_df, transit_df, num_taz
 
 
-def distance_skims(settings, auto_df, data_dir, num_taz):
+def _distance_skims(settings, auto_df, data_dir, num_taz):
 
     # Open skims object
     skims_path = os.path.join(data_dir, 'skims.omx')
@@ -122,15 +118,15 @@ def distance_skims(settings, auto_df, data_dir, num_taz):
     skims.close()
 
 
-def transit_access(transit_df, access_paths, num_taz):
+def _transit_access(transit_df, access_paths, num_taz):
     ''' OD pair value for drive access '''
-    df = transit_df[transit_df.pathType.isin(access_paths)]
+    df = transit_df.loc[transit_df.pathType.isin(access_paths), :]
     df.drop_duplicates(['origin', 'destination'], keep='last', inplace=True)
     assert df.shape[0] == num_taz * num_taz
     return df
 
 
-def transit_skims(settings, transit_df, data_dir, num_taz):
+def _transit_skims(settings, transit_df, data_dir, num_taz):
     """ Generate transit OMX skims"""
     logger.info("Creating transit skims.")
     # Open skims object
@@ -142,8 +138,8 @@ def transit_skims(settings, transit_df, data_dir, num_taz):
     walk_acces = ['WLK_COM_WLK', 'WLK_HVY_WLK', 'WLK_LOC_WLK',
                   'WLK_LRF_WLK', 'WLK_EXP_WLK', 'WLK_TRN_WLK']
 
-    drive_access_values = transit_access(transit_df, drive_access, num_taz)
-    walk_access_values = transit_access(transit_df, walk_acces, num_taz)
+    drive_access_values = _transit_access(transit_df, drive_access, num_taz)
+    walk_access_values = _transit_access(transit_df, walk_acces, num_taz)
 
     for path in settings['transit_paths']:
 
@@ -179,7 +175,7 @@ def transit_skims(settings, transit_df, data_dir, num_taz):
     skims.close()
 
 
-def auto_skims(settings, auto_df, data_dir, num_taz):
+def _auto_skims(settings, auto_df, data_dir, num_taz):
     logger.info("Creating drive skims.")
     # Open skims object
     skims_path = os.path.join(data_dir, 'skims.omx')
@@ -202,7 +198,7 @@ def auto_skims(settings, auto_df, data_dir, num_taz):
     skims.close()
 
 
-def create_offset(auto_df, data_dir):
+def _create_offset(auto_df, data_dir):
     logger.info("Creating skims offset keys")
 
     # Open skims object
@@ -217,14 +213,14 @@ def create_offset(auto_df, data_dir):
 
 def create_skims_from_beam(data_dir, settings):
 
-    new = create_skim_object(data_dir)
+    new = _create_skim_object(data_dir)
     if new:
-        auto_df, transit_df, num_taz = create_skims_by_mode(settings)
+        auto_df, transit_df, num_taz = _create_skims_by_mode(settings)
 
         # Create skims
-        distance_skims(settings, auto_df, data_dir, num_taz)
-        auto_skims(settings, auto_df, data_dir, num_taz)
-        transit_skims(settings, transit_df, data_dir, num_taz)
+        _distance_skims(settings, auto_df, data_dir, num_taz)
+        _auto_skims(settings, auto_df, data_dir, num_taz)
+        _transit_skims(settings, transit_df, data_dir, num_taz)
 
         # Create offset
-        create_offset(auto_df, data_dir)
+        _create_offset(auto_df, data_dir)

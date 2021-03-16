@@ -14,7 +14,8 @@ pull_latest: False
 travel_model_image: beammodel/beam:0.8.6.2
 # beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/austin/austin-prod-200k-skims-with-h3-index-final__2020-04-18_09-44-24_wga/ITERS/it.0/0.skimsOD.UrbanSim.Full.csv.gz
 # beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/detroit/detroit-200k__2020-05-29_22-09-51_mgd/ITERS/it.10/10.skimsOD.UrbanSim.Full.csv.gz
-beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/sfbay/sfbay-smartbaseline-full-TAZ-activitySimSkims-allTimePeriods-byR5-fixed__2021-02-20_11-57-40_dnv/ITERS/it.10/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+# beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/sfbay/sfbay-smartbaseline-full-TAZ-activitySimSkims-allTimePeriods-byR5-fixed__2021-02-20_11-57-40_dnv/ITERS/it.10/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+path_to_beam_skims: pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 beam_local_config: beam.conf
 beam_local_input_folder_name: test
 beam_local_output_folder_name: beam_output
