@@ -7,31 +7,37 @@
 **E**xperiments and \
 **S**imulation
 
-PILATES is designed to facilitate the automated coordination of intra-simulation integration between UrbanSim, ActivitySynth, and a user-specified travel demand model.
+PILATES is designed to facilitate the automated coordination of intra-simulation integration between UrbanSim, ActivitySim, and a user-specified travel demand model.
 
 This repository is comprised primarily of the following:
-1. **pilates.py** -- a single executable bash script responisble for orchestrating the execution of all simulations and intermediate data-transformation scripts managing command-line arguments and environment variables
+1. **run.py** -- an executable python script responisble for orchestrating the execution of all simulations and intermediate data-transformation scripts managing command-line arguments and environment variables
 2. **settings.yaml** -- a config file for managing and defining high-level system parameters (e.g. modeling region, data paths, simulation years, etc.)
-
+3. **pre-/post-processors** -- [WORK IN PROGRESS] these are python modules located in the `pilates/` directory responsible for transforming, archiving, and handing off the input/output data for each of the three major system components.
 
 
 ## Running PILATES
 
-NOTE: use austin as the test region. detroit still has a couple bugs.
-
 ### Setting up your environment
 1. Make sure docker is running on your machine and that you've either pre-downloaded the required container images (specified in `settings.yaml`) or that you've signed into a valid docker account with dockerhub access.
-2. Make sure your Python environment has `docker-py`, `s3fs`, and `pyyaml` installed.
-3. Make sure you are running PILATES on an ec2 instance with read/write access to the s3 buckets specified in `settings.yaml`. These buckets must contain the base year input data, organized using filepath prefixes as specified in [line 33](https://github.com/ual/PILATES/blob/v2/pilates.py#L33) of `pilates.py`.
-   - NOTE: if your ec2 instance is associated with the same AWS organization as the s3 buckets this should work automatically. If not, you can simply sign into the right AWS account using the AWS CLI, and `s3fs` should be able to read the credentials from your session. If that still doesn't work, you can always pass the right AWS credentials to the s3fs client directly in the `pilates.py` script.
+2. Change other relevant parameters in `settings.yaml` (probably only [L2-10](https://github.com/ual/PILATES/blob/v2/settings.yaml#L2-L10))
+3. Make sure your Python environment has `docker-py`, `s3fs`, and `pyyaml` installed.
+
+### I/O
+
+#### S3
+PILATES is designed to read/write on AWS S3 unless otherwise specified. This means you must PILATES on a machine with read/write access to the s3 buckets specified in `settings.yaml`. These buckets have to contain the base year input data, organized according to the filepath prefixes as specified in [line 73](https://github.com/ual/PILATES/blob/v2/run.py#L73) of `run.py`.
+   - NOTE: PILATES uses the `s3fs` library to interact with AWS S3. See the [docs](https://s3fs.readthedocs.io/en/latest/#credentials) for more details about how PILATES expects `s3fs` to automatically load your AWS credentials.
+
+#### local [WORK IN PROGRESS]
+Currently, in order to run PILATES using only local storage you would have to alter the `client.containers.run()` command for ActvitiySim to mount local input/output data directories. These should be named `data/` and `output/` respectively and be mounted to the same working directory that is already specified in the command. The `data/` directory will need to have the UrbanSim-formatted **model_data.h5** archive in it, as well as the input skims file **skims.omx** which can be generated directly using the `pilates/activitysim/preprocessor.py` module. After the simulation completes two output files will be generated, **asim_outputs.zip** and **model_data.h5**, for use by BEAM and UrbanSim, respectively.
 
 ### Executing the full workflow
-Simply run: `python pilates.py` with optional flags `-v` for verbose output and `-p` to force docker to pull the latest versions of all specified images.
+```
+usage: run.py [-v] [-p] [-h HOUSEHOLD_SAMPLE_SIZE]
 
-# TO DO:
-
-- [ ] fix detroit -- currently failing in activitysim models.py line 1452 bc blocks table has no zone_id.
-- [ ] delete old inputs before copying new ones so that if a process fails the next one won't use out-dated results.
-- [x] convert asim output to .h5 only, handle beam/usim output conversion solely in pilates
-- [ ] Fix stdout print so it doesn't look ugly
-- [ ] Fix pyproj errors in usim image
+optional arguments:
+  -v, --verbose         print docker stdout
+  -p, --pull_latest     pull latest docker images before running
+  -h HOUSEHOLD_SAMPLE_SIZE, --household_sample_size HOUSEHOLD_SAMPLE_SIZE
+                        household sample size
+```
