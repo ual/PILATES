@@ -126,13 +126,9 @@ if __name__ == '__main__':
 
         # 3. PREPROCESS DATA FOR ACTIVITYSIM
         asim_data_dir = os.path.join('pilates', 'activitysim', 'data')
+        create_skims_from_beam(asim_data_dir, configs)
 
-        # parse skims
-        if configs['all_local']:
-            if not os.path.exists(os.path.join(asim_data_dir, "skims.omx")):
-                create_skims_from_beam(asim_data_dir, configs)
-
-        # 3. RUN ACTIVITYSIM
+        # 4. RUN ACTIVITYSIM
         print_str = (
             "Generating activity plans for the year "
             "{0} with {1}".format(
@@ -172,7 +168,7 @@ if __name__ == '__main__':
         #         "{0} failed to generate output data for BEAM.".format(
         #             activity_demand_image))
 
-        # # 4. COPY ACTIVITYSIM OUTPUT --> URBANSIM INPUT
+        # # 5. COPY ACTIVITYSIM OUTPUT --> URBANSIM INPUT
 
         # # If generating activities for the base year, don't overwrite
         # # urbansim input data. This is usually only the case for warm
@@ -198,25 +194,23 @@ if __name__ == '__main__':
         #         formatted_print(print_str)
         #         s3.cp(asim_data_path, usim_data_path)
 
-        # # run beam
-        # if not os.path.exists(beam_local_output_folder):
-        #     os.mkdir(beam_local_output_folder
+        # 6. RUN BEAM
+        path_to_beam_config = os.path.join(
+            beam_local_input_folder, "input", beam_subdir,
+            beam_local_config)
+        client.containers.run(
+            travel_model_image,
+            volumes={
+                beam_local_input_folder: {
+                    'bind': '/app/{0}'.format(beam_local_input_folder),
+                    'mode': 'rw'},
+                beam_local_output_folder: {
+                    'bind': '/app/output',
+                    'mode': 'rw'}},
+            command="--config={0}".format(path_to_beam_config),
+            stdout=docker_stdout, stderr=True, detach=True, remove=True
+        )
 
-        # path_to_beam_config = os.path.join(
-        #     beam_local_input_folder, "input", beam_subdir,
-        #     beam_local_config)
-        # client.containers.run(
-        #     travel_model_image,
-        #     volumes={
-        #         beam_local_input_folder: {
-        #             'bind': '/app/{0}'.format(beam_local_input_folder),
-        #             'mode': 'rw'},
-        #         beam_local_output_folder: {
-        #             'bind': '/app/output',
-        #             'mode': 'rw'}},
-        #     command="--config={0}".format(path_to_beam_config),
-        #     stdout=docker_stdout, stderr=True, detach=True, remove=True
-        # )
-
-        # # copy beam skims to ???
-        break
+        # # update path to skims
+        # new_skims_path = ????
+        # configs['path_to_beam_skims'] = new_skims_path

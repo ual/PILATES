@@ -32,7 +32,9 @@ def _load_raw_beam_skims(settings):
     path_to_beam_skims = settings.get('path_to_beam_skims', False)
 
     if not path_to_beam_skims:
-        logger.info("No remote path to BEAM skims specified at runtime.")
+        logger.info(
+            "No path to BEAM skims specified at runtime. The ActivitySim "
+            "container is gonna go looking for them. You were warned.")
         return
     else:
         try:
