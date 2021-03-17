@@ -1,5 +1,5 @@
 # PILATES SETTINGS
-all_local: True
+s3_io: False
 region: sfbay
 scenario: base
 start_year: 2010
