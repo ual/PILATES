@@ -28,6 +28,7 @@ if __name__ == '__main__':
     with open('settings.yaml') as file:
         configs = yaml.load(file, Loader=yaml.FullLoader)
 
+    s3_io = configs['s3_io']
     land_use_image = configs['land_use_image']
     activity_demand_image = configs['activity_demand_image']
     travel_model_image = configs['travel_model_image']
@@ -46,6 +47,8 @@ if __name__ == '__main__':
     asim_bucket = configs['region_to_asim_bucket'][region]
     asim_subdir = configs['region_to_asim_subdir'][region]
     asim_workdir = os.path.join('/activitysim', asim_subdir)
+    asim_local_input_folder = configs['asim_local_input_folder']
+    asim_local_output_folder = configs['asim_local_output_folder']
     beam_subdir = configs['region_to_beam_subdir'][region]
     docker_stdout = configs['docker_stdout']
     pull_latest = configs['pull_latest']
@@ -60,6 +63,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "-h", "--household_sample_size", action="store",
         help="household sample size")
+    parser.add_argument(
+        "-s", "--s3_io", action="store_true",
+        help="read/write to AWS S3")
     args = parser.parse_args()
     if args.verbose:
         docker_stdout = True
@@ -67,6 +73,8 @@ if __name__ == '__main__':
         pull_latest = True
     if args.household_sample_size:
         household_sample_size = args.household_sample_size
+    if args.s3_io:
+        s3_io = args.s3_io
 
     # prep docker environment
     client = docker.from_env()
@@ -75,10 +83,11 @@ if __name__ == '__main__':
                 land_use_image, activity_demand_image, travel_model_image]:
             client.images.pull(image)
 
-    # prep aws s3 client
-    s3fs.S3FileSystem.read_timeout = 84600
-    s3 = s3fs.S3FileSystem(config_kwargs={'read_timeout': 86400})
-    formattable_s3_path = '{bucket}/{io}/{scenario}/{year}/{fname}'
+    if s3_io:
+        # prep aws s3 client
+        s3fs.S3FileSystem.read_timeout = 84600
+        s3 = s3fs.S3FileSystem(config_kwargs={'read_timeout': 86400})
+        formattable_s3_path = '{bucket}/{io}/{scenario}/{year}/{fname}'
 
     for year in range(start_year, end_year, travel_model_freq):
 
@@ -103,30 +112,31 @@ if __name__ == '__main__':
                     stream=True, stderr=True, stdout=docker_stdout):
                 print(log)
 
-            # 2. COPY URBANSIM OUTPUT --> ACTIVITYSIM INPUT
-            usim_data_path = formattable_s3_path.format(
-                bucket=usim_bucket, io='output', scenario=scenario,
-                year=forecast_year, fname='model_data.h5')
-            asim_data_path = formattable_s3_path.format(
-                bucket=asim_bucket, io='input', scenario=scenario,
-                year=forecast_year, fname='model_data.h5')
+            if s3_io:
+                # 2. COPY URBANSIM OUTPUT --> ACTIVITYSIM INPUT
+                usim_s3_data_path = formattable_s3_path.format(
+                    bucket=usim_bucket, io='output', scenario=scenario,
+                    year=forecast_year, fname='model_data.h5')
+                asim_s3_data_path = formattable_s3_path.format(
+                    bucket=asim_bucket, io='input', scenario=scenario,
+                    year=forecast_year, fname='model_data.h5')
 
-            if not s3.exists(usim_data_path):
-                raise FileNotFoundError(
-                    "{0} failed to generate output data.".format(
-                        land_use_image))
-            else:
-                print_str = (
-                    'Copying data from {0} to {1} input directory').format(
-                    usim_data_path, asim_data_path)
-                formatted_print(print_str)
-                s3.cp(usim_data_path, asim_data_path)
+                if not s3.exists(usim_s3_data_path):
+                    raise FileNotFoundError(
+                        "{0} failed to generate output data.".format(
+                            land_use_image))
+                else:
+                    print_str = (
+                        'Copying data from {0} to {1} input directory').format(
+                        usim_s3_data_path, asim_s3_data_path)
+                    formatted_print(print_str)
+                    s3.cp(usim_s3_data_path, asim_s3_data_path)
         else:
             forecast_year = year
 
         # 3. PREPROCESS DATA FOR ACTIVITYSIM
         asim_data_dir = os.path.join('pilates', 'activitysim', 'data')
-        create_skims_from_beam(asim_data_dir, configs)
+        create_skims_from_beam(asim_local_input_folder, configs)
 
         # 4. RUN ACTIVITYSIM
         print_str = (
@@ -152,47 +162,53 @@ if __name__ == '__main__':
         for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
             print(log)
 
-        # asim_beam_data_path = formattable_s3_path.format(
-        #     bucket=asim_bucket, io='output', scenario=scenario,
-        #     year=forecast_year, fname='asim_outputs.zip')
-        # if not s3.exists(asim_data_path):
-        #     raise FileNotFoundError(
-        #         "{0} failed to generate output data for BEAM.".format(
-        #             activity_demand_image))
+        if s3_io:
+            asim_beam_data_path = formattable_s3_path.format(
+                bucket=asim_bucket, io='output', scenario=scenario,
+                year=forecast_year, fname='asim_outputs.zip')
+            if not s3.exists(asim_s3_data_path):
+                raise FileNotFoundError(
+                    "{0} failed to generate output data for BEAM.".format(
+                        activity_demand_image))
 
-        # asim_usim_data_path = formattable_s3_path.format(
-        #     bucket=usim_bucket, io='input', scenario=scenario,
-        #     year=forecast_year, fname='model_data.h5')
-        # if not s3.exists(asim_data_path):
-        #     raise FileNotFoundError(
-        #         "{0} failed to generate output data for BEAM.".format(
-        #             activity_demand_image))
+            asim_usim_data_path = formattable_s3_path.format(
+                bucket=usim_bucket, io='input', scenario=scenario,
+                year=forecast_year, fname='model_data.h5')
+            if not s3.exists(asim_s3_data_path):
+                raise FileNotFoundError(
+                    "{0} failed to generate output data for BEAM.".format(
+                        activity_demand_image))
 
-        # # 5. COPY ACTIVITYSIM OUTPUT --> URBANSIM INPUT
+            # 5. COPY ACTIVITYSIM OUTPUT --> URBANSIM INPUT
 
-        # # If generating activities for the base year, don't overwrite
-        # # urbansim input data. This is usually only the case for warm
-        # # starts or debugging. Otherwise we want to set up urbansim for
-        # # the next simulation iteration
-        # if forecast_year != start_year:
-        #     usim_data_path = formattable_s3_path.format(
-        #         bucket=usim_bucket, io='input', scenario=scenario,
-        #         year=forecast_year, fname='model_data.h5')
-        #     asim_data_path = formattable_s3_path.format(
-        #         bucket=asim_bucket, io='output', scenario=scenario,
-        #         year=forecast_year, fname='model_data.h5')
+            # If generating activities for the base year, don't overwrite
+            # urbansim input data. This is usually only the case for warm
+            # starts or debugging. Otherwise we want to set up urbansim for
+            # the next simulation iteration
+            if forecast_year != start_year:
+                usim_s3_data_path = formattable_s3_path.format(
+                    bucket=usim_bucket, io='input', scenario=scenario,
+                    year=forecast_year, fname='model_data.h5')
+                asim_s3_data_path = formattable_s3_path.format(
+                    bucket=asim_bucket, io='output', scenario=scenario,
+                    year=forecast_year, fname='model_data.h5')
 
-        #     if not s3.exists(asim_data_path):
-        #         raise FileNotFoundError(
-        #             "{0} failed to generate output data.".format(
-        #                 activity_demand_image))
-        #     else:
-        #         print_str = (
-        #             'Copying data from {0} to {1} '
-        #             'input directory'.format(
-        #                 asim_data_path, usim_data_path))
-        #         formatted_print(print_str)
-        #         s3.cp(asim_data_path, usim_data_path)
+                if not s3.exists(asim_s3_data_path):
+                    raise FileNotFoundError(
+                        "{0} failed to generate output data.".format(
+                            activity_demand_image))
+                else:
+                    print_str = (
+                        'Copying data from {0} to {1} '
+                        'input directory'.format(
+                            asim_s3_data_path, usim_s3_data_path))
+                    formatted_print(print_str)
+                    s3.cp(asim_s3_data_path, usim_s3_data_path)
+
+        # 6. ACTIVITYSIM OUTPUT --> BEAM INPUT
+        os.symlink(
+            os.path.join(asim_local_output_folder, 'asim_outputs.zip'),
+            beam_local_input_folder)
 
         # 6. RUN BEAM
         path_to_beam_config = os.path.join(
