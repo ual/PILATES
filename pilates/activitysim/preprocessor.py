@@ -168,9 +168,17 @@ def _transit_skims(settings, transit_df, data_dir, num_taz):
             df_ = df
             for measure in beam_asim_transit_measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
-                if beam_asim_transit_measure_map[measure]:
+                if (measure == 'FAR') or (measure == 'BOARDS'):
                     vals = df_[beam_asim_transit_measure_map[measure]]
                     mx = vals.values.reshape((num_taz, num_taz), order='C')
+                elif beam_asim_transit_measure_map[measure]:
+                    # activitysim estimated its models using transit skims from Cube
+                    # which store time values as scaled integers (e.g. x100), so their
+                    # models also divide transit skim values by 100. Since our skims
+                    # aren't coming out of Cube, we multiply by 100 to negate the division.
+                    # This only applies for travel times. Fare is not multiplied by 100.
+                    vals = df_[beam_asim_transit_measure_map[measure]]
+                    mx = vals.values.reshape((num_taz, num_taz), order='C') * 100
                 else:
                     mx = np.zeros((num_taz, num_taz))
                 skims[name] = mx
