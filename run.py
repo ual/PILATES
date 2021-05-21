@@ -7,10 +7,11 @@ import logging
 import sys
 
 from pilates.activitysim.preprocessor import create_skims_from_beam
+from pilates.urbansim.preprocessor import add_skims_to_model_data
 
 logging.basicConfig(
-    stream=sys.stdout, level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s')
+    stream=sys.stdout, level=logging.INFO,
+    format='%(name)s - %(levelname)s - %(message)s')
 
 
 def formatted_print(string, width=50, fill_char='#'):
@@ -26,32 +27,34 @@ if __name__ == '__main__':
 
     # read settings from config file
     with open('settings.yaml') as file:
-        configs = yaml.load(file, Loader=yaml.FullLoader)
+        settings = yaml.load(file, Loader=yaml.FullLoader)
 
-    s3_io = configs['s3_io']
-    land_use_image = configs['land_use_image']
-    activity_demand_image = configs['activity_demand_image']
-    travel_model_image = configs['travel_model_image']
-    region = configs['region']
-    scenario = configs['scenario']
-    start_year = configs['start_year']
-    end_year = configs['end_year']
-    land_use_freq = configs['land_use_freq']
-    travel_model_freq = configs['travel_model_freq']
-    household_sample_size = configs['household_sample_size']
-    path_to_beam_skims = configs['path_to_beam_skims']
-    beam_local_config = configs['beam_local_config']
-    beam_local_input_folder = configs['beam_local_input_folder']
-    beam_local_output_folder = configs['beam_local_output_folder']
-    usim_bucket = configs['region_to_usim_bucket'][region]
-    asim_bucket = configs['region_to_asim_bucket'][region]
-    asim_subdir = configs['region_to_asim_subdir'][region]
+    s3_io = settings['s3_io']
+    land_use_image = settings['land_use_image']
+    activity_demand_image = settings['activity_demand_image']
+    travel_model_image = settings['travel_model_image']
+    region = settings['region']
+    scenario = settings['scenario']
+    start_year = settings['start_year']
+    end_year = settings['end_year']
+    land_use_freq = settings['land_use_freq']
+    travel_model_freq = settings['travel_model_freq']
+    household_sample_size = settings['household_sample_size']
+    path_to_skims = settings['path_to_skims']
+    beam_local_config = settings['beam_local_config']
+    beam_local_input_folder = settings['beam_local_input_folder']
+    beam_local_output_folder = settings['beam_local_output_folder']
+    usim_bucket = settings['region_to_usim_bucket'][region]
+    usim_client_input_folder = settings['usim_client_input_folder']
+    asim_bucket = settings['region_to_asim_bucket'][region]
+    asim_subdir = settings['region_to_asim_subdir'][region]
     asim_workdir = os.path.join('/activitysim', asim_subdir)
-    asim_local_input_folder = configs['asim_local_input_folder']
-    asim_local_output_folder = configs['asim_local_output_folder']
-    beam_subdir = configs['region_to_beam_subdir'][region]
-    docker_stdout = configs['docker_stdout']
-    pull_latest = configs['pull_latest']
+    asim_local_input_folder = settings['asim_local_input_folder']
+    asim_local_output_folder = settings['asim_local_output_folder']
+    beam_subdir = settings['region_to_beam_subdir'][region]
+    docker_stdout = settings['docker_stdout']
+    pull_latest = settings['pull_latest']
+    region_id = settings['region_to_region_id'][region]
 
     # parse args
     parser = argparse.ArgumentParser(add_help=False)
@@ -76,157 +79,162 @@ if __name__ == '__main__':
     if args.s3_io:
         s3_io = args.s3_io
 
-    # prep docker environment
-    client = docker.from_env()
-    if pull_latest:
-        for image in [
-                land_use_image, activity_demand_image, travel_model_image]:
-            client.images.pull(image)
+    # # prep docker environment
+    # client = docker.from_env()
+    # if pull_latest:
+    #     for image in [
+    #             land_use_image, activity_demand_image, travel_model_image]:
+    #         client.images.pull(image)
 
-    if s3_io:
-        # prep aws s3 client
-        s3fs.S3FileSystem.read_timeout = 84600
-        s3 = s3fs.S3FileSystem(config_kwargs={'read_timeout': 86400})
-        formattable_s3_path = '{bucket}/{io}/{scenario}/{year}/{fname}'
+    # if s3_io:
+    #     # prep aws s3 client
+    #     s3fs.S3FileSystem.read_timeout = 84600
+    #     s3 = s3fs.S3FileSystem(config_kwargs={'read_timeout': 86400})
+    #     formattable_s3_path = '{bucket}/{io}/{scenario}/{year}/{fname}'
 
     for year in range(start_year, end_year, travel_model_freq):
 
         if land_use_freq > 0:
-            forecast_year = year + travel_model_freq
-            print_str = (
-                "Simulating land use development from {0} "
-                "to {1} with {2}.".format(year, forecast_year, land_use_image))
-            formatted_print(print_str)
 
-            # 1. RUN URBANSIM
-            formattable_usim_cmd = (
-                '-y {0} -o {1} -v {2} -b {3} --scenario {4} -u {5} -w')
-            usim_cmd = formattable_usim_cmd.format(
-                year, forecast_year, land_use_freq, usim_bucket,
-                scenario, path_to_beam_skims)
-            usim = client.containers.run(
-                land_use_image,
-                command=usim_cmd, stdout=docker_stdout,
-                stderr=True, detach=True, remove=True)
-            for log in usim.logs(
-                    stream=True, stderr=True, stdout=docker_stdout):
-                print(log)
+            add_skims_to_model_data(settings, region)
+        #     forecast_year = year + travel_model_freq
+        #     print_str = (
+        #         "Simulating land use development from {0} "
+        #         "to {1} with {2}.".format(year, forecast_year, land_use_image))
+        #     formatted_print(print_str)
 
-            if s3_io:
-                # 2. COPY URBANSIM OUTPUT --> ACTIVITYSIM INPUT
-                usim_s3_data_path = formattable_s3_path.format(
-                    bucket=usim_bucket, io='output', scenario=scenario,
-                    year=forecast_year, fname='model_data.h5')
-                asim_s3_data_path = formattable_s3_path.format(
-                    bucket=asim_bucket, io='input', scenario=scenario,
-                    year=forecast_year, fname='model_data.h5')
+        #     # 1. RUN URBANSIM
+        #     formattable_usim_cmd = '-r {0} -i {1} -y {2} -f {2}'
+        #     usim_cmd = formattable_usim_cmd.format(
+        #         region_id, year, forecast_year, land_use_freq)
+        #     usim = client.containers.run(
+        #         land_use_image,
+        #         volumes={
+        #             os.path.abspath(settings['usim_local_input_folder']): {
+        #                 'bind': usim_client_input_folder,
+        #                 'mode': 'rw'},
+        #         },
+        #         command=usim_cmd, stdout=docker_stdout,
+        #         stderr=True, detach=True, remove=True)
+        #     for log in usim.logs(
+        #             stream=True, stderr=True, stdout=docker_stdout):
+        #         print(log)
 
-                if not s3.exists(usim_s3_data_path):
-                    raise FileNotFoundError(
-                        "{0} failed to generate output data.".format(
-                            land_use_image))
-                else:
-                    print_str = (
-                        'Copying data from {0} to {1} input directory').format(
-                        usim_s3_data_path, asim_s3_data_path)
-                    formatted_print(print_str)
-                    s3.cp(usim_s3_data_path, asim_s3_data_path)
-        else:
-            forecast_year = year
+        #     if s3_io:
+        #         # 2. COPY URBANSIM OUTPUT --> ACTIVITYSIM INPUT
+        #         usim_s3_data_path = formattable_s3_path.format(
+        #             bucket=usim_bucket, io='output', scenario=scenario,
+        #             year=forecast_year, fname='model_data.h5')
+        #         asim_s3_data_path = formattable_s3_path.format(
+        #             bucket=asim_bucket, io='input', scenario=scenario,
+        #             year=forecast_year, fname='model_data.h5')
 
-        # 3. PREPROCESS DATA FOR ACTIVITYSIM
-        asim_data_dir = os.path.join('pilates', 'activitysim', 'data')
-        create_skims_from_beam(asim_local_input_folder, configs)
+        #         if not s3.exists(usim_s3_data_path):
+        #             raise OSError(
+        #                 "{0} failed to generate output data.".format(
+        #                     land_use_image))
+        #         else:
+        #             print_str = (
+        #                 'Copying data from {0} to {1} input directory').format(
+        #                 usim_s3_data_path, asim_s3_data_path)
+        #             formatted_print(print_str)
+        #             s3.cp(usim_s3_data_path, asim_s3_data_path)
+        # else:
+        #     forecast_year = year
 
-        # 4. RUN ACTIVITYSIM
-        print_str = (
-            "Generating activity plans for the year "
-            "{0} with {1}".format(
-                forecast_year, activity_demand_image))
-        formatted_print(print_str)
-        formattable_asim_cmd = '-y {0} -s {1} -b {2} -u {3} -h {4} -w'
-        asim = client.containers.run(
-            activity_demand_image, working_dir=asim_workdir,
-            volumes={
-                os.path.abspath(configs['asim_local_input_folder']): {
-                    'bind': os.path.join(asim_workdir, 'data'),
-                    'mode': 'rw'},
-                # os.path.abspath(configs['asim_local_output_folder']): {
-                #     'bind': os.path.join(asim_workdir, 'data'),
-                #     'mode': 'rw'}
-            },
-            command=formattable_asim_cmd.format(
-                forecast_year, scenario, asim_bucket, path_to_beam_skims,
-                household_sample_size),
-            stdout=docker_stdout, stderr=True, detach=True, remove=True)
-        for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
-            print(log)
+        # # 3. PREPROCESS DATA FOR ACTIVITYSIM
+        # asim_data_dir = os.path.join('pilates', 'activitysim', 'data')
+        # create_skims_from_beam(asim_local_input_folder, settings)
 
-        if s3_io:
-            asim_beam_data_path = formattable_s3_path.format(
-                bucket=asim_bucket, io='output', scenario=scenario,
-                year=forecast_year, fname='asim_outputs.zip')
-            if not s3.exists(asim_s3_data_path):
-                raise FileNotFoundError(
-                    "{0} failed to generate output data for BEAM.".format(
-                        activity_demand_image))
+        # # 4. RUN ACTIVITYSIM
+        # print_str = (
+        #     "Generating activity plans for the year "
+        #     "{0} with {1}".format(
+        #         forecast_year, activity_demand_image))
+        # formatted_print(print_str)
+        # formattable_asim_cmd = '-y {0} -s {1} -b {2} -u {3} -h {4} -w'
+        # asim = client.containers.run(
+        #     activity_demand_image, working_dir=asim_workdir,
+        #     volumes={
+        #         os.path.abspath(settings['asim_local_input_folder']): {
+        #             'bind': os.path.join(asim_workdir, 'data'),
+        #             'mode': 'rw'},
+        #         # os.path.abspath(settings['asim_local_output_folder']): {
+        #         #     'bind': os.path.join(asim_workdir, 'data'),
+        #         #     'mode': 'rw'}
+        #     },
+        #     command=formattable_asim_cmd.format(
+        #         forecast_year, scenario, asim_bucket, path_to_skims,
+        #         household_sample_size),
+        #     stdout=docker_stdout, stderr=True, detach=True, remove=True)
+        # for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
+        #     print(log)
 
-            asim_usim_data_path = formattable_s3_path.format(
-                bucket=usim_bucket, io='input', scenario=scenario,
-                year=forecast_year, fname='model_data.h5')
-            if not s3.exists(asim_s3_data_path):
-                raise FileNotFoundError(
-                    "{0} failed to generate output data for BEAM.".format(
-                        activity_demand_image))
+        # if s3_io:
+        #     asim_beam_data_path = formattable_s3_path.format(
+        #         bucket=asim_bucket, io='output', scenario=scenario,
+        #         year=forecast_year, fname='asim_outputs.zip')
+        #     if not s3.exists(asim_s3_data_path):
+        #         raise FileNotFoundError(
+        #             "{0} failed to generate output data for BEAM.".format(
+        #                 activity_demand_image))
 
-            # 5. COPY ACTIVITYSIM OUTPUT --> URBANSIM INPUT
+        #     asim_usim_data_path = formattable_s3_path.format(
+        #         bucket=usim_bucket, io='input', scenario=scenario,
+        #         year=forecast_year, fname='model_data.h5')
+        #     if not s3.exists(asim_s3_data_path):
+        #         raise FileNotFoundError(
+        #             "{0} failed to generate output data for BEAM.".format(
+        #                 activity_demand_image))
 
-            # If generating activities for the base year, don't overwrite
-            # urbansim input data. This is usually only the case for warm
-            # starts or debugging. Otherwise we want to set up urbansim for
-            # the next simulation iteration
-            if forecast_year != start_year:
-                usim_s3_data_path = formattable_s3_path.format(
-                    bucket=usim_bucket, io='input', scenario=scenario,
-                    year=forecast_year, fname='model_data.h5')
-                asim_s3_data_path = formattable_s3_path.format(
-                    bucket=asim_bucket, io='output', scenario=scenario,
-                    year=forecast_year, fname='model_data.h5')
+        #     # 5. COPY ACTIVITYSIM OUTPUT --> URBANSIM INPUT
 
-                if not s3.exists(asim_s3_data_path):
-                    raise FileNotFoundError(
-                        "{0} failed to generate output data.".format(
-                            activity_demand_image))
-                else:
-                    print_str = (
-                        'Copying data from {0} to {1} '
-                        'input directory'.format(
-                            asim_s3_data_path, usim_s3_data_path))
-                    formatted_print(print_str)
-                    s3.cp(asim_s3_data_path, usim_s3_data_path)
+        #     # If generating activities for the base year, don't overwrite
+        #     # urbansim input data. This is usually only the case for warm
+        #     # starts or debugging. Otherwise we want to set up urbansim for
+        #     # the next simulation iteration
+        #     if forecast_year != start_year:
+        #         usim_s3_data_path = formattable_s3_path.format(
+        #             bucket=usim_bucket, io='input', scenario=scenario,
+        #             year=forecast_year, fname='model_data.h5')
+        #         asim_s3_data_path = formattable_s3_path.format(
+        #             bucket=asim_bucket, io='output', scenario=scenario,
+        #             year=forecast_year, fname='model_data.h5')
 
-        # 6. ACTIVITYSIM OUTPUT --> BEAM INPUT
-        os.symlink(
-            os.path.join(asim_local_output_folder, 'asim_outputs.zip'),
-            beam_local_input_folder)
+        #         if not s3.exists(asim_s3_data_path):
+        #             raise FileNotFoundError(
+        #                 "{0} failed to generate output data.".format(
+        #                     activity_demand_image))
+        #         else:
+        #             print_str = (
+        #                 'Copying data from {0} to {1} '
+        #                 'input directory'.format(
+        #                     asim_s3_data_path, usim_s3_data_path))
+        #             formatted_print(print_str)
+        #             s3.cp(asim_s3_data_path, usim_s3_data_path)
 
-        # 6. RUN BEAM
-        path_to_beam_config = os.path.join(
-            beam_local_input_folder, "input", beam_subdir,
-            beam_local_config)
-        client.containers.run(
-            travel_model_image,
-            volumes={
-                beam_local_input_folder: {
-                    'bind': '/app/{0}'.format(beam_local_input_folder),
-                    'mode': 'rw'},
-                beam_local_output_folder: {
-                    'bind': '/app/output',
-                    'mode': 'rw'}},
-            command="--config={0}".format(path_to_beam_config),
-            stdout=docker_stdout, stderr=True, detach=True, remove=True
-        )
+        # # 6. ACTIVITYSIM OUTPUT --> BEAM INPUT
+        # os.symlink(
+        #     os.path.join(asim_local_output_folder, 'asim_outputs.zip'),
+        #     beam_local_input_folder)
 
-        # # update path to skims
-        # new_skims_path = ????
-        # configs['path_to_beam_skims'] = new_skims_path
+        # # 6. RUN BEAM
+        # path_to_beam_config = os.path.join(
+        #     beam_local_input_folder, "input", beam_subdir,
+        #     beam_local_config)
+        # client.containers.run(
+        #     travel_model_image,
+        #     volumes={
+        #         beam_local_input_folder: {
+        #             'bind': '/app/{0}'.format(beam_local_input_folder),
+        #             'mode': 'rw'},
+        #         beam_local_output_folder: {
+        #             'bind': '/app/output',
+        #             'mode': 'rw'}},
+        #     command="--config={0}".format(path_to_beam_config),
+        #     stdout=docker_stdout, stderr=True, detach=True, remove=True
+        # )
+
+        # # # update path to skims
+        # # new_skims_path = ????
+        # # settings['path_to_skims'] = new_skims_path
