@@ -14,8 +14,11 @@ def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out='zone_id'):
         url = (
             'https://opendata.arcgis.com/datasets/'
             '94e6e7107f0745b5b2aabd651340b739_0.geojson')
-    gdf = gpd.read_file(url)
+    gdf = gpd.read_file(url, crs="EPSG:4326")
     gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
+
+    # zone_id col must be str
+    gdf[zone_id_col_out] = gdf[zone_id_col_out].astype(str)
 
     return gdf
 
@@ -62,7 +65,7 @@ def get_county_block_geoms(state_fips, county_fips, result_size=10000):
     return gdf
 
 
-def get_block_geoms(data_dir, state_fips=None, county_codes=None):
+def get_block_geoms(state_fips, county_codes, data_dir='tmp/'):
     all_block_geoms = []
 
     if os.path.exists(os.path.join(data_dir, "blocks.shp")):
@@ -173,3 +176,47 @@ def map_block_to_taz(
         blocks_gdf, zones_gdf, local_crs, zone_id_col)
 
     return blocks_to_taz
+
+
+def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
+    '''
+    Assigns the gdf index (TAZ ID) for each index in df
+    Input:
+    - df columns names x, and y. The index is the ID of the point feature.
+    - zones_gdf: GeoPandas GeoDataFrame with TAZ as index, geometry, area.
+
+    Output:
+        A series with df index and corresponding gdf id
+    '''
+    logger.info("Assigning zone IDs to {0}".format(df.index.name))
+    df = gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(df.x, df.y), crs="EPSG:4326")
+    zones_gdf.geometry.crs = "EPSG:4326"
+
+    # convert to meters-based local crs
+    df = df.to_crs(local_crs)
+    zones_gdf = zones_gdf.to_crs(local_crs)
+
+    # Spatial join
+    intx = gpd.sjoin(
+        df.reset_index(), zones_gdf.reset_index(), how='left', op='intersects')
+
+    # Drop duplicates and keep the one with the smallest H3 area
+    intx['intx_area'] = intx['geometry'].area
+    intx = intx.sort_values('intx_area')
+    intx.drop_duplicates(subset=[df.index.name], keep='first', inplace=True)
+    intx.set_index(df.index.name, inplace=True)
+    df[zone_id_col] = intx[zone_id_col].reindex(df.index)
+
+    # Check if there is any unassigined object
+    unassigned_mask = pd.isnull(df[zone_id_col])
+    if any(unassigned_mask):
+
+        zones_gdf['geometry'] = zones_gdf['geometry'].centroid
+        all_dists = df.loc[unassigned_mask, 'geometry'].apply(
+            lambda x: zones_gdf['geometry'].distance(x))
+
+        df.loc[unassigned_mask, zone_id_col] = all_dists.idxmin(
+            axis=1).values
+
+    return df[zone_id_col]

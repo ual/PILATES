@@ -1,8 +1,16 @@
 import os
 import openmatrix as omx
 import pandas as pd
+import geopandas as gpd
+from shapely import wkt
 import numpy as np
 import logging
+import requests
+from tqdm import tqdm
+import time
+
+from pilates.utils.geog import get_block_geoms, \
+    map_block_to_taz, get_zone_from_points, get_taz_geoms
 
 logger = logging.getLogger(__name__)
 
@@ -234,3 +242,529 @@ def create_skims_from_beam(data_dir, settings):
 
         # Create offset
         _create_offset(auto_df, data_dir)
+
+
+def _get_full_time_enrollment(state_fips):
+    base_url = (
+        'https://educationdata.urban.org/api/v1/'
+        '{t}/{so}/{e}/{y}/{l}/?{f}&{s}&{r}&{cl}&{ds}&{fips}')
+    levels = ['undergraduate', 'graduate']
+    enroll_list = []
+    for level in levels:
+        level_url = base_url.format(
+            t='college-university', so='ipeds', e='fall-enrollment',
+            y='2015', l=level, f='ftpt=1', s='sex=99',
+            r='race=99', cl='class_level=99', ds='degree_seeking=99',
+            fips='fips={0}'.format(state_fips))
+
+        enroll_result = requests.get(level_url)
+        enroll = pd.DataFrame(enroll_result.json()['results'])
+        enroll = enroll[['unitid', 'enrollment_fall']].rename(
+            columns={'enrollment_fall': level})
+        enroll.set_index('unitid', inplace=True)
+        enroll_list.append(enroll)
+
+    full_time = pd.concat(enroll_list, axis=1)
+    full_time['full_time'] = full_time['undergraduate'] + full_time['graduate']
+    s = full_time.full_time
+    assert s.index.name == 'unitid'
+
+    return s
+
+
+def _get_part_time_enrollment(state_fips):
+    base_url = (
+        'https://educationdata.urban.org/api/v1/'
+        '{t}/{so}/{e}/{y}/{l}/?{f}&{s}&{r}&{cl}&{ds}&{fips}')
+    levels = ['undergraduate', 'graduate']
+    enroll_list = []
+    for level in levels:
+        level_url = base_url.format(
+            t='college-university', so='ipeds', e='fall-enrollment',
+            y='2015', l=level, f='ftpt=2', s='sex=99',
+            r='race=99', cl='class_level=99', ds='degree_seeking=99',
+            fips='fips={0}'.format(state_fips))
+
+        enroll_result = requests.get(level_url)
+        enroll = pd.DataFrame(enroll_result.json()['results'])
+        enroll = enroll[['unitid', 'enrollment_fall']].rename(
+            columns={'enrollment_fall': level})
+        enroll.set_index('unitid', inplace=True)
+        enroll_list.append(enroll)
+
+    part_time = pd.concat(enroll_list, axis=1)
+    part_time['part_time'] = part_time['undergraduate'] + part_time['graduate']
+    s = part_time.part_time
+    assert s.index.name == 'unitid'
+
+    return s
+
+
+def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
+
+    # assign zones
+    persons[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
+        households['block_id'].reindex(persons['household_id']).values).values
+
+    # create new column variables
+    age_mask_1 = persons.age >= 18
+    age_mask_2 = persons.age.between(18, 64, inclusive=True)
+    age_mask_3 = persons.age >= 65
+    work_mask = persons.worker == 1
+    student_mask = persons.student == 1
+    type_1 = ((age_mask_1) & (work_mask) & (~student_mask)) * 1  # Full time
+    type_4 = ((age_mask_2) & (~work_mask) & (~student_mask)) * 4
+    type_5 = ((age_mask_3) & (~work_mask) & (~student_mask)) * 5
+    type_3 = ((age_mask_1) & (student_mask)) * 3
+    type_6 = (persons.age.between(16, 17, inclusive=True)) * 6
+    type_7 = (persons.age.between(6, 16, inclusive=True)) * 7
+    type_8 = (persons.age.between(0, 5, inclusive=True)) * 8
+    type_list = [
+        type_1, type_3, type_4, type_5, type_6, type_7, type_8]
+    for x in type_list:
+        type_1.where(type_1 != 0, x, inplace=True)
+    persons['ptype'] = type_1
+
+    pemploy_1 = ((persons.worker == 1) & (persons.age >= 16)) * 1
+    pemploy_3 = ((persons.worker == 0) & (persons.age >= 16)) * 3
+    pemploy_4 = (persons.age < 16) * 4
+    type_list = [pemploy_1, pemploy_3, pemploy_4]
+    for x in type_list:
+        pemploy_1.where(pemploy_1 != 0, x, inplace=True)
+    persons['pemploy'] = pemploy_1
+
+    pstudent_1 = (persons.age <= 18) * 1
+    pstudent_2 = ((persons.student == 1) & (persons.age > 18)) * 2
+    pstudent_3 = (persons.student == 0) * 3
+    type_list = [pstudent_1, pstudent_2, pstudent_3]
+    for x in type_list:
+        pstudent_1.where(pstudent_1 != 0, x, inplace=True)
+    persons['pstudent'] = pstudent_1
+
+    persons_w_res_blk = pd.merge(
+        persons, households[['block_id']],
+        left_on='household_id', right_index=True)
+    persons_w_xy = pd.merge(
+        persons_w_res_blk, blocks[['x', 'y']],
+        left_on='block_id', right_index=True)
+    persons['home_x'] = persons_w_xy['x']
+    persons['home_y'] = persons_w_xy['y']
+
+    del persons_w_res_blk
+    del persons_w_xy
+
+    # clean up dataframe structure
+    p_names_dict = {'member_id': 'PNUM'}
+    persons = persons.rename(columns=p_names_dict)
+
+    p_null_taz = persons[asim_zone_id_col].isnull()
+    logger.info("Dropping {0} persons without TAZs".format(
+        p_null_taz.sum()))
+    persons = persons[~p_null_taz]
+
+    # # FIXME: figure out why this was ever necessary??
+    # persons.sort_values('household_id', inplace=True)
+    # persons.reset_index(drop=True, inplace=True)
+    # persons.index.name = 'person_id'
+
+    return persons
+
+
+def _update_households_table(households, blocks, asim_zone_id_col='TAZ'):
+
+    # assign zones
+    households[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
+        households['block_id']).values
+
+    hh_null_taz = households[asim_zone_id_col].isnull()
+    logger.info('Dropping {0} households without TAZs'.format(
+        hh_null_taz.sum()))
+    households = households[~hh_null_taz]
+
+    # create new column variables
+    s = households.persons
+    households['HHT'] = s.where(s == 1, 4)
+
+    # clean up dataframe structure
+    hh_names_dict = {
+        'persons': 'PERSONS',
+        'cars': 'VEHICL',
+        'member_id': 'PNUM'}
+    households = households.rename(columns=hh_names_dict)
+    if 'household_id' in households.columns:
+        households.set_index('household_id', inplace=True)
+    else:
+        households.index.name = 'household_id'
+
+    return households
+
+
+def _update_jobs_table(
+        jobs, blocks, state_fips, county_codes, local_crs,
+        asim_zone_id_col='TAZ'):
+
+    # assign zones
+    jobs[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
+        jobs['block_id']).values
+
+    # make sure jobs are only assigned to blocks with land area > 0
+    # so that employment density distributions don't contain Inf/NaN
+    blocks = blocks[['square_meters_land']]
+    jobs['square_meters_land'] = blocks.reindex(
+        jobs['block_id'])['square_meters_land'].values
+    jobs_w_no_land = jobs[jobs['square_meters_land'] == 0]
+    blocks_to_reassign = jobs_w_no_land['block_id'].unique()
+    num_reassigned = len(blocks_to_reassign)
+
+    if num_reassigned > 0:
+
+        logger.info("Reassigning jobs out of blocks with no land area!")
+        blocks_gdf = get_block_geoms(state_fips, county_codes)
+        blocks_gdf.set_index('GEOID', inplace=True)
+        blocks_gdf['square_meters_land'] = blocks[
+            'square_meters_land'].reindex(blocks_gdf.index)
+        blocks_gdf = blocks_gdf.to_crs(local_crs)
+
+        for block_id in tqdm(
+                blocks_to_reassign,
+                desc="Redistributing jobs from blocks:"):
+
+            candidate_mask = (
+                blocks_gdf.index.values != block_id) & (
+                blocks_gdf['square_meters_land'] > 0)
+            new_block_id = blocks_gdf[candidate_mask].distance(
+                blocks_gdf.loc[block_id, 'geometry']).idxmin()
+
+            jobs.loc[
+                jobs['block_id'] == block_id, 'block_id'] = new_block_id
+
+    else:
+        logger.info("No block IDs to reassign in the jobs table!")
+
+    return num_reassigned, jobs
+
+
+def _update_blocks_table(
+        blocks, households, jobs, settings, zone_id_col):
+
+    region = settings['region']
+    tazs_remapped = False
+
+    blocks['TOTEMP'] = jobs[['block_id', 'sector_id']].groupby(
+        'block_id')['sector_id'].count().reindex(blocks.index).fillna(0)
+
+    blocks['TOTPOP'] = households[['block_id', 'persons']].groupby(
+        'block_id')['persons'].sum().reindex(blocks.index).fillna(0)
+
+    blocks['TOTACRE'] = blocks['square_meters_land'] / 4046.86
+
+    # update blocks (should only have to be run if asim is loading
+    # raw urbansim data that has yet to be touched by pilates
+    if zone_id_col not in blocks.columns:
+        logger.info("Mapping block IDs to TAZ")
+        tazs_remapped = True
+        block_taz = map_block_to_taz(
+            settings, region, zone_id_col, reference_taz_id_col='objectid')
+        block_taz.index.name = 'block_id'
+        blocks = blocks.join(block_taz)
+        blocks[zone_id_col] = blocks[zone_id_col].fillna(0)
+        blocks = blocks[blocks[zone_id_col] != 0].copy()
+
+    return tazs_remapped, blocks
+
+
+def _get_school_enrollment(state_fips, county_codes):
+
+    logger.info(
+        "Downloading school enrollment data from educationdata.urban.org!")
+    base_url = 'https://educationdata.urban.org/api/v1/' + \
+        '{topic}/{source}/{endpoint}/{year}/?{filters}'
+
+    school_tables = []
+    for county in county_codes:
+        county_fips = str(state_fips) + str(county)
+        enroll_filters = 'county_code={0}'.format(county_fips)
+        enroll_url = base_url.format(
+            topic='schools', source='ccd', endpoint='directory',
+            year='2015', filters=enroll_filters)
+
+        enroll_result = requests.get(enroll_url)
+        enroll = pd.DataFrame(enroll_result.json()['results'])
+        school_tables.append(enroll)
+        time.sleep(2)
+
+    enrollment = pd.concat(school_tables, axis=0)
+    enrollment = enrollment[[
+        'ncessch', 'county_code', 'latitude',
+        'longitude', 'enrollment']].set_index('ncessch')
+    enrollment.rename(
+        columns={'longitude': 'x', 'latitude': 'y'}, inplace=True)
+    enrollment = enrollment.dropna()
+
+    return enrollment
+
+
+def _get_college_enrollment(state_fips, county_codes):
+
+    logger.info("Downloading college data from educationdata.urban.org!")
+    base_url = 'https://educationdata.urban.org/api/v1/' + \
+        '{topic}/{source}/{endpoint}/{year}/?{filters}'
+
+    colleges_list = []
+    for county in county_codes:
+        county_fips = str(state_fips) + str(county)
+        college_filters = 'county_fips={0}'.format(county_fips)
+        college_url = base_url.format(
+            topic='college-university', source='ipeds',
+            endpoint='directory', year='2015', filters=college_filters)
+
+        college_result = requests.get(college_url)
+        college = pd.DataFrame(college_result.json()['results'])
+        colleges_list.append(college)
+        time.sleep(2)
+
+    colleges = pd.concat(colleges_list)
+    colleges = colleges[[
+        'unitid', 'inst_name', 'longitude',
+        'latitude']].set_index('unitid')
+    colleges.rename(
+        columns={'longitude': 'x', 'latitude': 'y'}, inplace=True)
+
+    logger.info(
+        "Downloading college full-time enrollment data from "
+        "educationdata.urban.org!")
+    colleges['full_time_enrollment'] = _get_full_time_enrollment(state_fips)
+
+    logger.info(
+        "Downloading college part-time enrollment data from "
+        "educationdata.urban.org!")
+    colleges['part_time_enrollment'] = _get_part_time_enrollment(state_fips)
+
+    return colleges
+
+
+def _get_park_cost(zones, weights, index_cols, output_cols):
+    params = pd.Series(weights, index=index_cols)
+    cols = zones[output_cols]
+    s = cols @ params
+    return s.where(s > 0, 0)
+
+
+def _compute_area_type_metric(zones):
+    """
+    Because of the modifiable areal unit problem, it is probably a good
+    idea to visually assess the accuracy of this metric when implementing
+    in a new region. The metric was designed using SF Bay Area data and TAZ
+    geometries. So what is considered "suburban" by SFMTC standard might be
+    "urban" or "urban fringe" in less densesly developed regions, which
+    can impact the results of the auto ownership and mode choice models.
+
+    This issue should eventually resolve itself once we are able to re-
+    estimate these two models for every new region/implementation. In the
+    meantime, we expect that for regions less dense than the SF Bay Area,
+    the area types classifications will be overly conservative. If anything,
+    this bias results towards higher auto-ownership and larger auto-oriented
+    mode shares. However, we haven't found this to be the case.
+    """
+
+    zones_df = zones[['TOTPOP', 'TOTEMP', 'TOTACRE']].copy()
+
+    metric_vals = ((
+        1 * zones_df['TOTPOP']) + (
+        2.5 * zones_df['TOTEMP'])) / zones_df['TOTACRE']
+
+    return metric_vals.fillna(0)
+
+
+def _compute_area_type(zones):
+    # Integer, 0=regional core, 1=central business district,
+    # 2=urban business, 3=urban, 4=suburban, 5=rural
+    area_types = pd.cut(
+        zones['area_type_metric'],
+        [0, 6, 30, 55, 100, 300, float("inf")],
+        labels=['5', '4', '3', '2', '1', '0'],
+        include_lowest=True).astype(str)
+    return area_types
+
+
+def _create_land_use_table(
+        data_dir, zones, state_fips, county_codes, local_crs,
+        households, persons, jobs, blocks, asim_zone_id_col='TAZ',):
+
+    # download missing data and save to datastore
+    if 'schools.csv' not in os.listdir(data_dir):
+        schools = _get_school_enrollment(state_fips, county_codes)
+        logger.info("Saving school enrollment data to disk!")
+        schools.to_csv(os.path.join(data_dir, 'schools.csv'))
+
+    if 'colleges.csv' not in os.listdir(data_dir):
+        colleges = _get_college_enrollment(state_fips, county_codes)
+        logger.info("Saving college data to disk!")
+        colleges.to_csv(os.path.join(data_dir, 'colleges.csv'))
+
+    # load data from datastore
+    schools = pd.read_csv(os.path.join(data_dir, 'schools.csv'))
+    colleges = pd.read_csv(os.path.join(data_dir, 'colleges.csv'))
+
+    # assign zone ids to schools and colleges
+    if asim_zone_id_col not in schools.columns:
+        schools_df = schools[['x', 'y']].copy()
+        schools_df.index.name = 'school_id'
+        schools[asim_zone_id_col] = get_zone_from_points(
+            schools_df, zones, asim_zone_id_col, local_crs)
+        del schools_df
+
+    if asim_zone_id_col not in colleges.columns:
+        colleges_df = colleges[['x', 'y']].copy()
+        colleges_df.index.name = 'college_id'
+        colleges[asim_zone_id_col] = get_zone_from_points(
+            colleges_df, zones, asim_zone_id_col, local_crs)
+        del colleges_df
+
+    # create new column variables
+    zones['TOTHH'] = households[asim_zone_id_col].groupby(households[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
+    zones['TOTPOP'] = persons[asim_zone_id_col].groupby(persons[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
+    zones['EMPRES'] = households[[asim_zone_id_col,'workers']].groupby(asim_zone_id_col)['workers'].sum().reindex(zones.index).fillna(0)
+    zones['HHINCQ1'] = households.loc[households['income'] < 30000, [asim_zone_id_col,'income']].groupby(asim_zone_id_col)['income'].count().reindex(zones.index).fillna(0)
+    zones['HHINCQ2'] = households.loc[households['income'].between(30000, 59999), [asim_zone_id_col,'income']].groupby(asim_zone_id_col)['income'].count().reindex(zones.index).fillna(0)
+    zones['HHINCQ3'] = households.loc[households['income'].between(60000, 99999), [asim_zone_id_col,'income']].groupby(asim_zone_id_col)['income'].count().reindex(zones.index).fillna(0)
+    zones['HHINCQ4'] = households.loc[households['income'] >= 100000, [asim_zone_id_col,'income']].groupby(asim_zone_id_col)['income'].count().reindex(zones.index).fillna(0)
+    zones['AGE0004'] = persons.loc[persons['age'].between(0,4), [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)['age'].count().reindex(zones.index).fillna(0)
+    zones['AGE0519'] = persons.loc[persons['age'].between(5,19), [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)['age'].count().reindex(zones.index).fillna(0)
+    zones['AGE2044'] = persons.loc[persons['age'].between(20,44), [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)['age'].count().reindex(zones.index).fillna(0)
+    zones['AGE4564'] = persons.loc[persons['age'].between(45,64), [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)['age'].count().reindex(zones.index).fillna(0)
+    zones['AGE64P'] = persons.loc[persons['age'] >= 65, [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)['age'].count().reindex(zones.index).fillna(0)
+    zones['AGE62P'] = persons.loc[persons['age'] >= 62, [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)['age'].count().reindex(zones.index).fillna(0)
+    zones['SHPOP62P'] = (zones.AGE62P / zones.TOTPOP).reindex(zones.index).fillna(0)
+    zones['TOTEMP'] = jobs[asim_zone_id_col].groupby(jobs[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
+    zones['RETEMP'] = jobs.loc[jobs['sector_id'].isin([4445]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['FPSEMPN'] = jobs.loc[jobs['sector_id'].isin([52, 54]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['HEREMPN'] = jobs.loc[jobs['sector_id'].isin([61, 62, 71]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['AGREMPN'] = jobs.loc[jobs['sector_id'].isin([11]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['MWTEMPN'] = jobs.loc[jobs['sector_id'].isin([42, 3133, 32, 4849]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['OTHEMPN'] = jobs.loc[~jobs['sector_id'].isin([4445, 52, 54, 61, 62, 71, 11, 42, 3133, 32, 4849]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['TOTACRE'] = blocks[['TOTACRE', asim_zone_id_col]].groupby(asim_zone_id_col)['TOTACRE'].sum().reindex(zones.index).fillna(0)
+    zones['HSENROLL'] = schools[['enrollment', asim_zone_id_col]].groupby(asim_zone_id_col)['enrollment'].sum().reindex(zones.index).fillna(0)
+    zones['TOPOLOGY'] = 1
+    zones['employment_density'] = zones.TOTEMP / zones.TOTACRE
+    zones['pop_density'] = zones.TOTPOP / zones.TOTACRE
+    zones['hh_density'] = zones.TOTHH / zones.TOTACRE
+    zones['hq1_density'] = zones.HHINCQ1 / zones.TOTACRE
+    zones['PRKCST'] = _get_park_cost(
+        zones, [-1.92168743, 4.89511403, 4.2772001, 0.65784643],
+        ['pop_density', 'hh_density', 'hq1_density', 'employment_density'],
+        ['employment_density', 'pop_density', 'hh_density', 'hq1_density'])
+    zones['OPRKCST'] = _get_park_cost(
+        zones, [-6.17833544, 17.55155703, 2.0786466],
+        ['pop_density', 'hh_density', 'employment_density'],
+        ['employment_density', 'pop_density', 'hh_density'])
+    zones['COLLFTE'] = colleges[[
+        asim_zone_id_col, 'full_time_enrollment']].groupby(
+        asim_zone_id_col)['full_time_enrollment'].sum().reindex(
+        zones.index).fillna(0)
+    zones['COLLPTE'] = colleges[[
+        asim_zone_id_col, 'part_time_enrollment']].groupby(
+        asim_zone_id_col)['part_time_enrollment'].sum().reindex(
+        zones.index).fillna(0)
+    zones['TERMINAL'] = 0
+    zones['COUNTY'] = 1
+    zones['area_type_metric'] = _compute_area_type_metric(zones)
+    zones['area_type'] = _compute_area_type(zones)
+    zones['TERMINAL'] = 0  # FIXME
+    zones['COUNTY'] = 1  # FIXME
+
+    return zones
+
+
+def _get_zones_table(
+        datastore, region, asim_zone_id_col='TAZ',
+        default_zone_id_col='zone_id'):
+    zone_key = '/zone_geoms'
+    if zone_key in datastore.keys():
+        logger.info("Loading zone geometries from .h5 datastore!")
+        zones = datastore[zone_key]
+        if asim_zone_id_col not in zones.columns:
+            zones.rename(columns={default_zone_id_col: asim_zone_id_col})
+        if 'geometry' in zones.columns:
+            zones['geometry'] = zones['geometry'].apply(wkt.loads)
+            zones = gpd.GeoDataFrame(
+                zones, geometry='geometry', crs='EPSG:4326')
+        else:
+            raise KeyError(
+                "Table 'zone_geoms' exists in the .h5 datastore but "
+                "no geometry column was found!")
+    else:
+        logger.info("Downloading zone geometries on the fly!")
+        zones = get_taz_geoms(region, zone_id_col_out=asim_zone_id_col)
+        # save zone geoms in .h5 datastore so we don't
+        # have to do this again
+        out_zones = pd.DataFrame(zones.copy())
+        out_zones['geometry'] = out_zones['geometry'].apply(
+            lambda x: x.wkt)
+
+        logger.info("Storing zone geometries to .h5 datastore!")
+        datastore[zone_key] = out_zones
+
+    return zones
+
+
+def create_asim_data_from_h5(settings, usim_datastore, year):
+
+    region = settings['region']
+    FIPS = settings['FIPS'][region]
+    state_fips = FIPS['state']
+    county_codes = FIPS['counties']
+    local_crs = settings['local_crs'][region]
+    usim_local_data_folder = settings['usim_local_data_folder']
+    output_dir = settings['asim_local_input_folder']
+
+    store = pd.HDFStore(os.path.join(usim_local_data_folder, usim_datastore))
+    input_zone_id_col = 'zone_id'
+    asim_zone_id_col = 'TAZ'
+
+    households = store['/{0}/households'.format(year)]
+    persons = store['/{0}/persons'.format(year)]
+    blocks = store['/{0}/blocks'.format(year)]
+    jobs = store['/{0}/jobs'.format(year)]
+    zones = _get_zones_table(store, region)
+
+    # update blocks
+    blocks_cols = blocks.columns
+    tazs_remapped, blocks = _update_blocks_table(
+        blocks, households, jobs, settings, input_zone_id_col)
+    if tazs_remapped:
+        logger.info(
+            "Storing blocks table with TAZ IDs to disk in .h5 datastore!")
+        store['/{0}/blocks'.format(year)] = blocks[blocks_cols]
+    blocks.rename(columns={input_zone_id_col: asim_zone_id_col}, inplace=True)
+
+    # update households
+    households = _update_households_table(households, blocks, asim_zone_id_col)
+
+    # update persons
+    persons = _update_persons_table(
+        persons, households, blocks, asim_zone_id_col)
+
+    # update jobs
+    jobs_cols = jobs.columns
+    num_reassigned, jobs = _update_jobs_table(
+        jobs, blocks, state_fips, county_codes, local_crs,
+        asim_zone_id_col)
+    if num_reassigned > 0:
+        # update data store with new block_id's to avoid triggering
+        # this process again in the future
+        logger.info(
+            "Storing jobs table with updated block IDs to disk "
+            "in .h5 datastore!")
+        store['/{0}/jobs'.format(year)] = jobs[jobs_cols]
+
+    # create land use table
+    land_use = _create_land_use_table(
+        output_dir, zones, state_fips, county_codes, local_crs,
+        households, persons, jobs, blocks)
+
+    store.close()
+
+    households.to_csv(os.path.join(output_dir, 'households.csv'))
+    persons.to_csv(os.path.join(output_dir, 'persons.csv'))
+    land_use.to_csv(os.path.join(output_dir, 'land_use.csv'))
