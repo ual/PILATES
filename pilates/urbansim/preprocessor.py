@@ -66,17 +66,17 @@ def add_skims_to_model_data(settings, region):
     region_id = settings['region_to_region_id'][region]
     model_data_fname = usim_model_data_fname(region_id)
     model_data_fpath = os.path.join(
-        settings['usim_local_input_folder'], model_data_fname)
+        settings['usim_local_data_folder'], model_data_fname)
     store = pd.HDFStore(model_data_fpath)
     store['travel_data'] = df
     del df
-    blocks = store['blocks'].copy()
 
     # should only have to be run the first time the raw
     # urbansim data is touched by pilates
-    if 'TAZ' not in blocks.columns:
+    zone_id_col = 'zone_id'  # col name we want at the end
+    blocks = store['blocks'].copy()
+    if zone_id_col not in blocks.columns:
         logger.info("Mapping block IDs to TAZ")
-        zone_id_col = 'zone_id'  # col name we want at the end
         ref_zone_id_col = 'objectid'  # col name from remote data source
         block_taz = map_block_to_taz(
             settings, region, zone_id_col=zone_id_col,
@@ -86,18 +86,18 @@ def add_skims_to_model_data(settings, region):
         blocks[zone_id_col] = blocks[zone_id_col].fillna(0)
         blocks = blocks[blocks[zone_id_col] != 0].copy()
 
-    logger.info("Write out to the data store.")
-    households = store['households'].copy()
-    persons = store['persons'].copy()
-    jobs = store['jobs'].copy()
-    units = store['residential_units'].copy()
-    assert households['block_id'].isin(blocks.index).all()
-    assert persons['household_id'].isin(households.index).all()
-    assert jobs['block_id'].isin(blocks.index).all()
-    assert units['block_id'].isin(blocks.index).all()
-    store['blocks'] = blocks
-    store['households'] = households
-    store['persons'] = persons
-    store['jobs'] = jobs
-    store['residential_units'] = units
+        logger.info("Write out to the data store.")
+        households = store['households'].copy()
+        persons = store['persons'].copy()
+        jobs = store['jobs'].copy()
+        units = store['residential_units'].copy()
+        assert households['block_id'].isin(blocks.index).all()
+        assert persons['household_id'].isin(households.index).all()
+        assert jobs['block_id'].isin(blocks.index).all()
+        assert units['block_id'].isin(blocks.index).all()
+        store['blocks'] = blocks
+        store['households'] = households
+        store['persons'] = persons
+        store['jobs'] = jobs
+        store['residential_units'] = units
     store.close()

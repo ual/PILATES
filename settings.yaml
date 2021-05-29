@@ -24,15 +24,12 @@ region_to_beam_subdir:
   sfbay: sf-light 
 
 # URBANSIM SETTINGS
-land_use_image: mxndrwgrdnr/usim_block_model
-region_to_usim_bucket:
-  austin: austin-urbansim
-  detroit: detroit-urbansim
-  sfbay: bayarea-urbansim
+land_use_image: mxndrwgrdnr/block_model_v2_pb
 region_to_region_id:
   sfbay: "06197001"
-usim_local_input_folder: pilates/urbansim/data/
-usim_client_input_folder: /base/block_model_probaflow/data/
+usim_local_data_folder: pilates/urbansim/data/
+usim_client_data_folder: /base/block_model_probaflow/data/
+usim_formattable_output_file_name: "model_data_{year}.h5"
 
 # ACTIVITYSIM SETTINGS
 activity_demand_image: mxndrwgrdnr/activitysim
@@ -113,7 +110,8 @@ FIPS:
       - "095"
       - "097"
 local_crs:
-  sfbay: EPSG:32140
+  sfbay: EPSG:7131
+  austin: EPSG:32140
 
 validation_metrics:
   growth:

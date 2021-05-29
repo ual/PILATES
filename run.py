@@ -1,12 +1,12 @@
 import yaml
 import docker
 import os
-import s3fs
 import argparse
 import logging
 import sys
 
-from pilates.activitysim.preprocessor import create_skims_from_beam
+from pilates.activitysim.preprocessor import \
+    create_skims_from_beam, create_asim_data_from_h5
 from pilates.urbansim.preprocessor import add_skims_to_model_data
 
 logging.basicConfig(
@@ -44,8 +44,9 @@ if __name__ == '__main__':
     beam_local_config = settings['beam_local_config']
     beam_local_input_folder = settings['beam_local_input_folder']
     beam_local_output_folder = settings['beam_local_output_folder']
-    usim_bucket = settings['region_to_usim_bucket'][region]
-    usim_client_input_folder = settings['usim_client_input_folder']
+    # usim_bucket = settings['region_to_usim_bucket'][region]
+    usim_client_data_folder = settings['usim_client_data_folder']
+    usim_local_data_folder = settings['usim_local_data_folder']
     asim_bucket = settings['region_to_asim_bucket'][region]
     asim_subdir = settings['region_to_asim_subdir'][region]
     asim_workdir = os.path.join('/activitysim', asim_subdir)
@@ -79,12 +80,12 @@ if __name__ == '__main__':
     if args.s3_io:
         s3_io = args.s3_io
 
-    # # prep docker environment
-    # client = docker.from_env()
-    # if pull_latest:
-    #     for image in [
-    #             land_use_image, activity_demand_image, travel_model_image]:
-    #         client.images.pull(image)
+    # prep docker environment
+    client = docker.from_env()
+    if pull_latest:
+        for image in [
+                land_use_image, activity_demand_image, travel_model_image]:
+            client.images.pull(image)
 
     # if s3_io:
     #     # prep aws s3 client
@@ -92,59 +93,45 @@ if __name__ == '__main__':
     #     s3 = s3fs.S3FileSystem(config_kwargs={'read_timeout': 86400})
     #     formattable_s3_path = '{bucket}/{io}/{scenario}/{year}/{fname}'
 
+    # formattable runtime docker command strings
+    formattable_usim_cmd = '-r {0} -i {1} -y {2} -f {3}'
+
+    # run the simulation flow
     for year in range(start_year, end_year, travel_model_freq):
 
         if land_use_freq > 0:
 
-            add_skims_to_model_data(settings, region)
-        #     forecast_year = year + travel_model_freq
-        #     print_str = (
-        #         "Simulating land use development from {0} "
-        #         "to {1} with {2}.".format(year, forecast_year, land_use_image))
-        #     formatted_print(print_str)
+            forecast_year = year + travel_model_freq
+            print_str = (
+                "Simulating land use development from {0} "
+                "to {1} with {2}.".format(year, forecast_year, land_use_image))
+            formatted_print(print_str)
+            # add_skims_to_model_data(settings, region)
 
-        #     # 1. RUN URBANSIM
-        #     formattable_usim_cmd = '-r {0} -i {1} -y {2} -f {2}'
-        #     usim_cmd = formattable_usim_cmd.format(
-        #         region_id, year, forecast_year, land_use_freq)
-        #     usim = client.containers.run(
-        #         land_use_image,
-        #         volumes={
-        #             os.path.abspath(settings['usim_local_input_folder']): {
-        #                 'bind': usim_client_input_folder,
-        #                 'mode': 'rw'},
-        #         },
-        #         command=usim_cmd, stdout=docker_stdout,
-        #         stderr=True, detach=True, remove=True)
-        #     for log in usim.logs(
-        #             stream=True, stderr=True, stdout=docker_stdout):
-        #         print(log)
+            # # 1. RUN URBANSIM
+            # usim_cmd = formattable_usim_cmd.format(
+            #     region_id, year, forecast_year, land_use_freq)
+            # usim = client.containers.run(
+            #     land_use_image,
+            #     volumes={
+            #         os.path.abspath(usim_local_data_folder): {
+            #             'bind': usim_client_data_folder,
+            #             'mode': 'rw'},
+            #     },
+            #     command=usim_cmd, stdout=docker_stdout,
+            #     stderr=True, detach=True, remove=True)
+            # for log in usim.logs(
+            #         stream=True, stderr=True, stdout=docker_stdout):
+            #     print(log)
+        else:
+            forecast_year = year
 
-        #     if s3_io:
-        #         # 2. COPY URBANSIM OUTPUT --> ACTIVITYSIM INPUT
-        #         usim_s3_data_path = formattable_s3_path.format(
-        #             bucket=usim_bucket, io='output', scenario=scenario,
-        #             year=forecast_year, fname='model_data.h5')
-        #         asim_s3_data_path = formattable_s3_path.format(
-        #             bucket=asim_bucket, io='input', scenario=scenario,
-        #             year=forecast_year, fname='model_data.h5')
-
-        #         if not s3.exists(usim_s3_data_path):
-        #             raise OSError(
-        #                 "{0} failed to generate output data.".format(
-        #                     land_use_image))
-        #         else:
-        #             print_str = (
-        #                 'Copying data from {0} to {1} input directory').format(
-        #                 usim_s3_data_path, asim_s3_data_path)
-        #             formatted_print(print_str)
-        #             s3.cp(usim_s3_data_path, asim_s3_data_path)
-        # else:
-        #     forecast_year = year
-
-        # # 3. PREPROCESS DATA FOR ACTIVITYSIM
-        # asim_data_dir = os.path.join('pilates', 'activitysim', 'data')
+        # 3. PREPROCESS DATA FOR ACTIVITYSIM
         # create_skims_from_beam(asim_local_input_folder, settings)
+        input_datastore = settings['usim_formattable_output_file_name'].format(
+            year=forecast_year)
+        create_asim_data_from_h5(settings, input_datastore, forecast_year)
+        break
 
         # # 4. RUN ACTIVITYSIM
         # print_str = (
@@ -160,7 +147,7 @@ if __name__ == '__main__':
         #             'bind': os.path.join(asim_workdir, 'data'),
         #             'mode': 'rw'},
         #         # os.path.abspath(settings['asim_local_output_folder']): {
-        #         #     'bind': os.path.join(asim_workdir, 'data'),
+        #         #     'bind': os.path.join(asim_workdir, 'output'),
         #         #     'mode': 'rw'}
         #     },
         #     command=formattable_asim_cmd.format(
