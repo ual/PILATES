@@ -188,35 +188,37 @@ def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
     Output:
         A series with df index and corresponding gdf id
     '''
+
     logger.info("Assigning zone IDs to {0}".format(df.index.name))
-    df = gpd.GeoDataFrame(
+    gdf = gpd.GeoDataFrame(
         df, geometry=gpd.points_from_xy(df.x, df.y), crs="EPSG:4326")
     zones_gdf.geometry.crs = "EPSG:4326"
 
     # convert to meters-based local crs
-    df = df.to_crs(local_crs)
+    gdf = gdf.to_crs(local_crs)
     zones_gdf = zones_gdf.to_crs(local_crs)
 
     # Spatial join
     intx = gpd.sjoin(
-        df.reset_index(), zones_gdf.reset_index(), how='left', op='intersects')
+        gdf.reset_index(), zones_gdf.reset_index(),
+        how='left', op='intersects')
 
     # Drop duplicates and keep the one with the smallest H3 area
     intx['intx_area'] = intx['geometry'].area
     intx = intx.sort_values('intx_area')
-    intx.drop_duplicates(subset=[df.index.name], keep='first', inplace=True)
-    intx.set_index(df.index.name, inplace=True)
-    df[zone_id_col] = intx[zone_id_col].reindex(df.index)
+    intx.drop_duplicates(subset=[gdf.index.name], keep='first', inplace=True)
+    intx.set_index(gdf.index.name, inplace=True)
+    gdf[zone_id_col] = intx[zone_id_col].reindex(gdf.index)
 
     # Check if there is any unassigined object
-    unassigned_mask = pd.isnull(df[zone_id_col])
+    unassigned_mask = pd.isnull(gdf[zone_id_col])
     if any(unassigned_mask):
 
         zones_gdf['geometry'] = zones_gdf['geometry'].centroid
-        all_dists = df.loc[unassigned_mask, 'geometry'].apply(
+        all_dists = gdf.loc[unassigned_mask, 'geometry'].apply(
             lambda x: zones_gdf['geometry'].distance(x))
 
-        df.loc[unassigned_mask, zone_id_col] = all_dists.idxmin(
+        gdf.loc[unassigned_mask, zone_id_col] = all_dists.idxmin(
             axis=1).values
 
-    return df[zone_id_col]
+    return gdf[zone_id_col]

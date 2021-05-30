@@ -93,6 +93,17 @@ beam_asim_transit_measure_map:
   XWAIT: null
   BOARDS: BOARDS
   IVT: TOTIVT_IVT_minutes
+asim_output_tables:
+  prefix: final_
+  tables:
+    - checkpoints
+    - land_use
+    - households
+    - persons
+    - tours
+    - trips
+    - joint_tour_participants
+    - plans
 
 
 # GEOGRAPHY SETTINGS
