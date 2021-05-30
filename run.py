@@ -104,7 +104,8 @@ if __name__ == '__main__':
             forecast_year = year + travel_model_freq
             print_str = (
                 "Simulating land use development from {0} "
-                "to {1} with {2}.".format(year, forecast_year, land_use_image))
+                "to {1} with {2}.".format(
+                    year, forecast_year, land_use_image.split('/')[1]))
             formatted_print(print_str)
             # add_skims_to_model_data(settings, region)
 
@@ -126,12 +127,12 @@ if __name__ == '__main__':
         else:
             forecast_year = year
 
-        # 3. PREPROCESS DATA FOR ACTIVITYSIM
+        # # 3. PREPROCESS DATA FOR ACTIVITYSIM
+        print_str = "Creating {0} input data from {1} outputs".format(
+            activity_demand_image.split('/')[0], land_use_image.split('/')[1])
+        formatted_print(print_str)
         # create_skims_from_beam(asim_local_input_folder, settings)
-        input_datastore = settings['usim_formattable_output_file_name'].format(
-            year=forecast_year)
-        create_asim_data_from_h5(settings, input_datastore, forecast_year)
-        break
+        create_asim_data_from_h5(settings, forecast_year)
 
         # # 4. RUN ACTIVITYSIM
         # print_str = (
@@ -146,9 +147,9 @@ if __name__ == '__main__':
         #         os.path.abspath(settings['asim_local_input_folder']): {
         #             'bind': os.path.join(asim_workdir, 'data'),
         #             'mode': 'rw'},
-        #         # os.path.abspath(settings['asim_local_output_folder']): {
-        #         #     'bind': os.path.join(asim_workdir, 'output'),
-        #         #     'mode': 'rw'}
+        #         os.path.abspath(settings['asim_local_output_folder']): {
+        #             'bind': os.path.join(asim_workdir, 'output'),
+        #             'mode': 'rw'}
         #     },
         #     command=formattable_asim_cmd.format(
         #         forecast_year, scenario, asim_bucket, path_to_skims,
@@ -156,6 +157,7 @@ if __name__ == '__main__':
         #     stdout=docker_stdout, stderr=True, detach=True, remove=True)
         # for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
         #     print(log)
+        break
 
         # if s3_io:
         #     asim_beam_data_path = formattable_s3_path.format(

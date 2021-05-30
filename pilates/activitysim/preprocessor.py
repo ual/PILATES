@@ -37,10 +37,10 @@ beam_skims_types = {'timePeriod': str,
 
 def _load_raw_beam_skims(settings):
 
-    path_to_beam_skims = settings.get('path_to_beam_skims', False)
+    path_to_beam_skims = settings.get('path_to_skims', False)
 
     if not path_to_beam_skims:
-        logger.info(
+        logger.warning(
             "No path to BEAM skims specified at runtime. The ActivitySim "
             "container is gonna go looking for them. You were warned.")
         return
@@ -244,7 +244,7 @@ def create_skims_from_beam(data_dir, settings):
         _create_offset(auto_df, data_dir)
 
 
-def _get_full_time_enrollment(state_fips):
+def _get_full_time_enrollment(state_fips, year):
     base_url = (
         'https://educationdata.urban.org/api/v1/'
         '{t}/{so}/{e}/{y}/{l}/?{f}&{s}&{r}&{cl}&{ds}&{fips}')
@@ -253,18 +253,17 @@ def _get_full_time_enrollment(state_fips):
     for level in levels:
         level_url = base_url.format(
             t='college-university', so='ipeds', e='fall-enrollment',
-            y='2015', l=level, f='ftpt=1', s='sex=99',
+            y=year, l=level, f='ftpt=1', s='sex=99',
             r='race=99', cl='class_level=99', ds='degree_seeking=99',
             fips='fips={0}'.format(state_fips))
-
         enroll_result = requests.get(level_url)
         enroll = pd.DataFrame(enroll_result.json()['results'])
         enroll = enroll[['unitid', 'enrollment_fall']].rename(
             columns={'enrollment_fall': level})
+        enroll[level].clip(0, inplace=True)
         enroll.set_index('unitid', inplace=True)
         enroll_list.append(enroll)
-
-    full_time = pd.concat(enroll_list, axis=1)
+    full_time = pd.concat(enroll_list, axis=1).fillna(0)
     full_time['full_time'] = full_time['undergraduate'] + full_time['graduate']
     s = full_time.full_time
     assert s.index.name == 'unitid'
@@ -289,10 +288,11 @@ def _get_part_time_enrollment(state_fips):
         enroll = pd.DataFrame(enroll_result.json()['results'])
         enroll = enroll[['unitid', 'enrollment_fall']].rename(
             columns={'enrollment_fall': level})
+        enroll[level].clip(0, inplace=True)
         enroll.set_index('unitid', inplace=True)
         enroll_list.append(enroll)
 
-    part_time = pd.concat(enroll_list, axis=1)
+    part_time = pd.concat(enroll_list, axis=1).fillna(0)
     part_time['part_time'] = part_time['undergraduate'] + part_time['graduate']
     s = part_time.part_time
     assert s.index.name == 'unitid'
@@ -480,50 +480,64 @@ def _get_school_enrollment(state_fips, county_codes):
     base_url = 'https://educationdata.urban.org/api/v1/' + \
         '{topic}/{source}/{endpoint}/{year}/?{filters}'
 
-    school_tables = []
-    for county in county_codes:
-        county_fips = str(state_fips) + str(county)
-        enroll_filters = 'county_code={0}'.format(county_fips)
-        enroll_url = base_url.format(
-            topic='schools', source='ccd', endpoint='directory',
-            year='2015', filters=enroll_filters)
+    # at the moment you can't seem to filter results by county
+    enroll_filters = 'fips={0}'.format(state_fips)
+    enroll_url = base_url.format(
+        topic='schools', source='ccd', endpoint='directory',
+        year='2015', filters=enroll_filters)
 
-        enroll_result = requests.get(enroll_url)
-        enroll = pd.DataFrame(enroll_result.json()['results'])
+    school_tables = []
+    while True:
+        response = requests.get(enroll_url).json()
+        count = response['count']
+        next_page = response['next']
+        data = response['results']
+        enroll = pd.DataFrame(data)
         school_tables.append(enroll)
-        time.sleep(2)
+        if next_page is not None:
+            enroll_url = next_page
+            time.sleep(2)
+        else:
+            break
 
     enrollment = pd.concat(school_tables, axis=0)
+    assert len(enrollment) == count
     enrollment = enrollment[[
         'ncessch', 'county_code', 'latitude',
         'longitude', 'enrollment']].set_index('ncessch')
+    enrollment['county_code'] = enrollment['county_code'].str[-3:]
+    enrollment = enrollment[enrollment['county_code'].isin(county_codes)]
     enrollment.rename(
         columns={'longitude': 'x', 'latitude': 'y'}, inplace=True)
-    enrollment = enrollment.dropna()
+    enrollment['enrollment'].clip(0, inplace=True)
+    enrollment = enrollment[~enrollment.enrollment.isna()]
 
     return enrollment
 
 
 def _get_college_enrollment(state_fips, county_codes):
-
+    year = '2015'
     logger.info("Downloading college data from educationdata.urban.org!")
     base_url = 'https://educationdata.urban.org/api/v1/' + \
         '{topic}/{source}/{endpoint}/{year}/?{filters}'
 
     colleges_list = []
+    total_count = 0
     for county in county_codes:
         county_fips = str(state_fips) + str(county)
         college_filters = 'county_fips={0}'.format(county_fips)
         college_url = base_url.format(
             topic='college-university', source='ipeds',
-            endpoint='directory', year='2015', filters=college_filters)
-
-        college_result = requests.get(college_url)
-        college = pd.DataFrame(college_result.json()['results'])
+            endpoint='directory', year=year, filters=college_filters)
+        response = requests.get(college_url).json()
+        count = response['count']
+        total_count += count
+        college = pd.DataFrame(response['results'])
         colleges_list.append(college)
         time.sleep(2)
 
     colleges = pd.concat(colleges_list)
+    assert len(colleges) == total_count
     colleges = colleges[[
         'unitid', 'inst_name', 'longitude',
         'latitude']].set_index('unitid')
@@ -533,12 +547,14 @@ def _get_college_enrollment(state_fips, county_codes):
     logger.info(
         "Downloading college full-time enrollment data from "
         "educationdata.urban.org!")
-    colleges['full_time_enrollment'] = _get_full_time_enrollment(state_fips)
+    fte = _get_full_time_enrollment(state_fips, year)
+    colleges['full_time_enrollment'] = fte.reindex(colleges.index)
 
     logger.info(
         "Downloading college part-time enrollment data from "
         "educationdata.urban.org!")
-    colleges['part_time_enrollment'] = _get_part_time_enrollment(state_fips)
+    pte = _get_part_time_enrollment(state_fips)
+    colleges['part_time_enrollment'] = pte.reindex(colleges.index)
 
     return colleges
 
@@ -591,20 +607,21 @@ def _create_land_use_table(
         data_dir, zones, state_fips, county_codes, local_crs,
         households, persons, jobs, blocks, asim_zone_id_col='TAZ',):
 
+    logger.info('Creating land use table.')
     # download missing data and save to datastore
     if 'schools.csv' not in os.listdir(data_dir):
         schools = _get_school_enrollment(state_fips, county_codes)
         logger.info("Saving school enrollment data to disk!")
         schools.to_csv(os.path.join(data_dir, 'schools.csv'))
+    else:
+        schools = pd.read_csv(os.path.join(data_dir, 'schools.csv'))
 
     if 'colleges.csv' not in os.listdir(data_dir):
         colleges = _get_college_enrollment(state_fips, county_codes)
         logger.info("Saving college data to disk!")
         colleges.to_csv(os.path.join(data_dir, 'colleges.csv'))
-
-    # load data from datastore
-    schools = pd.read_csv(os.path.join(data_dir, 'schools.csv'))
-    colleges = pd.read_csv(os.path.join(data_dir, 'colleges.csv'))
+    else:
+        colleges = pd.read_csv(os.path.join(data_dir, 'colleges.csv'))
 
     # assign zone ids to schools and colleges
     if asim_zone_id_col not in schools.columns:
@@ -622,6 +639,8 @@ def _create_land_use_table(
         del colleges_df
 
     # create new column variables
+    logger.info("Creating land use table columns.")
+    assert zones.index.name == asim_zone_id_col
     zones['TOTHH'] = households[asim_zone_id_col].groupby(households[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
     zones['TOTPOP'] = persons[asim_zone_id_col].groupby(persons[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
     zones['EMPRES'] = households[[asim_zone_id_col,'workers']].groupby(asim_zone_id_col)['workers'].sum().reindex(zones.index).fillna(0)
@@ -637,12 +656,12 @@ def _create_land_use_table(
     zones['AGE62P'] = persons.loc[persons['age'] >= 62, [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)['age'].count().reindex(zones.index).fillna(0)
     zones['SHPOP62P'] = (zones.AGE62P / zones.TOTPOP).reindex(zones.index).fillna(0)
     zones['TOTEMP'] = jobs[asim_zone_id_col].groupby(jobs[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
-    zones['RETEMP'] = jobs.loc[jobs['sector_id'].isin([4445]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
-    zones['FPSEMPN'] = jobs.loc[jobs['sector_id'].isin([52, 54]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
-    zones['HEREMPN'] = jobs.loc[jobs['sector_id'].isin([61, 62, 71]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
-    zones['AGREMPN'] = jobs.loc[jobs['sector_id'].isin([11]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
-    zones['MWTEMPN'] = jobs.loc[jobs['sector_id'].isin([42, 3133, 32, 4849]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
-    zones['OTHEMPN'] = jobs.loc[~jobs['sector_id'].isin([4445, 52, 54, 61, 62, 71, 11, 42, 3133, 32, 4849]), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['RETEMPN'] = jobs.loc[jobs['sector_id'].isin(['44-45']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['FPSEMPN'] = jobs.loc[jobs['sector_id'].isin(['52', '54']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['HEREMPN'] = jobs.loc[jobs['sector_id'].isin(['61', '62', '71']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['AGREMPN'] = jobs.loc[jobs['sector_id'].isin(['11']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['MWTEMPN'] = jobs.loc[jobs['sector_id'].isin(['42', '31-33', '32', '48-49']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+    zones['OTHEMPN'] = jobs.loc[~jobs['sector_id'].isin(['44-45', '52', '54', '61', '62', '71', '11', '42', '31-33', '32', '48-49']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
     zones['TOTACRE'] = blocks[['TOTACRE', asim_zone_id_col]].groupby(asim_zone_id_col)['TOTACRE'].sum().reindex(zones.index).fillna(0)
     zones['HSENROLL'] = schools[['enrollment', asim_zone_id_col]].groupby(asim_zone_id_col)['enrollment'].sum().reindex(zones.index).fillna(0)
     zones['TOPOLOGY'] = 1
@@ -672,7 +691,6 @@ def _create_land_use_table(
     zones['area_type'] = _compute_area_type(zones)
     zones['TERMINAL'] = 0  # FIXME
     zones['COUNTY'] = 1  # FIXME
-
     return zones
 
 
@@ -683,8 +701,16 @@ def _get_zones_table(
     if zone_key in datastore.keys():
         logger.info("Loading zone geometries from .h5 datastore!")
         zones = datastore[zone_key]
-        if asim_zone_id_col not in zones.columns:
-            zones.rename(columns={default_zone_id_col: asim_zone_id_col})
+        if zones.index.name != asim_zone_id_col:
+            if asim_zone_id_col in zones.columns:
+                zones.set_index(asim_zone_id_col, inplace=True)
+            elif zones.index.name == default_zone_id_col:
+                zones.index.name = asim_zone_id_col
+            elif asim_zone_id_col not in zones.columns:
+                zones.rename(columns={default_zone_id_col: asim_zone_id_col})
+            else:
+                logger.error(
+                    "Not sure what column in the zones table is the zone ID!")
         if 'geometry' in zones.columns:
             zones['geometry'] = zones['geometry'].apply(wkt.loads)
             zones = gpd.GeoDataFrame(
@@ -708,7 +734,7 @@ def _get_zones_table(
     return zones
 
 
-def create_asim_data_from_h5(settings, usim_datastore, year):
+def create_asim_data_from_h5(settings, year):
 
     region = settings['region']
     FIPS = settings['FIPS'][region]
@@ -717,8 +743,10 @@ def create_asim_data_from_h5(settings, usim_datastore, year):
     local_crs = settings['local_crs'][region]
     usim_local_data_folder = settings['usim_local_data_folder']
     output_dir = settings['asim_local_input_folder']
+    input_datastore = settings['usim_formattable_output_file_name'].format(
+        year=year)
 
-    store = pd.HDFStore(os.path.join(usim_local_data_folder, usim_datastore))
+    store = pd.HDFStore(os.path.join(usim_local_data_folder, input_datastore))
     input_zone_id_col = 'zone_id'
     asim_zone_id_col = 'TAZ'
 
