@@ -6,22 +6,18 @@ start_year: 2010
 end_year: 2050
 land_use_freq: 1  # zero turns off land use models completely
 travel_model_freq: 5
-household_sample_size: 0  # zero means no sampling, whole pop.
 docker_stdout: False
 pull_latest: False
 
 # BEAM SETTINGS
 travel_model_image: beammodel/beam:0.8.6.2
-# beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/austin/austin-prod-200k-skims-with-h3-index-final__2020-04-18_09-44-24_wga/ITERS/it.0/0.skimsOD.UrbanSim.Full.csv.gz
-# beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/detroit/detroit-200k__2020-05-29_22-09-51_mgd/ITERS/it.10/10.skimsOD.UrbanSim.Full.csv.gz
-# beam_skims_url: https://beam-outputs.s3.amazonaws.com/output/sfbay/sfbay-smartbaseline-full-TAZ-activitySimSkims-allTimePeriods-byR5-fixed__2021-02-20_11-57-40_dnv/ITERS/it.10/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 path_to_skims: pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 beam_local_config: beam.conf
 beam_local_input_folder: pilates/beam/test/
 beam_local_output_folder: pilates/beam/beam_output/
 region_to_beam_subdir:
   example: beamville 
-  sfbay: sf-light 
+  sfbay: sf-light
 
 # URBANSIM SETTINGS
 land_use_image: mxndrwgrdnr/block_model_v2_pb
@@ -29,10 +25,15 @@ region_to_region_id:
   sfbay: "06197001"
 usim_local_data_folder: pilates/urbansim/data/
 usim_client_data_folder: /base/block_model_probaflow/data/
+usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
+
 
 # ACTIVITYSIM SETTINGS
 activity_demand_image: mxndrwgrdnr/activitysim
+household_sample_size: 0  # zero means no sampling, whole pop.
+chunk_size: 4000000000
+num_processes: 30
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
 region_to_asim_subdir:
