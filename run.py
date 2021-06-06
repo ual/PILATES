@@ -44,7 +44,6 @@ if __name__ == '__main__':
     beam_local_config = settings['beam_local_config']
     beam_local_input_folder = settings['beam_local_input_folder']
     beam_local_output_folder = settings['beam_local_output_folder']
-    # usim_bucket = settings['region_to_usim_bucket'][region]
     usim_client_data_folder = settings['usim_client_data_folder']
     usim_local_data_folder = settings['usim_local_data_folder']
     asim_bucket = settings['region_to_asim_bucket'][region]
@@ -118,12 +117,16 @@ if __name__ == '__main__':
         else:
             forecast_year = year
 
+        breakpoint()
+
         # 3. PREPROCESS DATA FOR ACTIVITYSIM
         print_str = "Creating {0} input data from {1} outputs".format(
-            activity_demand_image.split('/')[0], land_use_image.split('/')[1])
+            activity_demand_image.split('/')[1], land_use_image.split('/')[1])
         formatted_print(print_str)
         asim_pre.create_skims_from_beam(asim_local_input_folder, settings)
         asim_pre.create_asim_data_from_h5(settings, forecast_year)
+
+        breakpoint()
 
         # 4. RUN ACTIVITYSIM
         print_str = (
@@ -150,7 +153,14 @@ if __name__ == '__main__':
         for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
             print(log)
 
+        breakpoint()
+
         # 5. COPY ACTIVITYSIM OUTPUT --> URBANSIM INPUT
+        print_str = (
+            "Generating {0} BEAM and UrbanSim input data from "
+            "{1} outputs".format(
+                forecast_year, activity_demand_image))
+        formatted_print(print_str)
 
         # If generating activities for the base year, don't overwrite
         # urbansim input data. This is usually only the case for warm
@@ -158,6 +168,8 @@ if __name__ == '__main__':
         # the next simulation iteration
         if forecast_year != start_year:
             asim_post.create_next_iter_inputs(settings, forecast_year)
+
+        breakpoint()
 
         # # 6. RUN BEAM
         # path_to_beam_config = os.path.join(
