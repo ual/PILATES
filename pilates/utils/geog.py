@@ -163,13 +163,14 @@ def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
 
 
 def map_block_to_taz(
-        settings, region, zone_id_col='zone_id',
+        settings, region, zones_gdf=None, zone_id_col='zone_id',
         reference_taz_id_col='objectid', data_dir='./tmp/'):
 
     state_fips = settings['FIPS'][region]['state']
     county_codes = settings['FIPS'][region]['counties']
     local_crs = settings['local_crs'][region]
-    zones_gdf = get_taz_geoms(region, reference_taz_id_col, zone_id_col)
+    if zones_gdf is None:
+        zones_gdf = get_taz_geoms(region, reference_taz_id_col, zone_id_col)
     blocks_gdf = get_block_geoms(data_dir, state_fips, county_codes)
     blocks_gdf.crs = 'EPSG:4326'
     blocks_to_taz = get_taz_from_block_geoms(

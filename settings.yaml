@@ -3,9 +3,9 @@ s3_io: False
 region: sfbay
 scenario: base
 start_year: 2010
-end_year: 2050
+end_year: 2012
 land_use_freq: 1  # zero turns off land use models completely
-travel_model_freq: 5
+travel_model_freq: 1
 docker_stdout: False
 pull_latest: False
 

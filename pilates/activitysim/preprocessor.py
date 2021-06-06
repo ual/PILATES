@@ -722,6 +722,8 @@ def _get_zones_table(
     else:
         logger.info("Downloading zone geometries on the fly!")
         zones = get_taz_geoms(region, zone_id_col_out=asim_zone_id_col)
+        zones.set_index(asim_zone_id_col, inplace=True)
+
         # save zone geoms in .h5 datastore so we don't
         # have to do this again
         out_zones = pd.DataFrame(zones.copy())
@@ -754,6 +756,12 @@ def create_asim_data_from_h5(settings, year):
     persons = store['/{0}/persons'.format(year)]
     blocks = store['/{0}/blocks'.format(year)]
     jobs = store['/{0}/jobs'.format(year)]
+
+    # TODO: only call _get_zones_table if blocks table doesn't already
+    # have a zone ID (e.g. TAZ). If it does then we don't need zone geoms
+    # and can simply instantiate the zones table from the unique zone ids
+    # in the blocks/persons/households tables.
+
     zones = _get_zones_table(store, region)
 
     # update blocks
