@@ -176,7 +176,7 @@ def create_usim_input_data(settings, year, asim_output_dict, updated_tables):
             logger.info(
                 "Copying {0} input table to output store!".format(
                     table_name))
-            new_input_store.put(table_name, og_input_store[h5_key], format='t')
+            new_input_store[table_name] = og_input_store[h5_key]
 
     # copy asim outputs into archive
     for table_name in updated_tables:
@@ -198,7 +198,7 @@ def create_next_iter_inputs(settings, year):
     asim_output_dict = _prepare_updated_tables(
         settings, year, asim_output_dict, updated_tables, prefix=year)
 
-    # create_beam_input_data(settings, year, asim_output_dict)
+    create_beam_input_data(settings, year, asim_output_dict)
     create_usim_input_data(settings, year, asim_output_dict, updated_tables)
 
     return
