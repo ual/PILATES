@@ -171,7 +171,7 @@ def map_block_to_taz(
     local_crs = settings['local_crs'][region]
     if zones_gdf is None:
         zones_gdf = get_taz_geoms(region, reference_taz_id_col, zone_id_col)
-    blocks_gdf = get_block_geoms(data_dir, state_fips, county_codes)
+    blocks_gdf = get_block_geoms(state_fips, county_codes, data_dir)
     blocks_gdf.crs = 'EPSG:4326'
     blocks_to_taz = get_taz_from_block_geoms(
         blocks_gdf, zones_gdf, local_crs, zone_id_col)
