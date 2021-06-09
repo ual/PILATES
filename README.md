@@ -37,7 +37,7 @@ NOTE: currently all input data is overwritten in place throughout the course of 
 
 ## 3. Executing the full workflow
 ```
-usage: run.py [-v] [-p] [-h HOUSEHOLD_SAMPLE_SIZE]
+usage: run.py [-v] [-p]
 
 optional arguments:
   -v, --verbose         print docker stdout to the terminal
