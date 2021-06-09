@@ -1,4 +1,5 @@
-# PILATES (v2)
+<img src="icon.png" width="300" height="300">
+
 **P**latform for \
 **I**ntegrated \
 **L**anduse \
