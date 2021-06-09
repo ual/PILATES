@@ -94,7 +94,7 @@ def _create_skims_by_mode(settings):
     logger.info('Splitting out auto skims.')
     auto_df = skims_df.loc[skims_df['pathType'] == 'SOV']
     logger.info('Splitting out transit skims.')
-    transit_df = skims_df[
+    transit_df = skims_df.loc[
         skims_df['pathType'].isin(settings['transit_paths'])]
     return auto_df, transit_df, num_taz
 
@@ -130,7 +130,7 @@ def _distance_skims(settings, auto_df, data_dir, num_taz):
 
 def _transit_access(transit_df, access_paths, num_taz):
     ''' OD pair value for drive access '''
-    df = transit_df.loc[transit_df.pathType.isin(access_paths), :]
+    df = transit_df.loc[transit_df.pathType.isin(access_paths), :].copy()
     df.drop_duplicates(['origin', 'destination'], keep='last', inplace=True)
     assert df.shape[0] == num_taz * num_taz
     return df
