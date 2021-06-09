@@ -49,7 +49,7 @@ def usim_model_data_fname(region_id):
     return 'custom_mpo_{0}_model_data.h5'.format(region_id)
 
 
-def add_skims_to_model_data(settings, region):
+def add_skims_to_model_data(settings, region, skim_zone_source_id_col):
     logger.info("Loading skims from disk")
     df = _load_raw_skims(settings)
 
@@ -76,11 +76,10 @@ def add_skims_to_model_data(settings, region):
     zone_id_col = 'zone_id'  # col name we want at the end
     blocks = store['blocks'].copy()
     if zone_id_col not in blocks.columns:
-        logger.info("Mapping block IDs to TAZ")
-        ref_zone_id_col = 'objectid'  # col name from remote data source
+        logger.info("Mapping block IDs to skim TAZs")
         block_taz = map_block_to_taz(
             settings, region, zone_id_col=zone_id_col,
-            reference_taz_id_col=ref_zone_id_col)
+            reference_taz_id_col=skim_zone_source_id_col)
         block_taz.index.name = 'block_id'
         blocks = blocks.join(block_taz)
         blocks[zone_id_col] = blocks[zone_id_col].fillna(0)
