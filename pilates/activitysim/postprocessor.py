@@ -20,8 +20,15 @@ def _load_asim_outputs(settings):
             index_col = 'household_id'
         else:
             index_col = None
-        asim_output_dict[table_name] = pd.read_csv(
-            file_path, index_col=index_col)
+        table = pd.read_csv(file_path, index_col=index_col)
+
+        if 'block_id' in table.columns:
+            table['block_id'] = table['block_id'].astype(str).str.zfill(15)
+        if 'lcm_county_id' in table.columns:
+            table['lcm_county_id'] = table['lcm_county_id'].astype(
+                str).str.zfill(5)
+
+        asim_output_dict[table_name] = table
 
     return asim_output_dict
 
@@ -176,7 +183,7 @@ def create_usim_input_data(settings, year, asim_output_dict, updated_tables):
             logger.info(
                 "Copying {0} input table to output store!".format(
                     table_name))
-            new_input_store.put(table_name, og_input_store[h5_key], format='t')
+            new_input_store[table_name] = og_input_store[h5_key]
 
     # copy asim outputs into archive
     for table_name in updated_tables:
@@ -198,7 +205,7 @@ def create_next_iter_inputs(settings, year):
     asim_output_dict = _prepare_updated_tables(
         settings, year, asim_output_dict, updated_tables, prefix=year)
 
-    # create_beam_input_data(settings, year, asim_output_dict)
+    create_beam_input_data(settings, year, asim_output_dict)
     create_usim_input_data(settings, year, asim_output_dict, updated_tables)
 
     return
