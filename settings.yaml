@@ -1,0 +1,158 @@
+# PILATES SETTINGS
+s3_io: False
+region: sfbay
+scenario: base
+start_year: 2010
+end_year: 2012
+land_use_freq: 1  # zero turns off land use models completely
+travel_model_freq: 1
+docker_stdout: False
+pull_latest: False
+
+# BEAM SETTINGS
+travel_model_image: beammodel/beam:0.8.6.2
+path_to_skims: pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+beam_local_config: beam.conf
+beam_local_input_folder: pilates/beam/test/
+beam_local_output_folder: pilates/beam/beam_output/
+region_to_beam_subdir:
+  example: beamville 
+  sfbay: sf-light
+skim_zone_source_id_col: objectid
+
+# URBANSIM SETTINGS
+land_use_image: mxndrwgrdnr/block_model_v2_pb
+region_to_region_id:
+  sfbay: "06197001"
+usim_local_data_folder: pilates/urbansim/data/
+usim_client_data_folder: /base/block_model_probaflow/data/
+usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
+usim_formattable_output_file_name: "model_data_{year}.h5"
+
+
+# ACTIVITYSIM SETTINGS
+activity_demand_image: mxndrwgrdnr/activitysim
+household_sample_size: 0  # zero means no sampling, whole pop.
+chunk_size: 6000000000
+num_processes: 80
+asim_local_input_folder: pilates/activitysim/data/
+asim_local_output_folder: pilates/activitysim/output/
+region_to_asim_subdir:
+  austin: austin_mp 
+  detroit: detroit 
+  sfbay: bay_area
+region_to_asim_bucket:
+  austin: austin-activitysim
+  detroit: detroit-activitysim
+  sfbay: bayarea-activitysim
+periods:
+  - EA
+  - AM
+  - MD
+  - PM
+  - EV
+transit_paths:
+  - DRV_COM_WLK
+  - DRV_HVY_WLK
+  - DRV_LOC_WLK
+  - DRV_LRF_WLK
+  - DRV_EXP_WLK
+  - WLK_COM_DRV   
+  - WLK_HVY_DRV
+  - WLK_LOC_DRV
+  - WLK_LRF_DRV
+  - WLK_EXP_DRV
+  - WLK_COM_WLK
+  - WLK_HVY_WLK
+  - WLK_LOC_WLK
+  - WLK_LRF_WLK
+  - WLK_EXP_WLK
+  - WLK_TRN_WLK
+hwy_paths:
+  - SOV
+  - SOVTOLL
+  - HOV2
+  - HOV2TOLL
+  - HOV3
+  - HOV3TOLL
+beam_asim_hwy_measure_map:
+  TIME: TIME_minutes
+  DIST: DIST_miles
+  BTOLL: null
+  VTOLL: VTOLL_FAR
+beam_asim_transit_measure_map:
+  WAIT: null
+  TOTIVT: TOTIVT_IVT_minutes
+  KEYIVT: KEYIVT_minutes
+  FERRYIVT: FERRYIVT_minutes
+  FAR: VTOLL_FAR
+  DTIM: DTIM_minutes
+  DDIST: DDIST_miles
+  WAUX: WAUX_minutes
+  WEGR: WEGR_minutes
+  WACC: WACC_minutes
+  IWAIT: null
+  XWAIT: null
+  BOARDS: BOARDS
+  IVT: TOTIVT_IVT_minutes
+asim_output_tables:
+  prefix: final_
+  tables:
+    - checkpoints
+    - land_use
+    - households
+    - persons
+    - tours
+    - trips
+    - joint_tour_participants
+    - plans
+
+
+# GEOGRAPHY SETTINGS
+FIPS:
+  sfbay:
+    state: "06"
+    counties:
+      - "001"
+      - "013"
+      - "041"
+      - "055"
+      - "075"
+      - "081"
+      - "085"
+      - "095"
+      - "097"
+local_crs:
+  sfbay: EPSG:7131
+  austin: EPSG:32140
+
+validation_metrics:
+  growth:
+    - population
+    - employment
+    - residential_units
+  commute_dists:
+  mode_shares:
+  auto_ownership:
+  density_gradients:
+    rent:
+      access:
+        var: employment
+        cost: minutes
+        levels:
+          - 15
+          - 45
+    jobs:
+      access:
+        var: employment
+        cost: minutes
+        levels:
+          - 15
+          - 45
+    population:
+      access:
+        var: employment
+        cost: minutes
+        levels:
+          - 15
+          - 45
