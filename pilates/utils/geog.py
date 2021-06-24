@@ -111,26 +111,8 @@ def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
 
     zones_gdf['zone_area'] = zones_gdf.geometry.area
 
-    # assign blocks to zone with a spatial within query
-    within = gpd.sjoin(
-        blocks_gdf, zones_gdf.reset_index(), how='inner', op='within')
-
-    # when a block falls within multiple (overlapping) zones,
-    # assign it to the zone with the smallest area
-    within = within.sort_values(['GEOID', 'zone_area'])
-    within = within.drop_duplicates('GEOID', keep='first')
-
-    # add to results df
-    block_to_taz_results = pd.concat((
-        block_to_taz_results, within[['GEOID', zone_col_name]]))
-
-    # assign remaining blocks based on a spatial intersection
-    unassigned_mask = ~blocks_gdf['GEOID'].isin(block_to_taz_results['GEOID'])
-    intx = gpd.overlay(
-        blocks_gdf[unassigned_mask], zones_gdf.reset_index(),
-        how='intersection')
-
     # assign zone ID's to blocks based on max area of intersection
+    intx = gpd.overlay(blocks_gdf, zones_gdf.reset_index(), how='intersection')
     intx['intx_area'] = intx['geometry'].area
     intx = intx.sort_values(['GEOID', 'intx_area'], ascending=False)
     intx = intx.drop_duplicates('GEOID', keep='first')
