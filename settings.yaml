@@ -10,10 +10,12 @@ docker_stdout: False
 pull_latest: False
 
 # BEAM SETTINGS
-travel_model_image: beammodel/beam:0.8.6.2
+travel_model_image: dimaopen/beam:0.8.6.3
 path_to_skims: pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+beam_config: sfbay/gemini/activitysim-base-from-60k-input.conf
+beam_plans: sfbay/gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz
 beam_local_config: beam.conf
-beam_local_input_folder: pilates/beam/test/
+beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 region_to_beam_subdir:
   example: beamville 
