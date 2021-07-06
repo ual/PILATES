@@ -44,3 +44,54 @@ optional arguments:
   -v, --verbose         print docker stdout to the terminal
   -p, --pull_latest     pull latest docker images before running
 ```
+
+## 4. ActivitySim Beam integration
+You can use activitysim_beam_run.py to run ActivitySim and BEAM together. Plans that produced by ActivitySim are used as BEAM input. Skims that Beam saves as a result of simulation is merged into the input skim file.
+
+You need to set the following settings:
+1. **path_to_skims**: `pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz` The full skim file that contains all Origin Destinations pairs with ActivitySim path types.
+2. **beam_config**: `sfbay/gemini/activitysim-base-from-60k-input.conf` Path to beam config. This path must be relative to `beam_local_input_folder`. The BEAM docker container is provided with this config as an input.
+3. **beam_plans**: `sfbay/gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz` File with BEAM plans that is going to be replace with the ActiveSim output.
+4. **beam_local_input_folder**: `pilates/beam/production/` Path to BEAM input folder. This folder is going to be mapped to the BEAM container input folder.
+5. **beam_local_output_folder**: `pilates/beam/beam_output/` The BEAM output is going to be saved here. In order to have a clean run this directory should be empty before start.
+
+BEAM config should be set in the way so that BEAM saves ActivitySim skims, linkstats and loads people plans and linkstats from the previous runs.
+
+This is the BEAM config options that enables it.
+
+```hocon
+# most of the time we need a single iteration
+beam.agentsim.firstIteration = 0
+beam.agentsim.lastIteration = 0
+
+beam.router.skim = {
+  # This allows to write skims on each iteration
+  writeSkimsInterval = 1
+}
+
+beam.exchange{
+  output {
+    # this enables saving activitySim Skims
+    activitySimSkimsEnabled = true
+    # geo level different than TAZ (in beam taz-centers format)
+    geo.filePath = ${beam.inputDirectory}"/block_group-centers.csv.gz"
+  }
+}
+
+# This loads linkStats from the last found BEAM runs
+beam.warmStart.type = "linkStatsFromLastRun"
+
+# For subsequential beam runs (some data will be laoded from the latest found run in this directory)
+beam.input.lastBaseOutputDir = ${beam.outputs.baseOutputDirectory}
+# This prefix is used to find the last run output directory within beam.input.lastBaseOutputDir direcotry
+beam.input.simulationPrefix = ${beam.agentsim.simulationName}
+
+# fraction of input plans to be merged into the latest output plans (taken from the beam.input.lastBaseOutputDir)
+beam.agentsim.agents.plans.merge.fraction = 0.2
+```
+
+### Executing the simulation
+```shell
+nohup python activitysim_beam_run.py -v
+```
+nohup keeps the script working in case the user session is closed. The output is saved to nohup.out file by default.
