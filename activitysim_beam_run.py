@@ -7,6 +7,7 @@ import sys
 
 from pilates.activitysim import preprocessor as asim_pre
 from pilates.activitysim import postprocessor as asim_post
+from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
 
 logging.basicConfig(
@@ -138,7 +139,7 @@ if __name__ == '__main__':
                 forecast_year, activity_demand_image))
         formatted_print(print_str)
 
-        asim_post.copy_output_plans_to_beam(settings)
+        beam_pre.copy_plans_from_asim(settings)
 
         # 4. RUN BEAM
         abs_beam_input = os.path.abspath(beam_local_input_folder)
