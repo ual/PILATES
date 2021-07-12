@@ -105,7 +105,7 @@ if __name__ == '__main__':
         logger.info("Processing year %s", forecast_year)
 
         # 1. PREPROCESS SKIM DATA FOR ACTIVITYSIM
-        asim_pre.create_skims_from_beam(asim_local_input_folder, settings, overwrite=True)
+        asim_pre.create_skims_from_beam(asim_local_input_folder, settings)
 
         # 2. RUN ACTIVITYSIM
         print_str = (

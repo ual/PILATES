@@ -55,7 +55,7 @@ def _load_raw_beam_skims(settings):
     return skims
 
 
-def _create_skim_object(data_dir, overwrite=False):
+def _create_skim_object(data_dir, overwrite=True):
     skims_path = os.path.join(data_dir, 'skims.omx')
     skims_exist = os.path.exists(skims_path)
 
@@ -232,7 +232,7 @@ def _create_offset(auto_df, data_dir):
     skims.close()
 
 
-def create_skims_from_beam(data_dir, settings, overwrite=False):
+def create_skims_from_beam(data_dir, settings, overwrite=True):
 
     new = _create_skim_object(data_dir, overwrite)
     if new:
