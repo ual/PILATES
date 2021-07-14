@@ -45,15 +45,16 @@ optional arguments:
   -p, --pull_latest     pull latest docker images before running
 ```
 
-## 4. ActivitySim Beam integration
-You can use activitysim_beam_run.py to run ActivitySim and BEAM together. Plans that produced by ActivitySim are used as BEAM input. Skims that Beam saves as a result of simulation is merged into the input skim file.
+## 4. ActivitySim BEAM integration
+In order to have BEAM to run correctly one needs to set the following settings:
 
-You need to set the following settings:
 1. **path_to_skims**: `pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz` The full skim file that contains all Origin Destinations pairs with ActivitySim path types.
 2. **beam_config**: `sfbay/gemini/activitysim-base-from-60k-input.conf` Path to beam config. This path must be relative to `beam_local_input_folder`. The BEAM docker container is provided with this config as an input.
 3. **beam_plans**: `sfbay/gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz` File with BEAM plans that is going to be replace with the ActiveSim output.
 4. **beam_local_input_folder**: `pilates/beam/production/` Path to BEAM input folder. This folder is going to be mapped to the BEAM container input folder.
 5. **beam_local_output_folder**: `pilates/beam/beam_output/` The BEAM output is going to be saved here. In order to have a clean run this directory should be empty before start.
+
+### BEAM Config: saves ASIM skims, enables BEAM to reuse the previous BEAM output plans, linkstats.
 
 BEAM config should be set in the way so that BEAM saves ActivitySim skims, linkstats and loads people plans and linkstats from the previous runs.
 
@@ -92,6 +93,6 @@ beam.agentsim.agents.plans.merge.fraction = 0.2
 
 ### Executing the simulation
 ```shell
-nohup python activitysim_beam_run.py -v
+nohup python run.py -v
 ```
 nohup keeps the script working in case the user session is closed. The output is saved to nohup.out file by default.
