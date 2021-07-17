@@ -55,19 +55,22 @@ def _load_raw_beam_skims(settings):
     return skims
 
 
-def _create_skim_object(data_dir):
+def _create_skim_object(data_dir, overwrite=True):
     skims_path = os.path.join(data_dir, 'skims.omx')
     skims_exist = os.path.exists(skims_path)
 
     if skims_exist:
-        logger.info("Found existing skims, no need to re-create.")
-        return False
+        if (overwrite):
+            logger.info("Found existing skims, removing.")
+            os.remove(skims_path)
+        else:
+            logger.info("Found existing skims, no need to re-create.")
+            return False
 
-    else:
-        logger.info("Creating skims.omx from BEAM skims")
-        skims = omx.open_file(skims_path, 'w')
-        skims.close()
-        return True
+    logger.info("Creating skims.omx from BEAM skims")
+    skims = omx.open_file(skims_path, 'w')
+    skims.close()
+    return True
 
 
 def _create_skims_by_mode(settings):
@@ -229,9 +232,9 @@ def _create_offset(auto_df, data_dir):
     skims.close()
 
 
-def create_skims_from_beam(data_dir, settings):
+def create_skims_from_beam(data_dir, settings, overwrite=True):
 
-    new = _create_skim_object(data_dir)
+    new = _create_skim_object(data_dir, overwrite)
     if new:
         auto_df, transit_df, num_taz = _create_skims_by_mode(settings)
 
@@ -736,7 +739,7 @@ def _get_zones_table(
     return zones
 
 
-def create_asim_data_from_h5(settings, year):
+def create_asim_data_from_h5(settings, year, keys_with_year=True):
 
     region = settings['region']
     FIPS = settings['FIPS'][region]
@@ -752,10 +755,16 @@ def create_asim_data_from_h5(settings, year):
     input_zone_id_col = 'zone_id'
     asim_zone_id_col = 'TAZ'
 
-    households = store['/{0}/households'.format(year)]
-    persons = store['/{0}/persons'.format(year)]
-    blocks = store['/{0}/blocks'.format(year)]
-    jobs = store['/{0}/jobs'.format(year)]
+    def create_key(key, year, keys_with_year):
+        if (keys_with_year):
+            return '/{0}/{1}'.format(key, year)
+        else:
+            return key
+
+    households = store[create_key('households', year, keys_with_year)]
+    persons = store[create_key('persons', year, keys_with_year)]
+    blocks = store[create_key('blocks', year, keys_with_year)]
+    jobs = store[create_key('jobs', year, keys_with_year)]
 
     # TODO: only call _get_zones_table if blocks table doesn't already
     # have a zone ID (e.g. TAZ). If it does then we don't need zone geoms
