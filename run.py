@@ -8,10 +8,12 @@ import sys
 from pilates.activitysim import preprocessor as asim_pre
 from pilates.activitysim import postprocessor as asim_post
 from pilates.urbansim import preprocessor as usim_pre
+from pilates.beam import preprocessor as beam_pre
+from pilates.beam import postprocessor as beam_post
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.INFO,
-    format='%(name)s - %(levelname)s - %(message)s')
+    format='%(asctime)s %(name)s - %(levelname)s - %(message)s')
 
 
 def formatted_print(string, width=50, fill_char='#'):
@@ -23,8 +25,18 @@ def formatted_print(string, width=50, fill_char='#'):
     print(fill_char * width, '\n')
 
 
+def find_latest_beam_iteration(beam_output_dir):
+    iter_dirs = []
+    for root, dirs, files in os.walk(beam_output_dir):
+        for dir in dirs:
+            if dir == "ITER":
+                iter_dirs += os.path.join(root, dir)
+    print(iter_dirs)
+
+
 if __name__ == '__main__':
 
+    logger = logging.getLogger(__name__)
     # read settings from config file
     with open('settings.yaml') as file:
         settings = yaml.load(file, Loader=yaml.FullLoader)
@@ -41,7 +53,7 @@ if __name__ == '__main__':
     travel_model_freq = settings['travel_model_freq']
     household_sample_size = settings['household_sample_size']
     path_to_skims = settings['path_to_skims']
-    beam_local_config = settings['beam_local_config']
+    beam_config = settings['beam_config']
     beam_local_input_folder = settings['beam_local_input_folder']
     beam_local_output_folder = settings['beam_local_output_folder']
     skim_zone_source_id_col = settings['skim_zone_source_id_col']
@@ -54,7 +66,6 @@ if __name__ == '__main__':
     num_processes = settings['num_processes']
     asim_local_input_folder = settings['asim_local_input_folder']
     asim_local_output_folder = settings['asim_local_output_folder']
-    beam_subdir = settings['region_to_beam_subdir'][region]
     docker_stdout = settings['docker_stdout']
     pull_latest = settings['pull_latest']
     region_id = settings['region_to_region_id'][region]
@@ -84,13 +95,19 @@ if __name__ == '__main__':
                 land_use_image, activity_demand_image, travel_model_image]:
             client.images.pull(image)
 
+    #remember already processed skims
+    previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
+    logger.info("Found skims from the previous run: %s", previous_skims)
+
     # formattable runtime docker command strings
     formattable_usim_cmd = '-r {0} -i {1} -y {2} -f {3}'
 
     # run the simulation flow
     for year in range(start_year, end_year, travel_model_freq):
 
-        if land_use_freq > 0:
+        usim_enabled = land_use_freq > 0
+
+        if usim_enabled:
 
             forecast_year = year + travel_model_freq
 
@@ -130,7 +147,8 @@ if __name__ == '__main__':
             activity_demand_image.split('/')[1], land_use_image.split('/')[1])
         formatted_print(print_str)
         asim_pre.create_skims_from_beam(asim_local_input_folder, settings)
-        asim_pre.create_asim_data_from_h5(settings, forecast_year)
+        if usim_enabled | (forecast_year == start_year):
+            asim_pre.create_asim_data_from_h5(settings, forecast_year, keys_with_year=usim_enabled)
 
         # 4. RUN ACTIVITYSIM
         print_str = (
@@ -168,26 +186,33 @@ if __name__ == '__main__':
         # urbansim input data. This is usually only the case for warm
         # starts or debugging. Otherwise we want to set up urbansim for
         # the next simulation iteration
-        if forecast_year != start_year:
+        if usim_enabled & (forecast_year != start_year):
             asim_post.create_next_iter_inputs(settings, forecast_year)
 
-        # # 6. RUN BEAM
-        # path_to_beam_config = os.path.join(
-        #     beam_local_input_folder, "input", beam_subdir,
-        #     beam_local_config)
-        # client.containers.run(
-        #     travel_model_image,
-        #     volumes={
-        #         beam_local_input_folder: {
-        #             'bind': '/app/{0}'.format(beam_local_input_folder),
-        #             'mode': 'rw'},
-        #         beam_local_output_folder: {
-        #             'bind': '/app/output',
-        #             'mode': 'rw'}},
-        #     command="--config={0}".format(path_to_beam_config),
-        #     stdout=docker_stdout, stderr=True, detach=True, remove=True
-        # )
+        beam_pre.copy_plans_from_asim(settings)
 
-        # # # update path to skims
-        # # new_skims_path = ????
-        # # settings['path_to_skims'] = new_skims_path
+        # 4. RUN BEAM
+        abs_beam_input = os.path.abspath(beam_local_input_folder)
+        abs_beam_output = os.path.abspath(beam_local_output_folder)
+        logger.info("Starting beam container, input: %s, output: %s, config: %s",
+                    abs_beam_input, abs_beam_output, beam_config)
+        path_to_beam_config = '/app/input/{0}'.format(beam_config)
+        client.containers.run(
+            travel_model_image,
+            volumes={
+                abs_beam_input: {
+                    'bind': '/app/input',
+                    'mode': 'rw'},
+                abs_beam_output: {
+                    'bind': '/app/output',
+                    'mode': 'rw'}},
+            command="--config={0}".format(path_to_beam_config),
+            stdout=docker_stdout, stderr=True, detach=False, remove=True
+        )
+
+        current_skims = beam_post.merge_current_skims(path_to_skims, previous_skims, beam_local_output_folder)
+        if current_skims == previous_skims:
+            logger.error("BEAM hasn't produced the new skims for some reason. Please check beamLog.out for errors in "
+                         "the directory %s", abs_beam_output)
+            exit(1)
+    logger.info("Finished")
