@@ -1,4 +1,4 @@
-<img src="icon.png" width="300">
+<img src="pilates.png" width="300">
 
 **P**latform for \
 **I**ntegrated \
