@@ -20,14 +20,15 @@ activity_demand_model:
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  beam: beammodel/beam:0.8.6.2
+  beam: dimaopen/beam:0.8.6.3
   activitysim: mxndrwgrdnr/activitysim
   polaris:
 docker_stdout: False
 pull_latest: False
 
 # misc pilates settings
-path_to_skims: pilates/polaris/data/campo_skims.hdf5
+skims_fname: campo_skims.hdf5
+# skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 
 #########################################################################################################
 
@@ -43,12 +44,14 @@ usim_local_data_folder: pilates/urbansim/data/
 usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
+usim_formattable_command: "-r {0} -i {1} -y {2} -f {3}"
 
 
 # BEAM 
-beam_local_config: beam.conf
-beam_local_input_folder: pilates/beam/test/
+beam_config: activitysim-base-from-60k-input.conf
+beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
+beam_plans: activitysim-plans-base-2010-cut-60k/plans.csv.gz
 region_to_beam_subdir:
   example: beamville 
   sfbay: sf-light
@@ -57,7 +60,7 @@ skim_zone_source_id_col: objectid
 
 
 # POLARIS
-polaris_local_input_folder: pilates/polaris/data
+polaris_local_data_folder: pilates/polaris/data
 polaris_skim_keys:
   base: 'auto_skims'
   t: 't4'  # 8-9am
@@ -71,6 +74,7 @@ chunk_size: 6000000000
 num_processes: 80
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
+asim_formattable_command: "-y {0} -h {1} -n {2} -c {3}"
 region_to_asim_subdir:
   austin: austin_mp 
   detroit: detroit 
@@ -143,6 +147,10 @@ asim_output_tables:
 
 
 #########################################################################################################
+
+################################
+#    MISC. PILATES SETTINGS    #
+################################
 
 # GEOGRAPHY SETTINGS
 FIPS:
