@@ -65,7 +65,7 @@ def get_county_block_geoms(state_fips, county_fips, result_size=10000):
     return gdf
 
 
-def get_block_geoms(state_fips, county_codes, data_dir='tmp/'):
+def get_block_geoms(state_fips, county_codes, data_dir='./tmp/'):
     all_block_geoms = []
 
     if os.path.exists(os.path.join(data_dir, "blocks.shp")):
@@ -147,6 +147,10 @@ def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
 def map_block_to_taz(
         settings, region, zones_gdf=None, zone_id_col='zone_id',
         reference_taz_id_col='objectid', data_dir='./tmp/'):
+    """
+    Returns:
+        A series named 'zone_id' with 'GEOID' as index name
+    """
 
     state_fips = settings['FIPS'][region]['state']
     county_codes = settings['FIPS'][region]['counties']
