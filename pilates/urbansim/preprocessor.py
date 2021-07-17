@@ -30,48 +30,46 @@ skim_dtypes = {
 
 def _load_raw_skims(settings, skim_format):
 
-    path_to_skims = settings.get('path_to_skims', False)
+    skims_fname = settings.get('skims_fname', False)
 
-    if not path_to_skims:
-        logger.info(
-            "No path to skims specified at runtime. The ActivitySim "
-            "container is gonna go looking for them. You were warned.")
-        return
-    else:
-        try:
-            if skim_format == 'beam':
-                # load skims from disk or url
-                skims = pd.read_csv(path_to_skims, dtype=skim_dtypes)
-                skims = skims.loc[(
-                    skims['pathType'] == 'SOV') & (
-                    skims['timePeriod'] == 'AM')]
-                skims = skims[[
-                    'origin', 'destination', 'TOTIVT_IVT_minutes',
-                    'DIST_meters']]
-                skims = skims.rename(columns={
-                    'origin': 'from_zone_id',
-                    'destination': 'to_zone_id',
-                    'TOTIVT_IVT_minutes': 'SOV_AM_IVT_mins'})
-            elif skim_format == 'polaris':
-                f = h5py.File(path_to_skims, 'r')
-                ivtt_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['ivtt']))
-                cost_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['cost']))
-                f.close()
-                ivtt_8_9 = pd.DataFrame(
-                    ivtt_8_9.stack(), columns=['auto_ivtt_8_9_am'])
-                cost_8_9 = pd.DataFrame(
-                    cost_8_9.stack(), columns=['auto_cost_8_9_am'])
-                skims = ivtt_8_9.join(cost_8_9)
-                skims.index.names = ['from_zone_id', 'to_zone_id']
-                skims = skims.reset_index()
-        except KeyError:
-            raise KeyError(
-                "Couldn't find input skims at {0}".format(path_to_skims))
+    try:
+        if skim_format == 'beam':
+            path_to_skims = os.path.join(
+                settings['beam_local_output_folder'], skims_fname)
+            # load skims from disk or url
+            skims = pd.read_csv(path_to_skims, dtype=skim_dtypes)
+            skims = skims.loc[(
+                skims['pathType'] == 'SOV') & (
+                skims['timePeriod'] == 'AM')]
+            skims = skims[[
+                'origin', 'destination', 'TOTIVT_IVT_minutes',
+                'DIST_meters']]
+            skims = skims.rename(columns={
+                'origin': 'from_zone_id',
+                'destination': 'to_zone_id',
+                'TOTIVT_IVT_minutes': 'SOV_AM_IVT_mins'})
+        elif skim_format == 'polaris':
+            path_to_skims = os.path.join(
+                settings['polaris_local_data_folder'], skims_fname)
+            f = h5py.File(path_to_skims, 'r')
+            ivtt_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['ivtt']))
+            cost_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['cost']))
+            f.close()
+            ivtt_8_9 = pd.DataFrame(
+                ivtt_8_9.stack(), columns=['auto_ivtt_8_9_am'])
+            cost_8_9 = pd.DataFrame(
+                cost_8_9.stack(), columns=['auto_cost_8_9_am'])
+            skims = ivtt_8_9.join(cost_8_9)
+            skims.index.names = ['from_zone_id', 'to_zone_id']
+            skims = skims.reset_index()
+    except KeyError:
+        raise KeyError(
+            "Couldn't find input skims named {0}".format(skims_fname))
 
-        logger.info("Converting skims to UrbanSim data format.")
-        skims['from_zone_id'] = skims['from_zone_id'].astype('str')
-        skims['to_zone_id'] = skims['to_zone_id'].astype('str')
-        skims = skims.set_index(['from_zone_id', 'to_zone_id'])
+    logger.info("Converting skims to UrbanSim data format.")
+    skims['from_zone_id'] = skims['from_zone_id'].astype('str')
+    skims['to_zone_id'] = skims['to_zone_id'].astype('str')
+    skims = skims.set_index(['from_zone_id', 'to_zone_id'])
 
     return skims
 
