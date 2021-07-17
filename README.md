@@ -1,4 +1,4 @@
-<p align="center"><img src="logo.png" width="300"></p>
+<p align="center"><img src="logo.png" width="500"></p>
 
 **P**latform for \
 **I**ntegrated \
