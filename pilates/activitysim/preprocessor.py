@@ -35,22 +35,21 @@ beam_skims_types = {'timePeriod': str,
                     }
 
 
-def _load_raw_beam_skims(settings):
+def _load_raw_beam_skims(settings, remote_url=None):
 
-    path_to_beam_skims = settings.get('path_to_skims', False)
-
-    if not path_to_beam_skims:
-        logger.warning(
-            "No path to BEAM skims specified at runtime. The ActivitySim "
-            "container is gonna go looking for them. You were warned.")
-        return
+    if not remote_url:
+        skims_fname = settings.get('skims_fname', False)
+        path_to_beam_skims = os.path.join(
+            settings['beam_local_output_folder'], skims_fname)
     else:
-        try:
-            # load skims from disk or url
-            skims = pd.read_csv(path_to_beam_skims, dtype=beam_skims_types)
-        except KeyError:
-            raise KeyError(
-                "Couldn't find input skims at {0}".format(path_to_beam_skims))
+        path_to_beam_skims = remote_url
+
+    try:
+        # load skims from disk or url
+        skims = pd.read_csv(path_to_beam_skims, dtype=beam_skims_types)
+    except KeyError:
+        raise KeyError(
+            "Couldn't find input skims at {0}".format(path_to_beam_skims))
 
     return skims
 

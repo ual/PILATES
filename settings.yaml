@@ -1,40 +1,76 @@
-# PILATES SETTINGS
-s3_io: False
-region: sfbay
+#########################################################################################################
+
+############################
+#     PILATES SETTINGS     #
+############################
+
+# scenario defs
+region: austin
 scenario: base
 start_year: 2010
 end_year: 2012
-land_use_freq: 1  # zero turns off land use models completely
+land_use_freq: 1
 travel_model_freq: 1
+
+# simulation platforms (leave blank to turn off)
+land_use_model: urbansim
+travel_model: polaris
+activity_demand_model:
+
+# docker settings
+docker_images:
+  urbansim: mxndrwgrdnr/block_model_v2_pb
+  beam: dimaopen/beam:0.8.6.3
+  activitysim: mxndrwgrdnr/activitysim
+  polaris:
 docker_stdout: False
 pull_latest: False
 
-# BEAM SETTINGS
-travel_model_image: dimaopen/beam:0.8.6.3
-path_to_skims: pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
-beam_config: sfbay/gemini/activitysim-base-from-60k-input.conf
-beam_plans: sfbay/gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz
-beam_local_input_folder: pilates/beam/production/
-beam_local_output_folder: pilates/beam/beam_output/
-skim_zone_source_id_col: objectid
+# misc pilates settings
+skims_fname: campo_skims.hdf5
+# skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 
-# URBANSIM SETTINGS
-land_use_image: mxndrwgrdnr/block_model_v2_pb
+#########################################################################################################
+
+###############################
+#    SUB-PLATFORM SETTINGS    #
+###############################
+
+# URBANSIM
 region_to_region_id:
   sfbay: "06197001"
+  austin: "48197301"
 usim_local_data_folder: pilates/urbansim/data/
 usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
+usim_formattable_command: "-r {0} -i {1} -y {2} -f {3}"
 
 
-# ACTIVITYSIM SETTINGS
-activity_demand_image: mxndrwgrdnr/activitysim
+# BEAM 
+beam_config: gemini/activitysim-base-from-60k-input.conf
+beam_local_input_folder: pilates/beam/production/
+beam_local_output_folder: pilates/beam/beam_output/
+beam_plans: gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz
+skim_zone_source_id_col: objectid
+
+
+# POLARIS
+polaris_local_data_folder: pilates/polaris/data
+polaris_skim_keys:
+  base: 'auto_skims'
+  t: 't4'  # 8-9am
+  impedances:
+    - ivtt
+    - cost
+
+# ACTIVITYSIM
 household_sample_size: 0  # zero means no sampling, whole pop.
 chunk_size: 6000000000
 num_processes: 80
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
+asim_formattable_command: "-y {0} -h {1} -n {2} -c {3}"
 region_to_asim_subdir:
   austin: austin_mp 
   detroit: detroit 
@@ -106,6 +142,12 @@ asim_output_tables:
     - plans
 
 
+#########################################################################################################
+
+################################
+#    MISC. PILATES SETTINGS    #
+################################
+
 # GEOGRAPHY SETTINGS
 FIPS:
   sfbay:
@@ -120,10 +162,20 @@ FIPS:
       - "085"
       - "095"
       - "097"
+  austin:
+    state: "48"
+    counties:
+      - "021"
+      - "053"
+      - "055"
+      - "209"
+      - "453"
+      - "491"
 local_crs:
   sfbay: EPSG:7131
   austin: EPSG:32140
 
+# VALIDATION METRIC LIBRARY
 validation_metrics:
   growth:
     - population
