@@ -19,7 +19,7 @@ The PILATES Python library is comprised primarily of the following:
 
 ## 1. Setting up your environment
 1. Make sure docker is running on your machine and that you've either pre-downloaded the required container images (specified in `settings.yaml`) or that you've signed into a valid docker account with dockerhub access.
-2. Change other relevant parameters in `settings.yaml` (probably only [L2-10](https://github.com/ual/PILATES/blob/v2/settings.yaml#L2-L10))
+2. Change other relevant parameters in `settings.yaml` (probably only [L7-30](https://github.com/ual/PILATES/blob/v2/settings.yaml#L7-L30))
    - UrbanSim settings of note:
       - `region_to_region_id` must have an entry that corresponds to the name of the input HDF5 datastore (see below)
    - ActivtySim settings of note:
@@ -28,9 +28,9 @@ The PILATES Python library is comprised primarily of the following:
 4. Make sure your Python environment has `docker-py`, and `pyyaml` installed.
 
 ## 2. I/O
-PILATES needs to have two files in the local application directories in order to run:
-1. **pilates/urbansim/data/custom_mpo_XXXX_model_data.h5** - an UrbanSim-formatted HDF5 datastore where `XXXX` is an MPO ID that must correspond to one of the region IDs specified in the UrbanSim settings ([L25](https://github.com/ual/PILATES/blob/master/settings.yaml#L25)) 
-2. **pilates/beam/beam_outputs/XXXX.csv.gz** - the input skims file, where `XXXX` is the name of the skims file specified in the settings ([L14](https://github.com/ual/PILATES/blob/master/settings.yaml#L14)). 
+PILATES only needs two local data files in order to run. Currently these are organized as follows: 1) an archive of land use and population tables; and 2) a table of origin-destination skims.  to have two files in the local application directories in order to run:
+1. **pilates/urbansim/data/custom_mpo_xxxxxxxx_model_data.h5** - an UrbanSim-formatted HDF5 datastore where `xxxxxxxx` is an 8-digit region ID that must correspond to one of the IDs specified in the settings ([L40](https://github.com/ual/PILATES/blob/master/settings.yaml#L40)) 
+2. **pilates/<travel model>/<travel model data dir>/<skims filename>** - the input skims file, where `<skims filename` is the name of the skims file specified in the settings ([L30](https://github.com/ual/PILATES/blob/master/settings.yaml#L30)). Currently `polaris` and `beam` are the only supported travel models.
 
 With those two files in those two places, PILATES should handle the rest. 
 
