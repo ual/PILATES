@@ -65,7 +65,7 @@ def get_county_block_geoms(state_fips, county_fips, result_size=10000):
     return gdf
 
 
-def get_block_geoms(state_fips, county_codes, data_dir='tmp/'):
+def get_block_geoms(state_fips, county_codes, data_dir='./tmp/'):
     all_block_geoms = []
 
     if os.path.exists(os.path.join(data_dir, "blocks.shp")):
@@ -111,26 +111,8 @@ def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
 
     zones_gdf['zone_area'] = zones_gdf.geometry.area
 
-    # assign blocks to zone with a spatial within query
-    within = gpd.sjoin(
-        blocks_gdf, zones_gdf.reset_index(), how='inner', op='within')
-
-    # when a block falls within multiple (overlapping) zones,
-    # assign it to the zone with the smallest area
-    within = within.sort_values(['GEOID', 'zone_area'])
-    within = within.drop_duplicates('GEOID', keep='first')
-
-    # add to results df
-    block_to_taz_results = pd.concat((
-        block_to_taz_results, within[['GEOID', zone_col_name]]))
-
-    # assign remaining blocks based on a spatial intersection
-    unassigned_mask = ~blocks_gdf['GEOID'].isin(block_to_taz_results['GEOID'])
-    intx = gpd.overlay(
-        blocks_gdf[unassigned_mask], zones_gdf.reset_index(),
-        how='intersection')
-
     # assign zone ID's to blocks based on max area of intersection
+    intx = gpd.overlay(blocks_gdf, zones_gdf.reset_index(), how='intersection')
     intx['intx_area'] = intx['geometry'].area
     intx = intx.sort_values(['GEOID', 'intx_area'], ascending=False)
     intx = intx.drop_duplicates('GEOID', keep='first')
@@ -165,6 +147,10 @@ def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
 def map_block_to_taz(
         settings, region, zones_gdf=None, zone_id_col='zone_id',
         reference_taz_id_col='objectid', data_dir='./tmp/'):
+    """
+    Returns:
+        A series named 'zone_id' with 'GEOID' as index name
+    """
 
     state_fips = settings['FIPS'][region]['state']
     county_codes = settings['FIPS'][region]['counties']
