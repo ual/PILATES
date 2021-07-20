@@ -84,7 +84,6 @@ if __name__ == '__main__':
     beam_config = settings['beam_config']
     beam_local_input_folder = settings['beam_local_input_folder']
     beam_local_output_folder = settings['beam_local_output_folder']
-    beam_subdir = settings['region_to_beam_subdir'][region]
 
     # parse args
     parser = argparse.ArgumentParser(add_help=False)
@@ -242,7 +241,7 @@ if __name__ == '__main__':
             logger.info(
                 "Starting beam container, input: %s, output: %s, config: %s",
                 abs_beam_input, abs_beam_output, beam_config)
-            path_to_beam_config = '/app/input/{0}/gemini/{1}'.format(
+            path_to_beam_config = '/app/input/{0}/{1}'.format(
                 region, beam_config)
             client.containers.run(
                 travel_model_image,
