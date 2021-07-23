@@ -14,7 +14,7 @@ travel_model_freq: 1
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
-travel_model: polaris
+travel_model:
 activity_demand_model:
 
 # docker settings
@@ -28,6 +28,7 @@ pull_latest: False
 
 # misc pilates settings
 skims_fname: campo_skims.hdf5
+skim_format: polaris
 # skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 
 #########################################################################################################

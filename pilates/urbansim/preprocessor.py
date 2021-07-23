@@ -82,7 +82,9 @@ def add_skims_to_model_data(
         settings, region, skim_zone_source_id_col):
 
     logger.info("Loading skims from disk")
-    skim_format = settings['travel_model']
+    skim_format = settings.get('skim_format')
+    if not skim_format :
+        skim_format = settings['travel_model']
     df = _load_raw_skims(settings, skim_format=skim_format)
     region_id = settings['region_to_region_id'][region]
     model_data_fname = usim_model_data_fname(region_id)

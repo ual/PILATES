@@ -62,28 +62,31 @@ if __name__ == '__main__':
     pull_latest = settings.get('pull_latest', False)
 
     # parse land use settings
-    land_use_image = image_names[land_use_model]
-    land_use_freq = settings['land_use_freq']
-    skim_zone_source_id_col = settings['skim_zone_source_id_col']
-    usim_client_data_folder = settings['usim_client_data_folder']
-    usim_local_data_folder = settings['usim_local_data_folder']
-    formattable_usim_cmd = settings['usim_formattable_command']
+    if land_use_model :
+        land_use_image = image_names[land_use_model]
+        land_use_freq = settings['land_use_freq']
+        skim_zone_source_id_col = settings['skim_zone_source_id_col']
+        usim_client_data_folder = settings['usim_client_data_folder']
+        usim_local_data_folder = settings['usim_local_data_folder']
+        formattable_usim_cmd = settings['usim_formattable_command']
 
     # parse activity demand settings
-    activity_demand_image = image_names[activity_demand_model]
-    asim_subdir = settings['region_to_asim_subdir'][region]
-    asim_workdir = os.path.join('/activitysim', asim_subdir)
-    chunk_size = settings['chunk_size']
-    num_processes = settings['num_processes']
-    asim_local_input_folder = settings['asim_local_input_folder']
-    asim_local_output_folder = settings['asim_local_output_folder']
-    formattable_asim_cmd = settings['asim_formattable_command']
+    if activity_demand_model :
+        activity_demand_image = image_names[activity_demand_model]
+        asim_subdir = settings['region_to_asim_subdir'][region]
+        asim_workdir = os.path.join('/activitysim', asim_subdir)
+        chunk_size = settings['chunk_size']
+        num_processes = settings['num_processes']
+        asim_local_input_folder = settings['asim_local_input_folder']
+        asim_local_output_folder = settings['asim_local_output_folder']
+        formattable_asim_cmd = settings['asim_formattable_command']
 
     # parse traffic assignment settings
-    travel_model_image = image_names[travel_model]
-    beam_config = settings['beam_config']
-    beam_local_input_folder = settings['beam_local_input_folder']
-    beam_local_output_folder = settings['beam_local_output_folder']
+    if travel_model :
+        travel_model_image = image_names[travel_model]
+        beam_config = settings['beam_config']
+        beam_local_input_folder = settings['beam_local_input_folder']
+        beam_local_output_folder = settings['beam_local_output_folder']
 
     # parse args
     parser = argparse.ArgumentParser(add_help=False)
@@ -113,8 +116,10 @@ if __name__ == '__main__':
                 client.images.pull(image)
 
     # remember already processed skims
-    previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
-    logger.info("Found skims from the previous run: %s", previous_skims)
+    travel_model_enabled = travel_model
+    if travel_model_enabled :
+        previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
+        logger.info("Found skims from the previous run: %s", previous_skims)
 
     # run the simulation flow
     for year in range(start_year, end_year, travel_model_freq):
