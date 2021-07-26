@@ -1,3 +1,15 @@
+# pip install
+# cython
+# spython
+# pyyaml
+# openmatrix
+# pandas
+# geopandas
+# requests
+# tqdm
+# h5py
+# docker
+
 import yaml
 import docker
 import os
