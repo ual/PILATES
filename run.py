@@ -12,10 +12,13 @@
 
 import yaml
 import docker
+from spython.main import Client
 import os
 import argparse
 import logging
 import sys
+import pilates.polaris.travel_model
+
 
 from pilates.activitysim import preprocessor as asim_pre
 from pilates.activitysim import postprocessor as asim_post
@@ -46,6 +49,57 @@ def find_latest_beam_iteration(beam_output_dir):
                 iter_dirs += os.path.join(root, dir)
     print(iter_dirs)
 
+def run_land_use(container, settings, region_id, year, forecast_year, land_use_freq, usim_local_data_folder, usim_client_data_folder):
+    if(container == "docker"):
+        run_land_use_docker(settings, region_id, year, forecast_year, land_use_freq, usim_local_data_folder, usim_client_data_folder)
+    elif(container == "singularity"):
+        run_land_use_singularity(settings, region_id, year, forecast_year, land_use_freq, usim_local_data_folder, usim_client_data_folder)
+    else:
+        logger.info("Container Manager not specified")
+        exit(1)
+
+def run_land_use_docker(settings, region_id, year, forecast_year, land_use_freq, usim_local_data_folder, usim_client_data_folder):
+    logger.info("Running land use with docker")
+    # need to fix docker_stdout settings
+    usim_cmd = formattable_usim_cmd.format(
+        region_id, year, forecast_year, land_use_freq)
+    usim = client.containers.run(
+        land_use_image,
+        volumes={
+            os.path.abspath(usim_local_data_folder): {
+                'bind': usim_client_data_folder,
+                'mode': 'rw'},
+        },
+        command=usim_cmd, stdout=docker_stdout,
+        stderr=True, detach=True, remove=True)
+    for log in usim.logs(
+            stream=True, stderr=True, stdout=docker_stdout):
+        print(log)
+
+
+def run_land_use_singularity(settings, region_id, year, forecast_year, land_use_freq, usim_local_data_folder, usim_client_data_folder):
+    logger.info("Running land use with singulrity")
+    formattable_usim_cmd_singularity = "\"-r\", \"{0}\", \"-i\", \"{1}\", \"-y\", \"{2}\", \"-f\", \"{3}\""
+    usim_cmd = formattable_usim_cmd_singularity.format(
+        region_id, year, forecast_year, land_use_freq)
+    command = "[\"{0}\]\", \"--bind\", \"{1}\":\"{2}\"]".format(usim_cmd, os.path.abspath(usim_local_data_folder),
+                                                            usim_client_data_folder)
+    s_client = Client
+    # land_use_image = settings.get('singularity:urbansim')
+    s_client.load('docker://mxndrwgrdnr/block_model_v2_pb')
+    output = s_client.execute(command)
+    logger.info(output)
+
+
+def run_travel_model(name, forecast_year, usim_output):
+    logger.info("Running travel model: %s", name)
+    if(name == "polaris"):
+        pilates.polaris.travel_model.run_polaris(forecast_year, os.path.abspath(usim_output))
+    elif(name == "beam"):
+        pilates.beam.travel_model.run_beam()
+
+
+
 
 if __name__ == '__main__':
 
@@ -56,6 +110,7 @@ if __name__ == '__main__':
         settings = yaml.load(file, Loader=yaml.FullLoader)
 
     # parse scenario settings
+    container_manager = settings['container_manager']
     image_names = settings['docker_images']
     land_use_model = settings.get('land_use_model', False)
     activity_demand_model = settings.get('activity_demand_model', False)
@@ -129,7 +184,8 @@ if __name__ == '__main__':
 
     # remember already processed skims
     travel_model_enabled = travel_model
-    if travel_model_enabled :
+    # if travel_model_enabled :
+    if(travel_model == 'beam'):
         previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
         logger.info("Found skims from the previous run: %s", previous_skims)
 
@@ -158,20 +214,7 @@ if __name__ == '__main__':
                 "to {1} with {2}.".format(
                     year, forecast_year, land_use_image.split('/')[1]))
             formatted_print(print_str)
-            usim_cmd = formattable_usim_cmd.format(
-                region_id, year, forecast_year, land_use_freq)
-            usim = client.containers.run(
-                land_use_image,
-                volumes={
-                    os.path.abspath(usim_local_data_folder): {
-                        'bind': usim_client_data_folder,
-                        'mode': 'rw'},
-                },
-                command=usim_cmd, stdout=docker_stdout,
-                stderr=True, detach=True, remove=True)
-            for log in usim.logs(
-                    stream=True, stderr=True, stdout=docker_stdout):
-                print(log)
+            run_land_use(container_manager, settings, region_id, year, forecast_year, land_use_freq, usim_local_data_folder, usim_client_data_folder)
         else:
             forecast_year = year
 
@@ -247,40 +290,46 @@ if __name__ == '__main__':
 
         travel_model_enabled = travel_model
         if travel_model_enabled:
+            #################################
+            #    RUN TRAFFIC ASSIGNMENT    #
+            #################################
+
+            # 4. RUN TRAVEL MODEL
+            run_travel_model(travel_model, forecast_year, usim_local_data_folder)
 
             #################################
             #    RUN TRAFFIC ASSIGNMENT    #
             #################################
 
             # 4. RUN BEAM
-            abs_beam_input = os.path.abspath(beam_local_input_folder)
-            abs_beam_output = os.path.abspath(beam_local_output_folder)
-            logger.info(
-                "Starting beam container, input: %s, output: %s, config: %s",
-                abs_beam_input, abs_beam_output, beam_config)
-            path_to_beam_config = '/app/input/{0}/{1}'.format(
-                region, beam_config)
-            client.containers.run(
-                travel_model_image,
-                volumes={
-                    abs_beam_input: {
-                        'bind': '/app/input',
-                        'mode': 'rw'},
-                    abs_beam_output: {
-                        'bind': '/app/output',
-                        'mode': 'rw'}},
-                command="--config={0}".format(path_to_beam_config),
-                stdout=docker_stdout, stderr=True, detach=False, remove=True
-            )
-            path_to_skims = os.path.join(os.path.abspath(
-                beam_local_output_folder), skims_fname)
-            current_skims = beam_post.merge_current_skims(
-                path_to_skims, previous_skims, beam_local_output_folder)
-            if current_skims == previous_skims:
-                logger.error(
-                    "BEAM hasn't produced the new skims for some reason. "
-                    "Please check beamLog.out for errors in the directory %s",
-                    abs_beam_output)
-                exit(1)
+            # abs_beam_input = os.path.abspath(beam_local_input_folder)
+            # abs_beam_output = os.path.abspath(beam_local_output_folder)
+            # logger.info(
+            #     "Starting beam container, input: %s, output: %s, config: %s",
+            #     abs_beam_input, abs_beam_output, beam_config)
+            # path_to_beam_config = '/app/input/{0}/{1}'.format(
+            #     region, beam_config)
+            # client.containers.run(
+            #     travel_model_image,
+            #     volumes={
+            #         abs_beam_input: {
+            #             'bind': '/app/input',
+            #             'mode': 'rw'},
+            #         abs_beam_output: {
+            #             'bind': '/app/output',
+            #             'mode': 'rw'}},
+            #     command="--config={0}".format(path_to_beam_config),
+            #     stdout=docker_stdout, stderr=True, detach=False, remove=True
+            # )
+            # path_to_skims = os.path.join(os.path.abspath(
+            #     beam_local_output_folder), skims_fname)
+            # current_skims = beam_post.merge_current_skims(
+            #     path_to_skims, previous_skims, beam_local_output_folder)
+            # if current_skims == previous_skims:
+            #     logger.error(
+            #         "BEAM hasn't produced the new skims for some reason. "
+            #         "Please check beamLog.out for errors in the directory %s",
+            #         abs_beam_output)
+            #     exit(1)
 
         logger.info("Finished")

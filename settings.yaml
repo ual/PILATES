@@ -14,8 +14,17 @@ travel_model_freq: 1
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
-travel_model:
+travel_model: polaris
 activity_demand_model:
+
+# docker or singularity
+container_manager: docker
+#singularity settings
+singularity_images:
+  urbansim: block_model_v2_pb_latest.sif
+  beam:
+  activitysim:
+  polaris:
 
 # docker settings
 docker_images:

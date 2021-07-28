@@ -3,11 +3,22 @@ import os
 import sqlite3
 import argparse
 import pilates.polaris.skim_file_reader as skim_reader
+from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
 
-def archive_polaris_output(forecast_year, output_dir, data_dir):
+def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
+	# build archive folder name
+	# Create archive Directory if don't exist
+	archive = Path(data_dir)
+	if not archive.exists():
+		os.mkdir(str(archive))
+		logger.info(f"Directory:  {archive} Created ")
+	else:
+		logger.info(f"Directory: {archive} already exists")
+	# check if folder already exists
+	# copy output folder to archive folder
 
 
 def archive_usim_skims():

@@ -13,3 +13,15 @@ block_loc_file_name : campo_block_to_loc.csv
 auto_skim_file : highway_skim_file.bin
 transit_skim_file : transit_skim_file.bin
 vot_level : 2
+
+# convergence settings
+results_dir : convergence_results  # = data_dir / json_data["results_dir"]
+scripts_dir :  /home/randy/polaris/PILATES-20210719/pilates/polaris/conv_scripts # = Path(json_data["scripts_dir"])
+
+# -- SET THE MAIN AND DTA RUN SCENARIO FILES
+population_scale_factor : 1  # MUST match settings in the scenario files below
+scenario_main_init : scenario_urbansim_1p_init.jacon #= json_data["scenario_main_init"]
+scenario_main :  scenario_run1p.json # = json_data["scenario_main"]
+
+# -- ENTER THE NUMBER OF MAIN RUNS AND DTA RUNS PER MAIN RUN
+num_abm_runs : 5  # = json_data["num_abm_runs"]

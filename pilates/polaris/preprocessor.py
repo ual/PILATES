@@ -4,6 +4,7 @@ import os
 # import tables
 import pandas as pd
 import sqlite3
+import random
 # from operator import itemgetter
 # from collections import OrderedDict
 import logging
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 # db_demand = 'campo-Demand.sqlite'
 # db_supply = 'campo-Supply.sqlite'
 # block_loc_file = 'campo_block_to_loc.csv'
+# population_scale_factor = 0.25
 # ====================================================================
 
 
@@ -170,7 +172,7 @@ def clean_db(DbCon):
 	DbCon.execute('delete from Transit_Vehicle;')
 	DbCon.execute('delete from Transit_Vehicle_links;')
 	DbCon.execute('delete from Traveler;')
-	DbCon.execute('delete from Trip;')
+	DbCon.execute('delete from Trip where person is not null;')
 	DbCon.execute('delete from Vehicle;')
 	DbCon.execute('drop table if exists act_wait_count;')
 	DbCon.execute('drop table if exists activity_Start_Distribution;')
@@ -217,7 +219,7 @@ def clean_db(DbCon):
 	DbCon.commit()
 
 
-def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand):
+def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, population_scale_factor):
 	# verify filepaths
 	usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
 	if not os.path.exists(db_demand):
@@ -286,24 +288,27 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 		hh.zone = block_to_zone[hh.block_id]
 		hh_dict[id] = hh
 
-	logger.info('Pushing households to POLARIS DB...')
-	for h in hh_dict.values():
-		h.push_to_db(DbCon)
-
-	DbCon.commit()
-
 	# Iterate through persons in the datastore and construct PER objects
 	logger.info('Reading persons from Urbansim output...')
 	for id, data in per_data.iterrows():
 		p = Person(data)
 		hh_dict[p.household].person_list[p.id] = p  # put person into the appropriate household member dictionary
 
-	logger.info('Pushing persons to POLARIS DB...')
 	for h in hh_dict.values():
 		h.set_marital_status_for_members()
+
+	# Sample the households according to sample %
+	random.seed()
+	hh_dict_sampled = []
+	for h in hh_dict.values():
+		if random.random() < population_scale_factor:
+			hh_dict_sampled.append(h)
+
+	logger.info('Pushing households and persons to POLARIS DB...')
+	for h in hh_dict_sampled:
+		h.push_to_db(DbCon)
 		for p in h.person_list.values():
 			p.push_to_db(DbCon)
-
 	DbCon.commit()
 
 	# ==================== MODIFY THE ZONES in SUPPLY.SQLITE =======================================
