@@ -14,7 +14,8 @@ import csv
 import traceback
 # import regression
 # import modify_scenario
-import CSV_Utillities
+import pilates.polaris.CSV_Utillities as CSV_Utillities
+import pilates.polaris.postprocessor as postprocessor
 # import init_model
 import logging
 
@@ -37,7 +38,7 @@ def run_polaris_local(results_dir, exe_name, scenario_file, num_threads):
     # proc.wait()
     # out_file.close()
     # err_file.close()
-    proc = subprocess.Popen([str(exe_name), str(scenario_file), num_threads], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen([str(exe_name), str(scenario_file), str(num_threads)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode != 0:
         logger.critical("POLARIS did not execute correctly")
@@ -93,7 +94,7 @@ def append_file(src, tar):
         tar_file.close()
 
 
-def run_conv(polaris_settings, data_directory):
+def run_conv(polaris_settings, data_directory, forecast_year):
     database_base_name = polaris_settings.get('db_name')
 
     # -- SET THE POLARIS RUN INFORMATION
@@ -140,19 +141,19 @@ def run_conv(polaris_settings, data_directory):
     highway_skim_file_name = "highway_skim_file.bin"
     transit_skim_file_name = "transit_skim_file.bin"
 
-    supply_db = working_dir / "backup" / supply_db_name
-    demand_db = working_dir / "backup" / demand_db_name
-    result_db = working_dir / "backup" / result_db_name
-    highway_skim_file = working_dir / "backup" / highway_skim_file_name
-    transit_skim_file = working_dir / "backup" / transit_skim_file_name
+    # supply_db = working_dir / "backup" / supply_db_name
+    # demand_db = working_dir / "backup" / demand_db_name
+    # result_db = working_dir / "backup" / result_db_name
+    # highway_skim_file = working_dir / "backup" / highway_skim_file_name
+    # transit_skim_file = working_dir / "backup" / transit_skim_file_name
 
     output_file = results_dir / "simulation_out.log"
 
-    copyreplacefile(supply_db, working_dir)
-    copyreplacefile(demand_db, working_dir)
-    copyreplacefile(result_db, working_dir)
-    copyreplacefile(highway_skim_file, working_dir)
-    copyreplacefile(transit_skim_file, working_dir)
+    # copyreplacefile(supply_db, working_dir)
+    # copyreplacefile(demand_db, working_dir)
+    # copyreplacefile(result_db, working_dir)
+    # copyreplacefile(highway_skim_file, working_dir)
+    # copyreplacefile(transit_skim_file, working_dir)
     logger.info(f"Polaris output goes here: {str(output_file)}")
 
     # Process main ABM run
@@ -177,7 +178,7 @@ def run_conv(polaris_settings, data_directory):
             # modify_scenario.modify(scenario_main, "time_dependent_routing_weight_factor", 1.0)
             logger.info(f"Running Polaris SCENARIO_MAIN instance #{loop} - see {results_dir / 'simulation_out.log'}")
 
-        arguments = scenario_file + ' ' + num_threads
+        arguments = '{0} {1}'.format(scenario_file, str(num_threads))
         logger.info(f'Executing \'{str(exe_name)} {arguments}\'')
 
         run_polaris_local(results_dir, exe_name, scenario_file, num_threads)
@@ -186,11 +187,11 @@ def run_conv(polaris_settings, data_directory):
         latest_subdir = Path(max(all_subdirs, key=os.path.getmtime))
 
         # standard_dir = 'Regression_test'
-        result_paths.append(Path(latest_subdir))
+        # result_paths.append(Path(latest_subdir))
 
         # move the output files (now that we know where the simulation files were created)
-        results_dir_moved = working_dir / latest_subdir / json_data["results_dir"]
-        print(f'Moving: {results_dir} to: {results_dir_moved}')
+        results_dir_moved = os.path.join(working_dir, latest_subdir, polaris_settings.get('results_dir'))
+        logger.info(f'Moving: {results_dir} to: {results_dir_moved}')
         shutil.move(str(results_dir), str(results_dir_moved))
         # os.rename('./simulation_out.log', simulated_dir + '/simulation_out.log')
         # os.rename('./simulation_err.log', simulated_dir + '/simulation_err.log')
@@ -229,6 +230,7 @@ def run_conv(polaris_settings, data_directory):
 
         # merge in_network data into a composite summary file
         CSV_Utillities.append_column(working_dir / latest_subdir / 'summary.csv', working_dir / 'in_network.csv', loop, 4, str(latest_subdir))
+        postprocessor.archive_polaris_output(database_base_name, forecast_year, latest_subdir, data_dir)
 
 
 if __name__ == '__main__':

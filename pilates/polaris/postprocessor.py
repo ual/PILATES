@@ -4,28 +4,46 @@ import sqlite3
 import argparse
 import pilates.polaris.skim_file_reader as skim_reader
 from pathlib import Path
+import shutil
 import logging
 
 logger = logging.getLogger(__name__)
 
 def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
 	# build archive folder name
+	folder_name = '{0}-{1}'.format(database_name, forecast_year)
 	# Create archive Directory if don't exist
-	archive = Path(data_dir)
+	archive = Path(os.path.join(data_dir, folder_name))
+	# check if folder already exists
 	if not archive.exists():
 		os.mkdir(str(archive))
 		logger.info(f"Directory:  {archive} Created ")
 	else:
 		logger.info(f"Directory: {archive} already exists")
-	# check if folder already exists
 	# copy output folder to archive folder
+	shutil.copytree(output_dir, archive)
 
-
-def archive_usim_skims():
+def archive_and_generate_usim_skims(forecast_year, db_name, output_dir):
 	logger.info('Archiving UrbanSim skims')
 
+	# rename existing h5 file
+	data_dir = 'pilates/polaris/data'
+	old_name = '{0}/{1}_skims.hdf5'.format(data_dir, db_name)
+	new_name = '{0}/{1}_{2}_skims.hdf5'.format(data_dir, db_name, forecast_year)
+	os.rename(old_name,new_name)
 
-def postprocess_polaris_for_usim(database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):
+	# generate new h5 file
+	logger.info('Generating new UrbanSim skims')
+	NetworkDbPath = '{0}/{1}-Supply.sqlite'.format(output_dir, db_name)
+	DemandDbPath = '{0}/{1}-Demand.sqlite'.format(output_dir, db_name)
+	ResultDbPath = '{0}/{1}-Result.sqlite'.format(output_dir, db_name)
+	auto_skim_path = '{0}/highway_skim_file.bin'.format(output_dir)
+	transit_skim_path = '{0}/transit_skim_file.bin'.format(output_dir)
+	vot_level = 2
+	generate_polaris_skims_for_usim(db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
+
+
+def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):
 
 	skims = skim_reader.Skim_Results()
 	skim_reader.Main(skims,auto_skim_path, transit_skim_path)
@@ -276,7 +294,8 @@ def postprocess_polaris_for_usim(database_name, NetworkDbPath, DemandDbPath, Res
 	# write the final updated skims to hdf5 and close...
 	#------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	print ('Writing HDF5 database...')
-	skim_reader.WriteSkimsHDF5(database_name + '_urbansim_skims.hdf5', skims, False)
+	output_file = '{0}/{1}_skims.hdf5'.format(output_dir, database_name)
+	skim_reader.WriteSkimsHDF5(output_file, skims, False)
 	print ('Done.')
 
 if __name__ == '__main__':
