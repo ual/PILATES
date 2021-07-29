@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # Filename: run_convergence.py
-
+import glob
 import shutil
 # from pathlib import Path
 import sys
@@ -8,6 +8,7 @@ import os
 import subprocess
 from shutil import copyfile
 from pathlib import Path
+import fnmatch
 import json
 import sqlite3
 import csv
@@ -183,16 +184,17 @@ def run_conv(polaris_settings, data_directory, forecast_year):
 
         run_polaris_local(results_dir, exe_name, scenario_file, num_threads)
 
-        all_subdirs = [d for d in os.listdir('.') if os.path.isdir(d)]
+        # all_subdirs = [d for d in os.listdir('.') if os.path.isdir(d) and fnmatch.filter(d, 'Campo_abm*')]
+        all_subdirs = glob.glob('Campo_abm*')
         latest_subdir = Path(max(all_subdirs, key=os.path.getmtime))
 
         # standard_dir = 'Regression_test'
         # result_paths.append(Path(latest_subdir))
 
         # move the output files (now that we know where the simulation files were created)
-        results_dir_moved = os.path.join(working_dir, latest_subdir, polaris_settings.get('results_dir'))
-        logger.info(f'Moving: {results_dir} to: {results_dir_moved}')
-        shutil.move(str(results_dir), str(results_dir_moved))
+        # results_dir_moved = os.path.join(working_dir, latest_subdir, polaris_settings.get('results_dir'))
+        # logger.info(f'Moving: {results_dir} to: {results_dir_moved}')
+        # shutil.move(str(results_dir), str(results_dir_moved))
         # os.rename('./simulation_out.log', simulated_dir + '/simulation_out.log')
         # os.rename('./simulation_err.log', simulated_dir + '/simulation_err.log')
 

@@ -21,7 +21,7 @@ def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
 	else:
 		logger.info(f"Directory: {archive} already exists")
 	# copy output folder to archive folder
-	shutil.copytree(output_dir, archive)
+	shutil.copytree(output_dir, os.path.join(archive, output_dir))
 
 def archive_and_generate_usim_skims(forecast_year, db_name, output_dir):
 	logger.info('Archiving UrbanSim skims')
