@@ -6,12 +6,21 @@ start_year: 2010
 end_year: 2012
 land_use_freq: 1  # zero turns off land use models completely
 travel_model_freq: 1
-docker_stdout: False
+docker_stdout: True
 pull_latest: False
+travel_model: manta
+
+# MANTA SETTINGS
+manta_travel_model_image: gcr.io/blissful-jet-303616/manta:latest
+manta_local_config_folder: pilates/manta/
+manta_local_config: command_line_options.ini
+manta_local_input_folder: pilates/manta/LivingCity/berkeley2018/newfullnetwork/
+manta_local_output_folder: pilates/manta/LivingCity/
+manta_path_to_skims: pilates/manta/LivingCity/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 
 # BEAM SETTINGS
-travel_model_image: beammodel/beam:0.8.6.2
-path_to_skims: pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+beam_travel_model_image: beammodel/beam:0.8.6.2
+beam_path_to_skims: pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 beam_local_config: beam.conf
 beam_local_input_folder: pilates/beam/test/
 beam_local_output_folder: pilates/beam/beam_output/

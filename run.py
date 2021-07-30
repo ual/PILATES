@@ -4,6 +4,7 @@ import os
 import argparse
 import logging
 import sys
+from pdb import set_trace as st
 
 from pilates.activitysim import preprocessor as asim_pre
 from pilates.activitysim import postprocessor as asim_post
@@ -32,7 +33,6 @@ if __name__ == '__main__':
     s3_io = settings['s3_io']
     land_use_image = settings['land_use_image']
     activity_demand_image = settings['activity_demand_image']
-    travel_model_image = settings['travel_model_image']
     region = settings['region']
     scenario = settings['scenario']
     start_year = settings['start_year']
@@ -40,10 +40,24 @@ if __name__ == '__main__':
     land_use_freq = settings['land_use_freq']
     travel_model_freq = settings['travel_model_freq']
     household_sample_size = settings['household_sample_size']
-    path_to_skims = settings['path_to_skims']
+    travel_model = settings['travel_model']
+    
+    if travel_model.lower() == 'manta':
+        path_to_skims = settings['manta_path_to_skims']
+        travel_model_image = settings['manta_travel_model_image']
+    elif travel_model.lower() == 'beam':
+        path_to_skims = settings['beam_path_to_skims']
+        travel_model_image = settings['beam_travel_model_image']
+    else:
+        raise RuntimeError('Travel model can be either MANTA or BEAM')
+
     beam_local_config = settings['beam_local_config']
     beam_local_input_folder = settings['beam_local_input_folder']
     beam_local_output_folder = settings['beam_local_output_folder']
+    manta_local_config_folder = settings['manta_local_config_folder']
+    manta_local_config = settings['manta_local_config']
+    manta_local_input_folder = settings['manta_local_input_folder']
+    manta_local_output_folder = settings['manta_local_output_folder']
     skim_zone_source_id_col = settings['skim_zone_source_id_col']
     usim_client_data_folder = settings['usim_client_data_folder']
     usim_local_data_folder = settings['usim_local_data_folder']
@@ -58,6 +72,7 @@ if __name__ == '__main__':
     docker_stdout = settings['docker_stdout']
     pull_latest = settings['pull_latest']
     region_id = settings['region_to_region_id'][region]
+
 
     # parse args
     parser = argparse.ArgumentParser(add_help=False)
@@ -86,6 +101,29 @@ if __name__ == '__main__':
 
     # formattable runtime docker command strings
     formattable_usim_cmd = '-r {0} -i {1} -y {2} -f {3}'
+
+
+
+    # 6. RUN MANTA
+    path_to_manta_config = os.path.join(
+        manta_local_config_folder, manta_local_config)
+
+    # FIXME Adapt MANTA's Dockerfile
+    print("Travel model image: {}".format(travel_model_image))
+    st()
+    client.containers.run(
+        travel_model_image,
+        volumes={
+            os.path.abspath(manta_local_input_folder): {
+                'bind': '/app/{0}'.format(manta_local_input_folder),
+                'mode': 'rw'},
+            os.path.abspath(manta_local_output_folder): {
+                'bind': '/app/output',
+                'mode': 'rw'}},
+        command="qmake && cd LivingCity && make && ./LivingCity", # command="ls", 
+        stdout=docker_stdout, stderr=True, detach=True, remove=True
+    )
+    st()
 
     # run the simulation flow
     for year in range(start_year, end_year, travel_model_freq):
@@ -171,23 +209,29 @@ if __name__ == '__main__':
         if forecast_year != start_year:
             asim_post.create_next_iter_inputs(settings, forecast_year)
 
-        # # 6. RUN BEAM
-        # path_to_beam_config = os.path.join(
-        #     beam_local_input_folder, "input", beam_subdir,
-        #     beam_local_config)
-        # client.containers.run(
-        #     travel_model_image,
-        #     volumes={
-        #         beam_local_input_folder: {
-        #             'bind': '/app/{0}'.format(beam_local_input_folder),
-        #             'mode': 'rw'},
-        #         beam_local_output_folder: {
-        #             'bind': '/app/output',
-        #             'mode': 'rw'}},
-        #     command="--config={0}".format(path_to_beam_config),
-        #     stdout=docker_stdout, stderr=True, detach=True, remove=True
-        # )
+        if settings['travel_model'].lower() == 'beam':
+            # # 6. RUN BEAM
+            # path_to_beam_config = os.path.join(
+            #     beam_local_input_folder, "input", beam_subdir,
+            #     beam_local_config)
+            # client.containers.run(
+            #     travel_model_image,
+            #     volumes={
+            #         beam_local_input_folder: {
+            #             'bind': '/app/{0}'.format(beam_local_input_folder),
+            #             'mode': 'rw'},
+            #         beam_local_output_folder: {
+            #             'bind': '/app/output',
+            #             'mode': 'rw'}},
+            #     command="--config={0}".format(path_to_beam_config),
+            #     stdout=docker_stdout, stderr=True, detach=True, remove=True
+            # )
 
-        # # # update path to skims
-        # # new_skims_path = ????
-        # # settings['path_to_skims'] = new_skims_path
+            # # # update path to skims
+            # # new_skims_path = ????
+            # # settings['path_to_skims'] = new_skims_path
+            None
+        elif settings['travel_model'].lower() == 'manta':
+            None
+        else:
+            raise RuntimeError('Travel mode not supported, should be either MANTA or BEAM')
