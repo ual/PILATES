@@ -4,10 +4,10 @@
 #     POLARIS SETTINGS     #
 ############################
 
-data_dir : /mnt/e/polaris/!Repos/campoInputs
+data_dir : /mnt/e/polaris/Repos/campoInputs
 db_name : campo
 polaris_exe :  /home/randy/polaris/polaris-20210726/build/release/bin/Integrated_Model
-scenario_file : scenario_run25p.json
+scenario_file : scenario_run1p_urbansim.json
 num_threads : 12
 block_loc_file_name : campo_block_to_loc.csv
 auto_skim_file : highway_skim_file.bin

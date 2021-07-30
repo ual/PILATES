@@ -21,7 +21,8 @@ def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
 	else:
 		logger.info(f"Directory: {archive} already exists")
 	# copy output folder to archive folder
-	shutil.copytree(output_dir, os.path.join(archive, output_dir))
+	tgt = os.path.join(archive, os.path.basename(output_dir))
+	shutil.copytree(output_dir, tgt)
 
 def archive_and_generate_usim_skims(forecast_year, db_name, output_dir):
 	logger.info('Archiving UrbanSim skims')
@@ -40,7 +41,7 @@ def archive_and_generate_usim_skims(forecast_year, db_name, output_dir):
 	auto_skim_path = '{0}/highway_skim_file.bin'.format(output_dir)
 	transit_skim_path = '{0}/transit_skim_file.bin'.format(output_dir)
 	vot_level = 2
-	generate_polaris_skims_for_usim(db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
+	generate_polaris_skims_for_usim(data_dir, db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
 
 
 def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):

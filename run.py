@@ -284,7 +284,6 @@ if __name__ == '__main__':
             beam_pre.copy_plans_from_asim(settings)
 
         else:
-
             # CONVERT LAND USE OUTPUTS TO NEXT ITERATION INPUTS
             usim_post.create_next_iter_usim_data(settings, year)
 

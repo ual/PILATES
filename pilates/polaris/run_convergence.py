@@ -42,8 +42,8 @@ def run_polaris_local(results_dir, exe_name, scenario_file, num_threads):
     proc = subprocess.Popen([str(exe_name), str(scenario_file), str(num_threads)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode != 0:
-        logger.critical("POLARIS did not execute correctly")
-        exit(1)
+        logger.critical("POLARIS did not execute correctly - {0}, {1}".format(proc.returncode, err))
+        # exit(1)
 
 
 def copyreplacefile(filename, dest_dir):
