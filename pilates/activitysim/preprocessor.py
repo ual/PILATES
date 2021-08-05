@@ -10,7 +10,7 @@ from tqdm import tqdm
 import time
 
 from pilates.utils.geog import get_block_geoms, \
-    map_block_to_taz, get_zone_from_points, get_taz_geoms
+    map_block_to_taz, get_zone_from_points, get_taz_geoms, get_county_block_geoms
 
 logger = logging.getLogger(__name__)
 
@@ -72,21 +72,33 @@ def _create_skim_object(data_dir, overwrite=True):
     return True
 
 
-def _create_skims_by_mode(settings):
+def _create_skims_by_mode(settings, remote_url = None):
     """
     Returns 2 OD pandas dataframe for auto and transit
     """
     logger.info("Splitting BEAM skims by mode.")
-    skims_df = _load_raw_beam_skims(settings)
+    
+    
+    skims_df = _load_raw_beam_skims(settings, remote_url)
+    
+    ## JDC Comment: 
+    ## If OD pair has not skims, it is not included in the BeamSkims
+    ## we assume is zero (for transit). Although the assertion does not 
+    ## work, as it assumes a dataframe is fully populated. 
 
-    num_hours = skims_df['timePeriod'].nunique()
-    num_modes = skims_df['pathType'].nunique()
-    num_od_pairs = len(skims_df) / num_hours / num_modes
+#     num_hours = skims_df['timePeriod'].nunique()
+#     num_modes = skims_df['pathType'].nunique()
+#     num_od_pairs = len(skims_df) / num_hours / num_modes
 
-    # make sure the matrix is square
-    num_taz = np.sqrt(num_od_pairs)
-    assert num_taz.is_integer()
-    num_taz = int(num_taz)
+#     # make sure the matrix is square
+#     num_taz = np.sqrt(num_od_pairs)
+#     print (num_taz)
+#     assert num_taz.is_integer()
+#     num_taz = int(num_taz)
+    origin_taz = skims_df.origin.nunique()
+    destination_taz = skims_df.origin.nunique()
+    assert origin_taz == destination_taz
+    num_taz = origin_taz
 
     # convert beam skims to activitysim units (miles and minutes)
     skims_df['DIST_miles'] = skims_df['DIST_meters'] * (0.621371 / 1000)
@@ -109,18 +121,37 @@ def _distance_skims(settings, auto_df, data_dir, num_taz):
 
     # TO DO: Include walk and bike distances,
     # for now walk and bike are the same as drive.
+    dist_column = settings['beam_asim_hwy_measure_map']['DIST']
+    
     distances_auto = auto_df.drop_duplicates(
         ['origin', 'destination'],
-        keep='last')[settings['beam_asim_hwy_measure_map']['DIST']]
+        keep='last')#[distance]
 
-    # TO DO: Do something better.
-    distances_auto = distances_auto.replace(
-        0, np.random.normal(39, 20))
+    # TO DO: Do something better. To impute missing distance 
+    # we take a random draw from a normal distribution with mean 
+    # and standard devaltion estimated from existing distances.
+    
+    ## COMMENT JDC: 
+    ## Approach before assume drive skims had a fully populated matrix 
+    ## with some missing values. However, this may not always be the case. 
+    ## if skims are not fully populated, reshaping does not work as intended.
+    ## We used the pivot method in a dataframe. Missing OD-pairs will have a 
+    ## nan value. 
+    
+#     distances_auto = distances_auto.replace(
+#         0, np.random.normal(39, 20))
+    mx_auto = distances_auto.pivot(index = 'origin', 
+                                   columns = 'destination', 
+                                   values = dist_column).values
+    m = np.isnan(mx_auto)
+    mu, sigma = np.mean(mx_auto), np.std(mx_auto)
+    mx_auto[m] = np.random.normal(mu, sigma, size=m.sum())
 
     # distances_walk = walk_df.drop_duplicates(
     #     ['origin', 'destination'])[beam_asim_hwy_measure_map['DIST']]
+    
 
-    mx_auto = distances_auto.values.reshape((num_taz, num_taz))
+    # mx_auto = distances_auto.values.reshape((num_taz, num_taz))
     # mx_walk = distances_walk.values.reshape((num_taz, num_taz))
 
     # Distance matrices
@@ -134,7 +165,7 @@ def _transit_access(transit_df, access_paths, num_taz):
     ''' OD pair value for drive access '''
     df = transit_df.loc[transit_df.pathType.isin(access_paths), :].copy()
     df.drop_duplicates(['origin', 'destination'], keep='last', inplace=True)
-    assert df.shape[0] == num_taz * num_taz
+#     assert df.shape[0] == num_taz * num_taz
     return df
 
 
@@ -179,16 +210,25 @@ def _transit_skims(settings, transit_df, data_dir, num_taz):
             for measure in beam_asim_transit_measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if (measure == 'FAR') or (measure == 'BOARDS'):
-                    vals = df_[beam_asim_transit_measure_map[measure]]
-                    mx = vals.values.reshape((num_taz, num_taz), order='C')
+#                     vals = df_[beam_asim_transit_measure_map[measure]]
+#                     mx = vals.values.reshape((num_taz, num_taz), order='C')
+                    col_name = beam_asim_transit_measure_map[measure]
+                    vals = df_.pivot(index = 'origin', 
+                                     columns = 'destination', 
+                                     values = col_name).fillna(0).values
                 elif beam_asim_transit_measure_map[measure]:
                     # activitysim estimated its models using transit skims from Cube
                     # which store time values as scaled integers (e.g. x100), so their
                     # models also divide transit skim values by 100. Since our skims
                     # aren't coming out of Cube, we multiply by 100 to negate the division.
                     # This only applies for travel times. Fare is not multiplied by 100.
-                    vals = df_[beam_asim_transit_measure_map[measure]]
-                    mx = vals.values.reshape((num_taz, num_taz), order='C') * 100
+#                     vals = df_[beam_asim_transit_measure_map[measure]]
+#                     mx = vals.values.reshape((num_taz, num_taz), order='C') * 100
+                    
+                    col_name = beam_asim_transit_measure_map[measure]
+                    vals = df_.pivot(index = 'origin', 
+                                     columns = 'destination', 
+                                     values = col_name).fillna(0).values * 100
                 else:
                     mx = np.zeros((num_taz, num_taz))
                 skims[name] = mx
@@ -210,8 +250,16 @@ def _auto_skims(settings, auto_df, data_dir, num_taz):
             for measure in beam_asim_hwy_measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if beam_asim_hwy_measure_map[measure]:
-                    vals = df[beam_asim_hwy_measure_map[measure]]
-                    mx = vals.values.reshape((num_taz, num_taz), order='C')
+#                     vals = df[beam_asim_hwy_measure_map[measure]]
+#                     mx = vals.values.reshape((num_taz, num_taz), order='C')
+                    
+                    ## Same problem as before
+                    col = beam_asim_hwy_measure_map[measure]
+                    mx = df.pivot(index = 'origin', 
+                                  columns = 'destination', 
+                                  values = col).fillna(-999).values
+                    
+                    
                 else:
                     mx = np.zeros((num_taz, num_taz))
                 skims[name] = mx
@@ -231,11 +279,11 @@ def _create_offset(auto_df, data_dir):
     skims.close()
 
 
-def create_skims_from_beam(data_dir, settings, overwrite=True):
+def create_skims_from_beam(data_dir, settings, remote_url = None, overwrite=True):
 
     new = _create_skim_object(data_dir, overwrite)
     if new:
-        auto_df, transit_df, num_taz = _create_skims_by_mode(settings)
+        auto_df, transit_df, num_taz = _create_skims_by_mode(settings, remote_url)
 
         # Create skims
         _distance_skims(settings, auto_df, data_dir, num_taz)
@@ -447,7 +495,7 @@ def _update_jobs_table(
 
 
 def _update_blocks_table(
-        blocks, households, jobs, settings, zone_id_col):
+        blocks, households, jobs, settings, zone_id_col, zonification):
 
     region = settings['region']
     tazs_remapped = False
@@ -459,10 +507,18 @@ def _update_blocks_table(
         'block_id')['persons'].sum().reindex(blocks.index).fillna(0)
 
     blocks['TOTACRE'] = blocks['square_meters_land'] / 4046.86
+    
+    if zonification == 'block':
+        blocks[zone_id_col] = blocks.index
+    
+    elif zonification == 'block_groups':
+        blocks[zone_id_col] = blocks.block_group_id
+        
+    elif zone_id_col not in blocks.columns: 
 
     # update blocks (should only have to be run if asim is loading
     # raw urbansim data that has yet to be touched by pilates
-    if zone_id_col not in blocks.columns:
+#     if zone_id_col not in blocks.columns:
         logger.info("Mapping block IDs to TAZ")
         tazs_remapped = True
         block_taz = map_block_to_taz(
@@ -697,22 +753,46 @@ def _create_land_use_table(
 
 
 def _get_zones_table(
-        datastore, region, asim_zone_id_col='TAZ',
-        default_zone_id_col='zone_id'):
+        datastore, region, state_fips, county_codes, zonification, 
+        asim_zone_id_col='TAZ', default_zone_id_col='zone_id'):
+    
     zone_key = '/zone_geoms'
     if zone_key in datastore.keys():
         logger.info("Loading zone geometries from .h5 datastore!")
         zones = datastore[zone_key]
-        if zones.index.name != asim_zone_id_col:
-            if asim_zone_id_col in zones.columns:
-                zones.set_index(asim_zone_id_col, inplace=True)
-            elif zones.index.name == default_zone_id_col:
-                zones.index.name = asim_zone_id_col
-            elif asim_zone_id_col not in zones.columns:
-                zones.rename(columns={default_zone_id_col: asim_zone_id_col})
-            else:
+        
+        if zones.index.name == default_zone_id_col:
+            pass
+        
+        elif zones.index.name in ['TAZ','GEOID']: 
+            zones.index.rename(default_zone_id_col, inplace = True)
+            
+        elif ('TAZ' in zones.columns) or ('GEOID' in zones.columns): 
+            replace_dict = {'TAZ': default_zone_id_col,'GEOID': default_zone_id_col}
+            try: 
+                zones.rename(columns = replace_dict, inplace = True)
+                zones.set_index(default_zone_id_col, inplace = True)
+            except ValueError:
                 logger.error(
+                    "Zones table has both TAZ and GEOID as zone_id!")
+        else:
+            logger.error(
                     "Not sure what column in the zones table is the zone ID!")
+            
+#         if zones.index.name != asim_zone_id_col:
+#             if asim_zone_id_col in zones.columns:
+#                 zones.set_index(asim_zone_id_col, inplace=True)
+#             elif zones.index.name == default_zone_id_col:
+#                 zones.index.name = asim_zone_id_col
+#             elif asim_zone_id_col not in zones.columns:
+#                 zones.rename(columns={default_zone_id_col: asim_zone_id_col})
+#             elif zones.index.name != 'GEOID':
+                
+#             elif 'GEOID' in zones.columns:
+                
+#             else:
+#                 logger.error(
+#                     "Not sure what column in the zones table is the zone ID!")
         if 'geometry' in zones.columns:
             zones['geometry'] = zones['geometry'].apply(wkt.loads)
             zones = gpd.GeoDataFrame(
@@ -723,8 +803,13 @@ def _get_zones_table(
                 "no geometry column was found!")
     else:
         logger.info("Downloading zone geometries on the fly!")
-        zones = get_taz_geoms(region, zone_id_col_out=asim_zone_id_col)
-        zones.set_index(asim_zone_id_col, inplace=True)
+        if zonification == 'TAZ':
+            zones = get_taz_geoms(region, zone_id_col_out=asim_zone_id_col)
+            zones.set_index(asim_zone_id_col, inplace=True)
+        else:
+            zones = get_block_geoms(state_fips, county_codes, zonification)
+            zones.rename(columns={'GEOID': default_zone_id_col}, inplace = True)
+            zones.set_index(default_zone_id_col, inplace = True)   
 
         # save zone geoms in .h5 datastore so we don't
         # have to do this again
@@ -745,6 +830,7 @@ def create_asim_data_from_h5(settings, year, keys_with_year=True):
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
+    zonification = settings['zonification']
     usim_local_data_folder = settings['usim_local_data_folder']
     output_dir = settings['asim_local_input_folder']
     input_datastore = settings['usim_formattable_output_file_name'].format(
@@ -752,13 +838,13 @@ def create_asim_data_from_h5(settings, year, keys_with_year=True):
 
     store = pd.HDFStore(os.path.join(usim_local_data_folder, input_datastore))
     input_zone_id_col = 'zone_id'
-    asim_zone_id_col = 'TAZ'
+    asim_zone_id_col = 'zone_id'#,'TAZ'
 
     def create_key(key, year, keys_with_year):
         if (keys_with_year):
             return '/{0}/{1}'.format(key, year)
         else:
-            return key
+            return '/{0}'.format(key)
 
     households = store[create_key('households', year, keys_with_year)]
     persons = store[create_key('persons', year, keys_with_year)]
@@ -769,13 +855,15 @@ def create_asim_data_from_h5(settings, year, keys_with_year=True):
     # have a zone ID (e.g. TAZ). If it does then we don't need zone geoms
     # and can simply instantiate the zones table from the unique zone ids
     # in the blocks/persons/households tables.
-
-    zones = _get_zones_table(store, region)
-
+    
+    ## JDC Comment: Not really. We still need zones table geometris to match schools x, and y. 
+    zones = _get_zones_table(store, region, state_fips, county_codes, zonification) 
+                
     # update blocks
     blocks_cols = blocks.columns
     tazs_remapped, blocks = _update_blocks_table(
-        blocks, households, jobs, settings, input_zone_id_col)
+        blocks, households, jobs, settings, input_zone_id_col, zonification = zonification)
+    
     if tazs_remapped:
         logger.info(
             "Storing blocks table with TAZ IDs to disk in .h5 datastore!")
@@ -805,7 +893,8 @@ def create_asim_data_from_h5(settings, year, keys_with_year=True):
     # create land use table
     land_use = _create_land_use_table(
         output_dir, zones, state_fips, county_codes, local_crs,
-        households, persons, jobs, blocks)
+        households, persons, jobs, blocks, asim_zone_id_col = asim_zone_id_col)
+   
 
     store.close()
 
