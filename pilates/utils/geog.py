@@ -14,6 +14,7 @@ def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out='zone_id'):
         url = (
             'https://opendata.arcgis.com/datasets/'
             '94e6e7107f0745b5b2aabd651340b739_0.geojson')
+    
     gdf = gpd.read_file(url, crs="EPSG:4326")
     gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
 
@@ -23,14 +24,24 @@ def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out='zone_id'):
     return gdf
 
 
-def get_county_block_geoms(state_fips, county_fips, result_size=10000):
+def get_county_block_geoms(state_fips, county_fips, zonification = 'blocks', result_size=10000):
 
-    base_url = (
-        'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
-        'Tracts_Blocks/MapServer/12/query?where=STATE%3D{0}+and+COUNTY%3D{1}'
-        '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
-        '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CBLOCK%2CCENTLAT'
-        '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
+    if zonification == 'blocks':
+        base_url = (
+            'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
+            'Tracts_Blocks/MapServer/12/query?where=STATE%3D{0}+and+COUNTY%3D{1}'
+            '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
+            '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CBLOCK%2CCENTLAT'
+            '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
+    
+    elif zonification == 'block_groups':
+        base_url = (
+            'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
+            'Tracts_Blocks/MapServer/11/query?where=STATE%3D{0}+and+COUNTY%3D{1}'
+            '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
+            '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CCENTLAT'
+            '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
+        
     blocks_remaining = True
     all_features = []
     page = 0
@@ -65,7 +76,7 @@ def get_county_block_geoms(state_fips, county_fips, result_size=10000):
     return gdf
 
 
-def get_block_geoms(state_fips, county_codes, data_dir='./tmp/'):
+def get_block_geoms(state_fips, county_codes, zonification = 'blocks', data_dir='./tmp/'):
     all_block_geoms = []
 
     if os.path.exists(os.path.join(data_dir, "blocks.shp")):
@@ -80,7 +91,7 @@ def get_block_geoms(state_fips, county_codes, data_dir='./tmp/'):
                 county_codes, total=len(county_codes),
                 desc='Getting block geoms for {0} counties'.format(
                     len(county_codes))):
-            county_gdf = get_county_block_geoms(state_fips, county)
+            county_gdf = get_county_block_geoms(state_fips, county, zonification)
             all_block_geoms.append(county_gdf)
 
         blocks_gdf = gpd.GeoDataFrame(
@@ -167,10 +178,10 @@ def map_block_to_taz(
 
 def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
     '''
-    Assigns the gdf index (TAZ ID) for each index in df
+    Assigns the gdf index (zone_id) for each index in df
     Input:
     - df columns names x, and y. The index is the ID of the point feature.
-    - zones_gdf: GeoPandas GeoDataFrame with TAZ as index, geometry, area.
+    - zones_gdf: GeoPandas GeoDataFrame with zone_id as index, geometry, area.
 
     Output:
         A series with df index and corresponding gdf id
@@ -187,25 +198,28 @@ def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
 
     # Spatial join
     intx = gpd.sjoin(
-        gdf.reset_index(), zones_gdf.reset_index(),
+        gdf, zones_gdf.reset_index(),
         how='left', op='intersects')
+#     intx = gpd.sjoin(
+#         gdf.reset_index(), zones_gdf.reset_index(),
+#         how='left', op='intersects')
 
-    # Drop duplicates and keep the one with the smallest H3 area
-    intx['intx_area'] = intx['geometry'].area
-    intx = intx.sort_values('intx_area')
-    intx.drop_duplicates(subset=[gdf.index.name], keep='first', inplace=True)
-    intx.set_index(gdf.index.name, inplace=True)
-    gdf[zone_id_col] = intx[zone_id_col].reindex(gdf.index)
+#     # Drop duplicates and keep the one with the smallest H3 area
+#     intx['intx_area'] = intx['geometry'].area
+#     intx = intx.sort_values('intx_area')
+#     intx.drop_duplicates(subset=[gdf.index.name], keep='first', inplace=True)
+#     intx.set_index(gdf.index.name, inplace=True)
+#     gdf[zone_id_col] = intx[zone_id_col].reindex(gdf.index)
 
-    # Check if there is any unassigined object
-    unassigned_mask = pd.isnull(gdf[zone_id_col])
-    if any(unassigned_mask):
+#     # Check if there is any unassigined object
+#     unassigned_mask = pd.isnull(gdf[zone_id_col])
+#     if any(unassigned_mask):
 
-        zones_gdf['geometry'] = zones_gdf['geometry'].centroid
-        all_dists = gdf.loc[unassigned_mask, 'geometry'].apply(
-            lambda x: zones_gdf['geometry'].distance(x))
+#         zones_gdf['geometry'] = zones_gdf['geometry'].centroid
+#         all_dists = gdf.loc[unassigned_mask, 'geometry'].apply(
+#             lambda x: zones_gdf['geometry'].distance(x))
 
-        gdf.loc[unassigned_mask, zone_id_col] = all_dists.idxmin(
-            axis=1).values
+#         gdf.loc[unassigned_mask, zone_id_col] = all_dists.idxmin(
+#             axis=1).values
 
-    return gdf[zone_id_col]
+    return intx[zone_id_col]
