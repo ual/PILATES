@@ -39,6 +39,7 @@ def run_polaris_local(results_dir, exe_name, scenario_file, num_threads):
     # proc.wait()
     # out_file.close()
     # err_file.close()
+    logger.info('Executing \'{0} {1} {2}\''.format(str(exe_name), str(scenario_file), str(num_threads)))
     proc = subprocess.Popen([str(exe_name), str(scenario_file), str(num_threads)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode != 0:
@@ -54,7 +55,7 @@ def copyreplacefile(filename, dest_dir):
 
 
 def execute_sql_script(db_name, script):
-    print('Executing Sqlite3 script: %s on database: %s' % (db_name, script))
+    logger.info('Executing Sqlite3 script: %s on database: %s' % (db_name, script))
     with open(str(script), 'r') as sql_file:
         sql_script = sql_file.read()
 
@@ -64,11 +65,11 @@ def execute_sql_script(db_name, script):
         cursor.executescript(sql_script)
         db.commit()
     except sqlite3.Error as err:
-        print('SQLite error: %s' % (' '.join(err.args)))
-        print("Exception class is: ", err.__class__)
-        print('SQLite traceback: ')
+        logger.error('SQLite error: %s' % (' '.join(err.args)))
+        logger.error("Exception class is: ", err.__class__)
+        logger.error('SQLite traceback: ')
         exc_type, exc_value, exc_tb = sys.exc_info()
-        print(traceback.format_exception(exc_type, exc_value, exc_tb))
+        logger.error(traceback.format_exception(exc_type, exc_value, exc_tb))
     db.close()
 
 

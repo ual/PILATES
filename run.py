@@ -16,6 +16,7 @@ from spython.main import Client
 import os
 import argparse
 import logging
+from logging import config
 import sys
 import pilates.polaris.travel_model
 
@@ -26,6 +27,8 @@ from pilates.urbansim import preprocessor as usim_pre
 from pilates.urbansim import postprocessor as usim_post
 from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
+
+logger = logging.getLogger(__name__)
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.INFO,
@@ -86,7 +89,8 @@ def run_land_use_singularity(settings, region_id, year, forecast_year, land_use_
                                                             usim_client_data_folder)
     s_client = Client
     # land_use_image = settings.get('singularity:urbansim')
-    s_client.load('docker://mxndrwgrdnr/block_model_v2_pb')
+    # s_client.load('docker://mxndrwgrdnr/block_model_v2_pb')
+    s_client.load('./block_model_v2_pb/block_model_v2_pb.sif')
     output = s_client.execute(command)
     logger.info(output)
 
@@ -102,9 +106,6 @@ def run_travel_model(name, forecast_year, usim_output):
 
 
 if __name__ == '__main__':
-
-    logger = logging.getLogger(__name__)
-
     # read settings from config file
     with open('settings.yaml') as file:
         settings = yaml.load(file, Loader=yaml.FullLoader)

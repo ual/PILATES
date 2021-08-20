@@ -7,7 +7,7 @@
 data_dir : /mnt/e/polaris/Repos/campoInputs
 db_name : campo
 polaris_exe :  /home/randy/polaris/polaris-20210726/build/release/bin/Integrated_Model
-scenario_file : scenario_run1p_urbansim.json
+scenario_file : scenario_run10p_urbansim.json
 num_threads : 12
 block_loc_file_name : campo_block_to_loc.csv
 auto_skim_file : highway_skim_file.bin
@@ -19,9 +19,9 @@ results_dir : convergence_results  # = data_dir / json_data["results_dir"]
 scripts_dir :  /home/randy/polaris/PILATES-20210728/pilates/polaris/conv_scripts # = Path(json_data["scripts_dir"])
 
 # -- SET THE MAIN AND DTA RUN SCENARIO FILES
-population_scale_factor : 0.01  # MUST match settings in the scenario files below
-scenario_main_init : scenario_run1p_urbansim_init.json #= json_data["scenario_main_init"]
-scenario_main :  scenario_run1p_urbansim.json # = json_data["scenario_main"]
+population_scale_factor : 1.00  # MUST match settings in the scenario files below
+scenario_main_init : scenario_run10p_urbansim_init.json #= json_data["scenario_main_init"]
+scenario_main :  scenario_run10p_urbansim.json # = json_data["scenario_main"]
 
 # -- ENTER THE NUMBER OF MAIN RUNS AND DTA RUNS PER MAIN RUN
 num_abm_runs : 2  # = json_data["num_abm_runs"]
