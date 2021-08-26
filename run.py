@@ -84,6 +84,8 @@ if __name__ == '__main__':
     beam_config = settings['beam_config']
     beam_local_input_folder = settings['beam_local_input_folder']
     beam_local_output_folder = settings['beam_local_output_folder']
+    replan_iters = settings['replan_iters']
+    replan_hh_samp_size = settings['replan_hh_sample_size']
 
     # parse args
     parser = argparse.ArgumentParser(add_help=False)
@@ -223,6 +225,34 @@ if __name__ == '__main__':
             formatted_print(print_str)
             beam_pre.copy_plans_from_asim(settings)
 
+            # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
+            # have to re-run asim all the way through on sample to shrink the
+            # cache for use in re-planning, otherwise cache will use entire pop
+            if (replan_iters > 0) and (replan_hh_samp_size > 0):
+                print_str = (
+                    "Re-running ActivitySim on smaller sample size to "
+                    "prepare cache for re-planning with BEAM.")
+                formatted_print(print_str)
+                asim = client.containers.run(
+                    activity_demand_image, working_dir=asim_workdir,
+                    volumes={
+                        os.path.abspath(settings['asim_local_input_folder']): {
+                            'bind': os.path.join(asim_workdir, 'data'),
+                            'mode': 'rw'},
+                        os.path.abspath(settings['asim_local_output_folder']): {
+                            'bind': os.path.join(asim_workdir, 'output'),
+                            'mode': 'rw'}
+                    },
+                    command=formattable_asim_cmd.format(
+                        forecast_year, replan_hh_samp_size,
+                        num_processes, chunk_size
+                    )
+                    stdout=docker_stdout,
+                    stderr=True, detach=True, remove=True)
+                for log in asim.logs(
+                        stream=True, stderr=True, stdout=docker_stdout):
+                    print(log)
+
         else:
 
             # CONVERT LAND USE OUTPUTS TO NEXT ITERATION INPUTS
@@ -235,7 +265,7 @@ if __name__ == '__main__':
             #    RUN TRAFFIC ASSIGNMENT    #
             #################################
 
-            # 4. RUN BEAM
+            # 1. RUN BEAM
             abs_beam_input = os.path.abspath(beam_local_input_folder)
             abs_beam_output = os.path.abspath(beam_local_output_folder)
             logger.info(
@@ -265,5 +295,50 @@ if __name__ == '__main__':
                     "Please check beamLog.out for errors in the directory %s",
                     abs_beam_output)
                 exit(1)
+
+            # 2. REPLAN
+            if replan_iters > 0:
+                for i in range(replan_iters):
+
+                    # a) format new skims for asim
+                    asim_pre.create_skims_from_beam(
+                        asim_local_input_folder, settings, overwrite=True)
+
+                    # b) replan with asim
+                    print_str = (
+                        "Replanning {0} households with ActivitySim".format(
+                            replan_hh_samp_size))
+                    formatted_print(print_str)
+                    asim = client.containers.run(
+                        activity_demand_image, working_dir=asim_workdir,
+                        volumes={
+                            os.path.abspath(settings['asim_local_input_folder']): {
+                                'bind': os.path.join(asim_workdir, 'data'),
+                                'mode': 'rw'},
+                            os.path.abspath(settings['asim_local_output_folder']): {
+                                'bind': os.path.join(asim_workdir, 'output'),
+                                'mode': 'rw'}
+                        },
+                        command=formattable_asim_cmd.format(
+                            forecast_year, replan_hh_samp_size,
+                            num_processes, chunk_size
+                        ) + ' -r ' + settings['replan_after']  # only run subset of models
+                        stdout=docker_stdout,
+                        stderr=True, detach=True, remove=True)
+                    for log in asim.logs(
+                            stream=True, stderr=True, stdout=docker_stdout):
+                        print(log)
+
+                    # c) format updated plans for beam
+                    print_str = (
+                        "Generating {0} {1} input data from "
+                        "{2} outputs".format(
+                            forecast_year, travel_model, activity_demand_model))
+                    formatted_print(print_str)
+                    beam_pre.copy_plans_from_asim(settings)
+
+                    # d) merge updated plans with full pop plans
+
+                    # e) run BEAM
 
         logger.info("Finished")

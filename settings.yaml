@@ -53,6 +53,9 @@ beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_plans: gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz
 skim_zone_source_id_col: objectid
+replan_iters: 0
+replan_hh_sample_size: 0
+replan_after: trip_scheduling  # resume asim after this step
 
 
 # POLARIS
