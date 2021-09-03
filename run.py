@@ -226,7 +226,7 @@ if __name__ == '__main__':
         else:
 
             # CONVERT LAND USE OUTPUTS TO NEXT ITERATION INPUTS
-            usim_post.create_next_iter_usim_data(settings, year)
+            usim_post.create_next_iter_usim_data(settings, year, forecast_year)
 
         travel_model_enabled = travel_model
         if travel_model_enabled:
