@@ -20,27 +20,35 @@ def _get_usim_datastore_fname(settings, io, year=None):
     return datastore_name
 
 
-def create_next_iter_usim_data(settings, year):
+def create_next_iter_usim_data(settings, input_year, forecast_year):
 
     data_dir = settings['usim_local_data_folder']
 
     # load original input data
     input_datastore_name = _get_usim_datastore_fname(settings, io='input')
     input_store_path = os.path.join(data_dir, input_datastore_name)
+    archive_fname = 'input_data_for_{0}_outputs.h5'.format(input_year)
+    archive_path = input_store_path.replace(
+        input_datastore_name, archive_fname)
+
     if os.path.exists(input_store_path):
-        archive_fname = 'input_data_for_{0}_outputs.h5'.format(year)
         logger.info(
             "Moving urbansim inputs from the previous iteration to {0}".format(
                 archive_fname))
-        new_input_store_path = input_store_path.replace(
-            input_datastore_name, archive_fname)
-        os.rename(input_store_path, new_input_store_path)
+        os.rename(input_store_path, archive_path)
+    elif not os.path.exists(archive_fname):
+        raise ValueError('No input data found at {0} or {1}.'.format(
+            input_store_path, archive_path))
 
-    og_input_store = pd.HDFStore(new_input_store_path)
+    og_input_store = pd.HDFStore(archive_path)
 
     # load last iter output data
-    output_datastore_name = _get_usim_datastore_fname(settings, 'output', year)
+    output_datastore_name = _get_usim_datastore_fname(
+        settings, 'output', forecast_year)
     output_store_path = os.path.join(data_dir, output_datastore_name)
+    if not os.path.exists(output_store_path):
+        raise ValueError('No output data found at {0}.'.format(
+            output_store_path))
     output_store = pd.HDFStore(output_store_path)
 
     logger.info(
@@ -48,13 +56,14 @@ def create_next_iter_usim_data(settings, year):
 
     # copy usim outputs into new input data store
     new_input_store = pd.HDFStore(input_store_path)
+    assert len(new_input_store.keys()) == 0
     updated_tables = []
     for h5_key in output_store.keys():
         table_name = h5_key.split('/')[-1]
         updated_tables.append(table_name)
         new_input_store[table_name] = output_store[h5_key]
 
-    # copy missing tables from original usim inputs into new input data store
+    # copy (static) tables from original usim inputs into new input store
     for h5_key in og_input_store.keys():
         table_name = h5_key.split('/')[-1]
         if table_name not in updated_tables:
