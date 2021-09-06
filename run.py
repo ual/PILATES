@@ -123,6 +123,30 @@ if __name__ == '__main__':
         if land_use_enabled:
 
             ###########################
+            #  WARM START ACTIVITIES  #
+            ###########################
+            asim_pre.create_skims_from_beam(settings)
+            asim_pre.create_asim_data_from_h5(settings, year)
+
+            asim = client.containers.run(
+                activity_demand_image, working_dir=asim_workdir,
+                volumes={
+                    os.path.abspath(settings['asim_local_input_folder']): {
+                        'bind': os.path.join(asim_workdir, 'data'),
+                        'mode': 'rw'},
+                    os.path.abspath(settings['asim_local_output_folder']): {
+                        'bind': os.path.join(asim_workdir, 'output'),
+                        'mode': 'rw'}
+                },
+                command=formattable_asim_cmd.format(
+                    household_sample_size,
+                    num_processes, chunk_size) + ' -w',
+                stdout=docker_stdout, stderr=True, detach=True, remove=True)
+            for log in asim.logs(
+                    stream=True, stderr=True, stdout=docker_stdout):
+                print(log)
+
+            ###########################
             #    FORECAST LAND USE    #
             ###########################
 
@@ -170,11 +194,8 @@ if __name__ == '__main__':
                 activity_demand_image.split('/')[1],
                 land_use_image.split('/')[1])
             formatted_print(print_str)
-            asim_pre.create_skims_from_beam(asim_local_input_folder, settings)
-
-            if (land_use_enabled) | (forecast_year == start_year):
-                asim_pre.create_asim_data_from_h5(
-                    settings, forecast_year, keys_with_year=land_use_enabled)
+            asim_pre.create_skims_from_beam(settings)
+            asim_pre.create_asim_data_from_h5(settings, forecast_year)
 
             # 2. GENERATE ACTIVITY PLANS
             print_str = (

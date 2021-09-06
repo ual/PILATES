@@ -231,9 +231,12 @@ def _create_offset(auto_df, data_dir):
     skims.close()
 
 
-def create_skims_from_beam(data_dir, settings, overwrite=True):
+def create_skims_from_beam(settings, output_dir=None, overwrite=True):
 
-    new = _create_skim_object(data_dir, overwrite)
+    data_dir = settings['asim_local_input_folder']
+    if not output_dir:
+        output_dir = data_dir
+    new = _create_skim_object(output_dir, overwrite)
     if new:
         auto_df, transit_df, num_taz = _create_skims_by_mode(settings)
 
@@ -466,7 +469,8 @@ def _update_blocks_table(
         logger.info("Mapping block IDs to TAZ")
         tazs_remapped = True
         block_taz = map_block_to_taz(
-            settings, region, zone_id_col, reference_taz_id_col='objectid')
+            settings, region, zone_id_col=zone_id_col,
+            reference_taz_id_col='objectid')
         block_taz.index.name = 'block_id'
         blocks = blocks.join(block_taz)
         blocks[zone_id_col] = blocks[zone_id_col].fillna(0)
@@ -696,7 +700,7 @@ def _create_land_use_table(
     return zones
 
 
-def _get_zones_table(
+def _get_zones_geoms(
         datastore, region, asim_zone_id_col='TAZ',
         default_zone_id_col='zone_id'):
     zone_key = '/zone_geoms'
@@ -738,39 +742,46 @@ def _get_zones_table(
     return zones
 
 
-def create_asim_data_from_h5(settings, year, keys_with_year=True):
+def create_asim_data_from_h5(settings, year, output_dir=None):
+    # warm start: year = start_year
+    # asim_no_usim: year = start_year
+    # normal: year = forecast_year
 
     region = settings['region']
+    region_id = settings['region_to_region_id'][region]
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
     usim_local_data_folder = settings['usim_local_data_folder']
-    output_dir = settings['asim_local_input_folder']
-    input_datastore = settings['usim_formattable_output_file_name'].format(
-        year=year)
+    if not output_dir:
+        output_dir = settings['asim_local_input_folder']
+    # if year is start year then we're reading from usim input data,
+    # probably either warm starting activities or traffic assignment
+    if year == settings['start_year']:
+        input_datastore = settings['usim_formattable_input_file_name'].format(
+            region_id=region_id)
+        year = ''
+    # otherwise usim was probably run and we want to read from its outputs
+    else:
+        input_datastore = settings['usim_formattable_output_file_name'].format(
+            year=year)
 
     store = pd.HDFStore(os.path.join(usim_local_data_folder, input_datastore))
     input_zone_id_col = 'zone_id'
     asim_zone_id_col = 'TAZ'
 
-    def create_key(key, year, keys_with_year):
-        if (keys_with_year):
-            return '/{0}/{1}'.format(key, year)
-        else:
-            return key
+    households = store[os.path.join(str(year), 'households')]
+    persons = store[os.path.join(str(year), 'persons')]
+    blocks = store[os.path.join(str(year), 'blocks')]
+    jobs = store[os.path.join(str(year), 'jobs')]
 
-    households = store[create_key('households', year, keys_with_year)]
-    persons = store[create_key('persons', year, keys_with_year)]
-    blocks = store[create_key('blocks', year, keys_with_year)]
-    jobs = store[create_key('jobs', year, keys_with_year)]
-
-    # TODO: only call _get_zones_table if blocks table doesn't already
+    # TODO: only call _get_zones_geoms if blocks table doesn't already
     # have a zone ID (e.g. TAZ). If it does then we don't need zone geoms
     # and can simply instantiate the zones table from the unique zone ids
     # in the blocks/persons/households tables.
 
-    zones = _get_zones_table(store, region)
+    zones = _get_zones_geoms(store, region)
 
     # update blocks
     blocks_cols = blocks.columns
@@ -779,7 +790,7 @@ def create_asim_data_from_h5(settings, year, keys_with_year=True):
     if tazs_remapped:
         logger.info(
             "Storing blocks table with TAZ IDs to disk in .h5 datastore!")
-        store['/{0}/blocks'.format(year)] = blocks[blocks_cols]
+        store[os.path.join(str(year), 'blocks')] = blocks[blocks_cols]
     blocks.rename(columns={input_zone_id_col: asim_zone_id_col}, inplace=True)
 
     # update households
@@ -800,7 +811,7 @@ def create_asim_data_from_h5(settings, year, keys_with_year=True):
         logger.info(
             "Storing jobs table with updated block IDs to disk "
             "in .h5 datastore!")
-        store['/{0}/jobs'.format(year)] = jobs[jobs_cols]
+        store[os.path.join(str(year), 'jobs')] = jobs[jobs_cols]
 
     # create land use table
     land_use = _create_land_use_table(
