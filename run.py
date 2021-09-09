@@ -64,20 +64,37 @@ if __name__ == '__main__':
     # parse land use settings
     land_use_image = image_names[land_use_model]
     land_use_freq = settings['land_use_freq']
-    skim_zone_source_id_col = settings['skim_zone_source_id_col']
-    usim_client_data_folder = settings['usim_client_data_folder']
-    usim_local_data_folder = settings['usim_local_data_folder']
+    usim_remote_data_folder = settings['usim_client_data_folder']
+    usim_local_data_folder = os.path.abspath(
+        settings['usim_local_data_folder'])
+    usim_docker_vols = {
+        usim_local_data_folder: {
+            'bind': usim_remote_data_folder,
+            'mode': 'rw'}}
     formattable_usim_cmd = settings['usim_formattable_command']
 
     # parse activity demand settings
     activity_demand_image = image_names[activity_demand_model]
     asim_subdir = settings['region_to_asim_subdir'][region]
     asim_workdir = os.path.join('/activitysim', asim_subdir)
+    asim_remote_input_folder = os.path.join(asim_workdir, 'data')
+    asim_remote_output_folder = os.path.join(asim_workdir, 'output')
     chunk_size = settings['chunk_size']
     num_processes = settings['num_processes']
-    asim_local_input_folder = settings['asim_local_input_folder']
-    asim_local_output_folder = settings['asim_local_output_folder']
+    asim_local_input_folder = os.path.abspath(
+        settings['asim_local_input_folder'])
+    asim_local_output_folder = os.path.abspath(
+        settings['asim_local_output_folder'])
+    asim_docker_vols = {
+        asim_local_input_folder: {
+            'bind': asim_remote_input_folder,
+            'mode': 'rw'},
+        asim_local_output_folder: {
+            'bind': asim_remote_output_folder,
+            'mode': 'rw'}}
     formattable_asim_cmd = settings['asim_formattable_command']
+    base_asim_cmd = formattable_asim_cmd.format(
+        household_sample_size, num_processes, chunk_size)
 
     # parse traffic assignment settings
     travel_model_image = image_names[travel_model]
@@ -122,29 +139,34 @@ if __name__ == '__main__':
         land_use_enabled = land_use_model
         if land_use_enabled:
 
-            ###########################
-            #  WARM START ACTIVITIES  #
-            ###########################
-            asim_pre.create_skims_from_beam(settings)
-            asim_pre.create_asim_data_from_h5(settings, year)
+            if year == start_year:
 
-            asim = client.containers.run(
-                activity_demand_image, working_dir=asim_workdir,
-                volumes={
-                    os.path.abspath(settings['asim_local_input_folder']): {
-                        'bind': os.path.join(asim_workdir, 'data'),
-                        'mode': 'rw'},
-                    os.path.abspath(settings['asim_local_output_folder']): {
-                        'bind': os.path.join(asim_workdir, 'output'),
-                        'mode': 'rw'}
-                },
-                command=formattable_asim_cmd.format(
-                    household_sample_size,
-                    num_processes, chunk_size) + ' -w',
-                stdout=docker_stdout, stderr=True, detach=True, remove=True)
-            for log in asim.logs(
-                    stream=True, stderr=True, stdout=docker_stdout):
-                print(log)
+                ###########################
+                #  WARM START ACTIVITIES  #
+                ###########################
+
+                # 1. Create data from UrbanSim base year inputs
+                asim_pre.create_skims_from_beam(settings)
+                asim_pre.create_asim_data_from_h5(settings, year)
+
+                # 2. Run ActivitySim in warm start mode
+                ws_asim_cmd = base_asim_cmd + ' -w'  # warm start flag
+
+                asim = client.containers.run(
+                    activity_demand_image,
+                    working_dir=asim_workdir,
+                    volumes=asim_docker_vols,
+                    command=ws_asim_cmd,
+                    stdout=docker_stdout,
+                    stderr=True,
+                    detach=True,
+                    remove=True)
+                for log in asim.logs(
+                        stream=True, stderr=True, stdout=docker_stdout):
+                    print(log)
+
+                # 3. Update UrbanSim base year input data
+                asim_post.update_usim_inputs_after_warm_start(settings)
 
             ###########################
             #    FORECAST LAND USE    #
@@ -155,8 +177,7 @@ if __name__ == '__main__':
                 "Preparing input data for land use development simulation.")
             formatted_print(print_str)
 
-            usim_pre.add_skims_to_model_data(
-                settings, region, skim_zone_source_id_col)
+            usim_pre.add_skims_to_model_data(settings)
 
             # 2. RUN URBANSIM
             forecast_year = year + travel_model_freq
@@ -169,13 +190,12 @@ if __name__ == '__main__':
                 region_id, year, forecast_year, land_use_freq)
             usim = client.containers.run(
                 land_use_image,
-                volumes={
-                    os.path.abspath(usim_local_data_folder): {
-                        'bind': usim_client_data_folder,
-                        'mode': 'rw'},
-                },
-                command=usim_cmd, stdout=docker_stdout,
-                stderr=True, detach=True, remove=True)
+                volumes=usim_docker_vols,
+                command=usim_cmd,
+                stdout=docker_stdout,
+                stderr=True,
+                detach=True,
+                remove=True)
             for log in usim.logs(
                     stream=True, stderr=True, stdout=docker_stdout):
                 print(log)
@@ -214,8 +234,7 @@ if __name__ == '__main__':
                         'mode': 'rw'}
                 },
                 command=formattable_asim_cmd.format(
-                    forecast_year, household_sample_size,
-                    num_processes, chunk_size
+                    household_sample_size, num_processes, chunk_size
                 ),
                 stdout=docker_stdout, stderr=True, detach=True, remove=True)
             for log in asim.logs(
