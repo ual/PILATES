@@ -90,6 +90,9 @@ def add_skims_to_model_data(
     model_data_fname = usim_model_data_fname(region_id)
     model_data_fpath = os.path.join(
         settings['usim_local_data_folder'], model_data_fname)
+    if not os.path.exists(model_data_fpath):
+        raise ValueError('No model data found at {0}'.format(
+            model_data_fpath))
     store = pd.HDFStore(model_data_fpath)
     store['travel_data'] = df
     del df

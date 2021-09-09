@@ -14,6 +14,10 @@ def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out='zone_id'):
         url = (
             'https://opendata.arcgis.com/datasets/'
             '94e6e7107f0745b5b2aabd651340b739_0.geojson')
+    else:
+        raise ValueError(
+            "Region {0} unsupported for downloading TAZ geometry on-the-fly.")
+
     gdf = gpd.read_file(url, crs="EPSG:4326")
     gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
 
