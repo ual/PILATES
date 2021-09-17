@@ -8,7 +8,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out='zone_id'):
+def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out = 'zone_id'):
 
     if region == 'sfbay':
         url = (
@@ -76,7 +76,14 @@ def get_county_block_geoms(state_fips, county_fips, zonification = 'blocks', res
     return gdf
 
 
-def get_block_geoms(state_fips, county_codes, zonification = 'blocks', data_dir='./tmp/'):
+def get_block_geoms(settings, data_dir='./tmp/'):
+    
+    region = settings['region']
+    FIPS = settings['FIPS'][region]
+    state_fips = FIPS['state']
+    county_codes = FIPS['counties']
+    zonification = settings['zonification']
+    
     all_block_geoms = []
 
     if os.path.exists(os.path.join(data_dir, "blocks.shp")):
@@ -162,10 +169,12 @@ def map_block_to_taz(
     Returns:
         A series named 'zone_id' with 'GEOID' as index name
     """
-
-    state_fips = settings['FIPS'][region]['state']
-    county_codes = settings['FIPS'][region]['counties']
+    region = settings['region']
+    FIPS = settings['FIPS'][region]
+    state_fips = FIPS['state']
+    county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
+    
     if zones_gdf is None:
         zones_gdf = get_taz_geoms(region, reference_taz_id_col, zone_id_col)
     blocks_gdf = get_block_geoms(state_fips, county_codes, data_dir)
@@ -190,6 +199,7 @@ def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
     logger.info("Assigning zone IDs to {0}".format(df.index.name))
     gdf = gpd.GeoDataFrame(
         df, geometry=gpd.points_from_xy(df.x, df.y), crs="EPSG:4326")
+    
     zones_gdf.geometry.crs = "EPSG:4326"
 
     # convert to meters-based local crs
@@ -200,6 +210,7 @@ def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
     intx = gpd.sjoin(
         gdf, zones_gdf.reset_index(),
         how='left', op='intersects')
+    
 #     intx = gpd.sjoin(
 #         gdf.reset_index(), zones_gdf.reset_index(),
 #         how='left', op='intersects')

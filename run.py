@@ -170,7 +170,7 @@ if __name__ == '__main__':
                 activity_demand_image.split('/')[1],
                 land_use_image.split('/')[1])
             formatted_print(print_str)
-            asim_pre.create_skims_from_beam(asim_local_input_folder, settings)
+            asim_pre.create_skims_from_beam(settings, forecast_year)
 
             if (land_use_enabled) | (forecast_year == start_year):
                 asim_pre.create_asim_data_from_h5(
