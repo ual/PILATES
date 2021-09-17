@@ -8,7 +8,7 @@
 region: sfbay
 scenario: base
 start_year: 2010
-end_year: 2012
+end_year: 2013
 land_use_freq: 1
 travel_model_freq: 1
 
@@ -19,9 +19,9 @@ activity_demand_model: activitysim
 
 # docker settings
 docker_images:
-  urbansim: mxndrwgrdnr/block_model_v2_pb
+  urbansim: mxndrwgrdnr/block_model_update
   beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim
+  activitysim: mxndrwgrdnr/activitysim:warm_start
   polaris:
 docker_stdout: False
 pull_latest: False
@@ -141,6 +141,7 @@ asim_output_tables:
     - trips
     - joint_tour_participants
     - plans
+
 
 
 #########################################################################################################
