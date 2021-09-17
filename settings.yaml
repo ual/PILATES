@@ -21,7 +21,7 @@ activity_demand_model: activitysim
 docker_images:
   urbansim: mxndrwgrdnr/block_model_update
   beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim:warm_start
+  activitysim: mxndrwgrdnr/activitysim
   polaris:
 docker_stdout: False
 pull_latest: False
