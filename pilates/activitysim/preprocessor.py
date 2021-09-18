@@ -398,8 +398,7 @@ def _update_households_table(households, blocks, asim_zone_id_col='TAZ'):
     # TODO: move this to annotate_households.yaml in asim settings
     hh_names_dict = {
         'persons': 'PERSONS',
-        'cars': 'VEHICL',
-        'member_id': 'PNUM'}
+        'cars': 'VEHICL'}
     households = households.rename(columns=hh_names_dict)
     if 'household_id' in households.columns:
         households.set_index('household_id', inplace=True)

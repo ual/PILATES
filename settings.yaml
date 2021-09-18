@@ -21,7 +21,7 @@ activity_demand_model: activitysim
 docker_images:
   urbansim: mxndrwgrdnr/block_model_update
   beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim
+  activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
 docker_stdout: False
 pull_latest: False
@@ -67,8 +67,8 @@ polaris_skim_keys:
 
 # ACTIVITYSIM
 household_sample_size: 0  # zero means no sampling, whole pop.
-chunk_size: 6000000000
-num_processes: 80
+chunk_size: 4000000000
+num_processes: 94
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
 asim_formattable_command: "-h {0} -n {1} -c {2}"
@@ -141,6 +141,27 @@ asim_output_tables:
     - trips
     - joint_tour_participants
     - plans
+asim_from_usim_col_maps:
+  households:
+    persons: PERSONS  # asim preproc
+    PERSONS: hhsize  # asim settings.yaml
+    cars: VEHICL  # asim preproc
+    VEHICL: auto_ownership  # asim annotate_households.csv
+    workers: num_workers  # asim settings.yaml
+  persons:
+    member_id: PNUM  # asim preproc
+  land_use:
+    ZONE: TAZ  # asim settings.yaml
+    COUNTY: county_id  # asim settings.yaml
+asim_to_usim_col_maps:
+  households:
+    hhsize: persons  # asim postproc
+    num_workers: workers  # asim postproc
+    auto_ownership: cars  # asim postproc
+  persons:
+    PNUM: member_id  # asim postproc
+    workplace_taz: work_zone_id  # asim postproc
+    school_taz: school_taz_id  # asim postproc
 
 
 
