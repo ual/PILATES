@@ -294,7 +294,7 @@ def generate_activity_plans(
         overwrite_skims = False
 
     # 2. PREPROCESS DATA FOR ACTIVITY DEMAND MODEL
-    print_str = "Creating {0} inputs data from {1} outputs".format(
+    print_str = "Creating {0} input data from {1} outputs".format(
         activity_demand_model,
         land_use_model)
     formatted_print(print_str)
@@ -306,7 +306,7 @@ def generate_activity_plans(
     print_str = (
         "Generating activity plans for the year "
         "{0} with {1}".format(
-            year, activity_demand_model))
+            forecast_year, activity_demand_model))
     formatted_print(print_str)
     asim = client.containers.run(
         activity_demand_image,
