@@ -8,6 +8,7 @@ import random
 # from operator import itemgetter
 # from collections import OrderedDict
 import logging
+from sortedcontainers import SortedDict
 
 logger = logging.getLogger(__name__)
 
@@ -220,13 +221,16 @@ def clean_db(DbCon):
 
 
 def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, population_scale_factor):
+	
+	random.seed()
+	
 	# verify filepaths
 	usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
 	if not os.path.exists(db_demand):
-		logger.critical("Error: input db file path not found")
+		logger.critical("Error: input demand db file path not found: " + db_demand)
 		sys.exit()
 	if not os.path.exists(db_supply):
-		logger.critical("Error: input db file path not found")
+		logger.critical("Error: input supply db file path not found" + db_supply)
 		sys.exit()
 	if not os.path.exists(usim_output):
 		logger.critical("Error: input urbansim data file path not found")
@@ -264,12 +268,15 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 	usim_data = pd.HDFStore(usim_output)
 	hh_data = usim_data[households_data]
 	hh_dict = {}
+	hh_unplaced = []
 	per_data = usim_data[persons_data]
 	per_dict = {}
 	job_data = usim_data[jobs_data]
 	job_dict = {}
 	block_data = usim_data[blocks_data]
 	block_dict = {}
+	block_hh_count = {}
+	block_pdf = SortedDict()
 
 	# initialize zone structure
 	zone_data = {}
@@ -280,19 +287,52 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 		if b.zone not in zone_data:
 			zone_data[b.zone] = Zone(b.zone)
 
-	# Iterate through households in the datastore and construct HH objects
+	# Iterate through households in the datastore and construct HH objects, as well as the household-block distribution pdf
 	logger.info('Reading households from Urbansim output...')
+	num_valid_HH = 0.0
 	for id, data in hh_data.iterrows():
 		hh = Household(id, data)
+		
+		# check for valid home location
+		if hh.block_id in block_to_loc:
+			hh.location = block_to_loc[hh.block_id]
+			hh.zone = block_to_zone[hh.block_id]
+			hh_dict[id] = hh
+			# update hh pdf precursors...
+			num_valid_HH += 1.0
+			if hh.block_id in block_hh_count:
+				block_hh_count[hh.block_id] += 1.0
+			else:
+				block_hh_count[hh.block_id] = 1.0
+		else:
+			hh_unplaced.append(hh)
+	
+	# create the block pdf
+	c_prob = 0.0
+	for id, count in block_hh_count.items():
+		c_prob += count/num_valid_HH
+		block_pdf[c_prob] = id
+	block_pdf[1.0] = block_pdf.values()[-1]
+	
+
+	# place the unplaced households
+	for hh in hh_unplaced:
+		r = random.random()
+		key_block_idx = block_pdf.bisect_left(r)
+		block_key = block_pdf.keys()[key_block_idx]
+		hh.block_id = block_pdf[block_key]
 		hh.location = block_to_loc[hh.block_id]
 		hh.zone = block_to_zone[hh.block_id]
-		hh_dict[id] = hh
+		hh_dict[hh.id] = hh
 
 	# Iterate through persons in the datastore and construct PER objects
 	logger.info('Reading persons from Urbansim output...')
 	for id, data in per_data.iterrows():
 		p = Person(data)
-		hh_dict[p.household].person_list[p.id] = p  # put person into the appropriate household member dictionary
+		
+		# check that person is in a valid household
+		if p.household in hh_dict:
+			hh_dict[p.household].person_list[p.id] = p  # put person into the appropriate household member dictionary
 
 	for h in hh_dict.values():
 		h.set_marital_status_for_members()

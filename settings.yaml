@@ -8,9 +8,9 @@
 region: austin
 scenario: base
 start_year: 2010
-end_year: 2015
+end_year: 2035
 land_use_freq: 1
-travel_model_freq: 1
+travel_model_freq: 5
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
