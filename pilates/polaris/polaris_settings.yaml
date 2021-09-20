@@ -24,4 +24,4 @@ scenario_main_init : scenario_run10p_urbansim_init.json #= json_data["scenario_m
 scenario_main :  scenario_run10p_urbansim.json # = json_data["scenario_main"]
 
 # -- ENTER THE NUMBER OF MAIN RUNS AND DTA RUNS PER MAIN RUN
-num_abm_runs : 2  # = json_data["num_abm_runs"]
+num_abm_runs : 4  # = json_data["num_abm_runs"]
