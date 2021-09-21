@@ -6,6 +6,7 @@
 
 data_dir : /mnt/c/polaris_development/PILATES/campoInputs
 db_name : campo
+out_name : campo_abm
 polaris_exe :  /mnt/c/polaris_development/polaris-wsl/build/release/bin/Integrated_Model
 scenario_file : scenario_run10p_urbansim.json
 num_threads : 12
