@@ -61,8 +61,9 @@ def run_polaris(forecast_year, usim_output):
 	# read settings from config file
 	with open('pilates/polaris/polaris_settings.yaml') as file:
 		polaris_settings = yaml.load(file, Loader=yaml.FullLoader)
-	data_dir = polaris_settings.get('data_dir')
-	scripts_dir = polaris_settings.get('scripts_dir')
+	data_dir = Path(polaris_settings.get('data_dir'))
+	backup_dir = Path(polaris_settings.get('backup_dir'))
+	scripts_dir = Path(polaris_settings.get('scripts_dir'))
 	db_name = polaris_settings.get('db_name')
 	out_name = polaris_settings.get('out_name')
 	polaris_exe = polaris_settings.get('polaris_exe')
@@ -73,13 +74,9 @@ def run_polaris(forecast_year, usim_output):
 	block_loc_file_name = polaris_settings.get('block_loc_file_name')
 	population_scale_factor = polaris_settings.get('population_scale_factor')
 	archive_dir = polaris_settings.get('archive_dir')
-	db_supply = "{0}/{1}-Supply.sqlite".format(data_dir, db_name)
-	db_demand = "{0}/{1}-Demand.sqlite".format(data_dir, db_name)
-	block_loc_file = "{0}/{1}".format(data_dir, block_loc_file_name)
-	
-	preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output, block_loc_file, db_supply, db_demand, population_scale_factor)
-	cwd = os.getcwd()
-	os.chdir(data_dir)
+	db_supply = "{0}/{1}-Supply.sqlite".format(str(data_dir), db_name)
+	db_demand = "{0}/{1}-Demand.sqlite".format(str(data_dir), db_name)
+	block_loc_file = "{0}/{1}".format(str(data_dir), block_loc_file_name)
 	
 	# store the original inputs
 	supply_db_name = db_name + "-Supply.sqlite"
@@ -88,12 +85,21 @@ def run_polaris(forecast_year, usim_output):
 	highway_skim_file_name = "highway_skim_file.bin"
 	transit_skim_file_name = "transit_skim_file.bin"
 	
+	# start with fresh demand database from backup
+	convergence.copyreplacefile(backup_dir / demand_db_name, data_dir)
+	
+	# load the urbansim population for the init run	
+	preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output, block_loc_file, db_supply, db_demand, population_scale_factor)
+	cwd = os.getcwd()
+	os.chdir(data_dir)
+			
 	for loop in range(0, int(num_abm_runs)):
 		scenario_file = ''
 		if loop == 0:
 			scenario_file = update_scenario_file(scenario_init_file, forecast_year)
 			modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
 			modify_scenario(scenario_file, "percent_to_synthesize", population_scale_factor)
+			modify_scenario(scenario_file, "demand_reduction_factor", population_scale_factor)
 			modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 			modify_scenario(scenario_file, "read_population_from_urbansim", 'true')
 			modify_scenario(scenario_file, "read_population_from_database", 'false')
@@ -101,7 +107,8 @@ def run_polaris(forecast_year, usim_output):
 		else:
 			scenario_file = update_scenario_file(scenario_main_file, forecast_year)
 			modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0/int(loop))
-			modify_scenario(scenario_file, "percent_to_synthesize", population_scale_factor)
+			modify_scenario(scenario_file, "percent_to_synthesize", 0.0)
+			modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
 			modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 			modify_scenario(scenario_file, "read_population_from_urbansim", 'false')
 			modify_scenario(scenario_file, "read_population_from_database", 'true')
@@ -110,7 +117,7 @@ def run_polaris(forecast_year, usim_output):
 				modify_scenario(scenario_file, "replan_workplaces", 'false')
 
 		arguments = '{0} {1}'.format(scenario_file, str(num_threads))
-		logger.info(f'Executing \'{str(exe_name)} {arguments}\'')
+		logger.info(f'Executing \'{str(polaris_exe)} {arguments}\'')
 
 		# run executable
 		convergence.run_polaris_local(data_dir, polaris_exe, scenario_file, num_threads)
