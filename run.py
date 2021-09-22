@@ -261,7 +261,9 @@ def forecast_land_use(settings, year, forecast_year, client):
 
 
 def generate_activity_plans(
-        settings, year, forecast_year, client, warm_start=False,
+        settings, year, forecast_year, client,
+        resume_after=None,
+        warm_start=False,
         overwrite_skims=True):
     """
     Parameters
@@ -284,7 +286,7 @@ def generate_activity_plans(
     asim_subdir = settings['region_to_asim_subdir'][region]
     asim_workdir = os.path.join('/activitysim', asim_subdir)
     asim_docker_vols = get_asim_docker_vols(settings)
-    base_asim_cmd = get_base_asim_cmd(settings)
+    asim_cmd = get_base_asim_cmd(settings)
     docker_stdout = settings.get('docker_stdout', False)
 
     # If this is the first iteration, skims should only exist because
@@ -308,11 +310,13 @@ def generate_activity_plans(
         "{0} with {1}".format(
             forecast_year, activity_demand_model))
     formatted_print(print_str)
+    if resume_after:
+        asim_cmd += ' -r {0}'.format(resume_after)
     asim = client.containers.run(
         activity_demand_image,
         working_dir=asim_workdir,
         volumes=asim_docker_vols,
-        command=base_asim_cmd,
+        command=asim_cmd,
         stdout=docker_stdout,
         stderr=True,
         detach=True)
@@ -457,8 +461,8 @@ if __name__ == '__main__':
     #################################
     #  RUN THE SIMULATION WORKFLOW  #
     #################################
-
     for year in range(start_year, end_year, travel_model_freq):
+        mandatory_activities_generated_this_year = False
 
         # 1. FORECAST LAND USE
         if land_use_enabled:
@@ -466,6 +470,7 @@ if __name__ == '__main__':
             # 1a. IF START YEAR, WARM START MANDATORY ACTIVITIES
             if year == start_year:
                 warm_start_activities(settings, year, client)
+                mandatory_activities_generated_this_year = True
 
             forecast_year = year + travel_model_freq
             forecast_land_use(settings, year, forecast_year, client)
@@ -485,8 +490,13 @@ if __name__ == '__main__':
             if forecast_year == year:
                 warm_start_skims = True
 
+            resume_after = None
+            if mandatory_activities_generated_this_year:
+                resume_after = 'auto_ownership'
+
             generate_activity_plans(
-                settings, year, forecast_year, client, warm_start_skims)
+                settings, year, forecast_year, client,
+                resume_after, warm_start_skims)
 
         else:
 
