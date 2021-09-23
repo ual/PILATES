@@ -19,7 +19,7 @@ The PILATES Python library is comprised primarily of the following:
 
 ## 1. Setting up your environment
 1. Make sure docker is running on your machine and that you've either pre-downloaded the required container images (specified in `settings.yaml`) or that you've signed into a valid docker account with dockerhub access.
-2. Change other relevant parameters in `settings.yaml` (probably only [L7-30](https://github.com/ual/PILATES/blob/v2/settings.yaml#L7-L30))
+2. Change other relevant parameters in `settings.yaml` (probably only [L7-31](https://github.com/ual/PILATES/blob/v2/settings.yaml#L7-L30))
    - UrbanSim settings of note:
       - `region_to_region_id` must have an entry that corresponds to the name of the input HDF5 datastore (see below)
    - ActivtySim settings of note:
@@ -38,11 +38,16 @@ NOTE: currently all input data is overwritten in place throughout the course of 
 
 ## 3. Executing the full workflow
 ```
-usage: run.py [-v] [-p]
+usage: ipython [-v] [-p] [-h HOUSEHOLD_SAMPLE_SIZE] [-s] [-w]
 
 optional arguments:
-  -v, --verbose         print docker stdout to the terminal
+  -v, --verbose         print docker stdout
   -p, --pull_latest     pull latest docker images before running
+  -h HOUSEHOLD_SAMPLE_SIZE, --household_sample_size HOUSEHOLD_SAMPLE_SIZE
+                        household sample size
+  -s, --static_skims    bypass traffic assignment altogether (i.e. use base year skims for every run)
+  -w, --warm_start_skims
+                        generate full activity plans for the base year only. useful for generating warm start skims.
 ```
 
 ## Miscellany
