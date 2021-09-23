@@ -68,7 +68,6 @@ polaris_skim_keys:
 household_sample_size: 0  # zero means no sampling, whole pop.
 chunk_size: 6000000000
 num_processes: 80
-zonification: block_groups #possible: block_groups, blocks and TAZ [TAZ only available for BAY AREA] #JDC
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
 asim_validation: True #JDC
@@ -79,6 +78,10 @@ region_to_asim_subdir:
   austin: austin
   detroit: detroit 
   sfbay: bay_area
+region_zone_type:
+  austin: block_group
+  detroit: block_group
+  sfbay: taz
 region_to_asim_bucket:
   austin: austin-activitysim
   detroit: detroit-activitysim
