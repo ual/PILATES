@@ -42,16 +42,34 @@ beam_skims_types = {'timePeriod': str,
 #### Common functions ###
 #########################
 
-def read_datastore(settings, year):
+def region_zone_type(settings):
+    """ Returns region zone type """
+    region = settings['region']
+    zone_type = settings['region_zone_type'][region]
+    return zone_type
+
+def read_datastore(settings, year, warm_start = False):
     """
     Access to the .H5 data store
     """
-    usim_local_data_folder = settings['usim_local_data_folder']
-    input_datastore = settings['usim_formattable_output_file_name'].format(
-        year=year)
 
-    store = pd.HDFStore(os.path.join(usim_local_data_folder, input_datastore))
-    return store
+    if (year == settings['start_year']) or (warm_start):
+        table_prefix_yr = ''  # input data store tables have no year prefix
+        usim_datastore = settings['usim_formattable_input_file_name'].format(region_id=region_id)
+
+     # Otherwise we read from the land use outputs
+    else:
+        usim_datastore = settings['usim_formattable_output_file_name'].format(year=year)
+        table_prefix_yr = str(year)
+
+    usim_datastore_fpath = os.path.join(usim_local_data_folder, usim_datastore)
+    
+    if not os.path.exists(usim_datastore_fpath):
+         raise ValueError('No land use data found at {0}!'.format(
+             usim_datastore_fpath))
+    store = pd.HDFStore(usim_datastore_fpath)
+    
+    return store, table_prefix_year
 
 def read_zone_mapping(settings, year):
     """" 
@@ -62,12 +80,14 @@ def read_zone_mapping(settings, year):
     Numpy Array. One dimension array, the index of the array represents the order. 
     
    """
-    store = read_datastore(settings, year)
-    map_key = '/zone_mapping'
+    region = settings['region']
     
-    if map_key in store.keys():
+    path_zone_map = \
+        "pilates/utils/data/{0}/geoid_to_zone_id.csv".format(region)
+    
+    if os.path.isfile(path_zone_map):
         logger.info("Reading zone mapping.")
-        zone_map = store['/zone_mapping']
+        zone_map = pd.read_csv(path_zone_map)
         num_zones = len(zone_map)
         
         assert zone_map['zone_id'].min() == 0 
@@ -77,29 +97,31 @@ def read_zone_mapping(settings, year):
     
     else:
         logger.info("Zone mapping not found. Creating it on the fly.")
+        store = read_datastore(settings, year)
         blocks = store['/blocks']
-        zonification = settings['zonification']
+        zone_type = region_zone_type(settings)
         
-        if zonification == 'TAZ':
+        if zone_type == 'TAZ':
             mapping = None
             pass
-        elif zonifications == 'block_groups':
-            mapping = blocks.index.str[:12].sort_values().unique()
         
-        elif zonification == 'blocks':
-            mapping = blocks.index.sort_values().unique()
+        elif zone_type == 'block_groups':
+            mapping = blocks.index.str[:12].unique()
+        
+        elif zone_type == 'blocks':
+            mapping = blocks.index.unique()
         
         else:
             order = None
-            logger.info("Define a valid zonification value. Options {'TAZ', 'block_groups', 'blocks'}")
+            logger.info("Define a valid zone type value. Options {'TAZ', 'block_groups', 'blocks'}")
            
         if mapping is not None:
             #Save order in file
             num_taz = len(mapping)
             zone_map = pd.DataFrame({'zone_id': range(0,num_taz), 'GEOID': mapping})
-            store['/zone_mapping'] = order_df
-    
-    store.close()
+            zone_map.to_csv(path_zone_map)
+        store.close()
+        
     return mapping
 
 def read_skims(settings, mode = 'a'):
@@ -117,7 +139,64 @@ def read_skims(settings, mode = 'a'):
     path = os.path.join(data_dir, 'skims.omx')
     skims = omx.open_file(path, mode = mode)
     return skims
+
+def read_zone_geoms(settings, year, 
+                    asim_zone_id_col='TAZ', 
+                    default_zone_id_col='zone_id'):
+    """
+    Returns a GeoPandas dataframe with the zones geometries. 
+    """
     
+    datastore = read_datastore(settings, year)
+    zone_key = '/zone_geoms'
+    zone_type = region_zone_type(settings)
+    
+    if zone_key in datastore.keys():
+        logger.info("Loading zone geometries from .h5 datastore!")
+        zones = datastore[zone_key]
+        
+        if zones.index.name != asim_zone_id_col:
+            if asim_zone_id_col in zones.columns:
+                zones.set_index(asim_zone_id_col, inplace = True)
+            elif zones.index.name == default_zone_id_col:
+                zones.index.name = asim_zone_id_col
+            elif asim_zone_id_col not in zones.columns:
+                zones.rename(columns = {default_zone_id_col: asim_zone_id_col})
+            else:
+                logger.error(
+                    "Not sure what column in the zones table is the zone ID!")
+        
+        if 'geometry' in zones.columns:
+            zones['geometry'] = zones['geometry'].apply(wkt.loads)
+            zones = gpd.GeoDataFrame(
+                zones, geometry='geometry', crs='EPSG:4326')
+        else:
+            raise KeyError(
+                "Table 'zone_geoms' exists in the .h5 datastore but "
+                "no geometry column was found!")
+    else:
+        logger.info("Downloading zone geometries on the fly!")
+        if zone_type == 'TAZ':
+            zones = get_taz_geoms(region, zone_id_col_out = asim_zone_id_col)
+            zones.set_index(asim_zone_id_col, inplace=True)
+        else:
+            mapping = read_zone_mapping(settings, year)
+            mapping = pd.Series(mapping, index = range(0, len(mapping)).to_dict()
+            zones = get_block_geoms(settings)
+            zones[default_zone_id_col] = zones['GEOID'].astype(int).replace(mapping)
+            zones.set_index(default_zone_id_col, inplace = True)
+
+        # save zone geoms in .h5 datastore so we don't
+        # have to do this again
+        out_zones = pd.DataFrame(zones.copy())
+        out_zones['geometry'] = out_zones['geometry'].apply( lambda x: x.wkt)
+
+        logger.info("Storing zone geometries to .h5 datastore!")
+        datastore[zone_key] = out_zones
+    
+    datastore.close()
+    return zones
+  
 
 ####################################
 #### RAW BEAM SKIMS TO SKIMS.OMX ###
@@ -308,7 +387,7 @@ def _build_od_matrix(df, origin, destination, metric, order, fill_na = 0):
 def impute_distances(zones, origin, destination):
     """
     impute distances in miles for missing OD pairs by calculating 
-    the cartesian distance between O and D zone. 
+    the cartesian distance between origin and destination zone. 
     
     Parameters:
     -------------
@@ -323,7 +402,7 @@ def impute_distances(zones, origin, destination):
     
     Returns
     --------
-    np.array. Impute distance for OD pairs
+    numpy array of shape (len(origin),). Imputed distance for all OD pairs
     """
     
     assert len(origin) == len(destination), 'parameters "origin" and "destination" should have the same lenght'
@@ -349,7 +428,6 @@ def impute_distances(zones, origin, destination):
 def _distance_skims(settings, year, auto_df, order):
     """
     Generates distance matrices for drive, walk and bike modes.
-    
     Parameters:
     - settings:
     - year:
@@ -371,8 +449,7 @@ def _distance_skims(settings, year, auto_df, order):
     # Impute missing distances 
     missing = np.isnan(mx_dist)
     if missing.any(): 
-        store = read_datastore(settings, year)
-        zones = store['/zone_geoms']
+        zones = read_zone_geoms(settings, year)
         orig, dest = np.where(missing == True)
         imputed_dist = impute_distances(zones, orig, dest)
         mx_dist[orig, dest] = imputed_dist
@@ -474,10 +551,10 @@ def _create_offset(settings, order):
     skims.close()
 
 
-def create_skims_from_beam(settings, year, 
+def create_skims_from_beam(settings, year,
                            remote_url = None,
                            overwrite = True):
-
+                                
     new = _create_skim_object(settings, overwrite)
     validation = settings['asim_validation']
     order = read_zone_mapping(settings, year)
@@ -498,7 +575,7 @@ def create_skims_from_beam(settings, year,
     if validation:
         skim_validations(settings, year, order)
             
-        del auto_df, transit_df  
+    del auto_df, transit_df  
 
 def plot_skims(settings, zones, 
                skims, order,
@@ -553,11 +630,14 @@ def plot_skims(settings, zones,
     
     #Saving plots to files. 
     asim_validation = settings['asim_validation_folder']
+    if not os.path.isdir(asim_validation):
+        os.mkdir(asim_validation)
+
     save_path = os.path.join(asim_validation, 'skims_validation_' + name + '.pdf')
     fig.savefig(save_path)
             
 def skim_validations(settings, year, order):
-    logger.info("Generating skim validation plots.")
+    logger.info("Generating skims validation plots.")
     skims = read_skims(settings, mode = 'r')
     zone =  _get_zones_table(settings, year, asim_zone_id_col='TAZ', default_zone_id_col='zone_id')
 
@@ -794,19 +874,23 @@ def _update_blocks_table(settings, year, blocks,
     # raw urbansim data that has yet to be touched by pilates)    
     if zone_id_col not in blocks.columns:
         region = settings['region']
-        zonification = settings['zonification']
+        zone_type = region_zone_type(settings)
         store = read_datastore(settings, year)
-        mapping = store['/zone_mapping'].set_index('GEOID')['zone_id'].to_dict()
+        
+        mapping = pd.Series(read_zone_mapping(settings, year)).to_dict()
+        print(mapping) 
+        
+#         . store['/zone_mapping'].set_index('GEOID')['zone_id'].to_dict()
 
-        if zonification == 'block':
+        if zone_type == 'block':
             logger.info("Mapping block IDs")
             blocks[zone_id_col] = blocks.index.astype(int).replace(mapping)
 
-        elif zonification == 'block_groups':
+        elif zone_type == 'block_groups':
             logger.info("Mapping blocks to block group IDS")
             blocks[zone_id_col] = blocks.block_group_id.astype(int).replace(mapping)
 
-        elif zonification == 'TAZ':
+        elif zone_type == 'TAZ':
             logger.info("Mapping block IDs to TAZ")
             blocks[zone_id_col]
             block_taz = map_block_to_taz(
@@ -817,7 +901,7 @@ def _update_blocks_table(settings, year, blocks,
             blocks = blocks[blocks[zone_id_col] != 0].copy()
 
         else: 
-            logger.error("Zonification can only be 'block', 'block_group', and 'TAZ'!")
+            logger.error("Zone type can only be 'block', 'block_group', and 'TAZ'!")
             
         
         logger.info(
@@ -1060,6 +1144,7 @@ def _get_zones_table(
 #     local_crs = settings['local_crs'][region]
     datastore = read_datastore(settings, year)
     zone_key = '/zone_geoms'
+    zone_type = region_zone_type(settings)
     
     if zone_key in datastore.keys():
         
@@ -1086,7 +1171,7 @@ def _get_zones_table(
                 "no geometry column was found!")
     else:
         logger.info("Downloading zone geometries on the fly!")
-        if zonification == 'TAZ':
+        if zone_type == 'TAZ':
             zones = get_taz_geoms(region, zone_id_col_out = asim_zone_id_col)
             zones.set_index(asim_zone_id_col, inplace=True)
         else:
@@ -1119,7 +1204,7 @@ def create_asim_data_from_h5(settings, year, keys_with_year = True):
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
-    zonification = settings['zonification']
+    zone_type = region_zone_type(settings)
     output_dir = settings['asim_local_input_folder']
     input_zone_id_col = 'zone_id'
     asim_zone_id_col = 'TAZ'
@@ -1172,47 +1257,3 @@ def create_asim_data_from_h5(settings, year, keys_with_year = True):
     households.to_csv(os.path.join(output_dir, 'households.csv'))
     persons.to_csv(os.path.join(output_dir, 'persons.csv'))
     land_use.to_csv(os.path.join(output_dir, 'land_use.csv'))
-    
-    
-    
-#    # Read/create school and collage tables
-    
-#     # Maps block_id to a zone_id
-#     if zonification == 'block':
-#         logger.info("Mapping block IDs")
-#         blocks[asim_zone_id_col] = blocks.index.astype(int).replace(mapping)
-
-#     elif zonification == 'block_groups':
-#         logger.info("Mapping blocks to block group IDS")
-#         blocks[asim_zone_id_col] = blocks.block_group_id.astype(int).replace(mapping)
-
-#     elif zonification == 'TAZ':
-#         logger.info("Mapping block IDs to TAZ")
-#         blocks[asim_zone_id_col]
-#         block_taz = map_block_to_taz(
-#                 settings, asim_zone_id_col, reference_taz_id_col='objectid')
-#         block_taz.index.name = 'block_id'
-#         blocks = blocks.join(block_taz)
-#         blocks[asim_zone_id_col] = blocks[asim_zone_id_col].fillna(0)
-#         blocks = blocks[blocks[asim_zone_id_col] != 0].copy()
-#     else:
-#         logger.error("Zonification can only be 'block', 'block_group', and 'TAZ'!")
-        
-#     ## TODO: save this table. 
-    
-#     #Update other tables:
-#     ######################
-#     households = _update_households_table(households, blocks, asim_zone_id_col)
-#     persons = _update_persons_table(persons, households, blocks, asim_zone_id_col)
-#     jobs = _update_jobs_table(settings, jobs, blocks, asim_zone_id_col)
-    
-#     #Create land_use table 
-#     land_use = _create_land_use_table(households, persons, jobs, asim_zone_id_col = asim_zone_id_col)
-    
-#     # Save to file
-#     households.to_csv(os.path.join(output_dir, 'households.csv'))
-#     persons.to_csv(os.path.join(output_dir, 'persons.csv'))
-#     land_use.to_csv(os.path.join(output_dir, 'land_use.csv'))
-
-
-
