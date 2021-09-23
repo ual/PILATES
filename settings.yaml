@@ -5,30 +5,30 @@
 ############################
 
 # scenario defs
-region: austin
+region: sfbay
 scenario: base
 start_year: 2010
-end_year: 2012
+end_year: 2013
 land_use_freq: 1
 travel_model_freq: 1
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
-travel_model: polaris
-activity_demand_model:
+travel_model: beam
+activity_demand_model: activitysim
 
 # docker settings
 docker_images:
-  urbansim: mxndrwgrdnr/block_model_v2_pb
+  urbansim: mxndrwgrdnr/block_model_update
   beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim
+  activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
 docker_stdout: False
 pull_latest: False
 
-# misc pilates settings
-skims_fname: campo_skims.hdf5
-# skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+# skim settings
+skims_zone_type: taz  # one of [taz, block_group]
+skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
 
 #########################################################################################################
 
@@ -64,13 +64,14 @@ polaris_skim_keys:
     - ivtt
     - cost
 
+
 # ACTIVITYSIM
 household_sample_size: 0  # zero means no sampling, whole pop.
-chunk_size: 6000000000
-num_processes: 80
+chunk_size: 4000000000
+num_processes: 94
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
-asim_formattable_command: "-y {0} -h {1} -n {2} -c {3}"
+asim_formattable_command: "-h {0} -n {1} -c {2}"
 region_to_asim_subdir:
   austin: austin_mp 
   detroit: detroit 
@@ -140,6 +141,28 @@ asim_output_tables:
     - trips
     - joint_tour_participants
     - plans
+asim_from_usim_col_maps:
+  households:
+    persons: PERSONS  # asim preproc
+    PERSONS: hhsize  # asim settings.yaml
+    cars: VEHICL  # asim preproc
+    VEHICL: auto_ownership  # asim annotate_households.csv
+    workers: num_workers  # asim settings.yaml
+  persons:
+    member_id: PNUM  # asim preproc
+  land_use:
+    ZONE: TAZ  # asim settings.yaml
+    COUNTY: county_id  # asim settings.yaml
+asim_to_usim_col_maps:
+  households:
+    hhsize: persons  # asim postproc
+    num_workers: workers  # asim postproc
+    auto_ownership: cars  # asim postproc
+  persons:
+    PNUM: member_id  # asim postproc
+    workplace_taz: work_zone_id  # asim postproc
+    school_taz: school_taz_id  # asim postproc
+
 
 
 #########################################################################################################

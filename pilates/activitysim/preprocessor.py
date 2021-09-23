@@ -231,9 +231,18 @@ def _create_offset(auto_df, data_dir):
     skims.close()
 
 
-def create_skims_from_beam(data_dir, settings, overwrite=True):
+def create_skims_from_beam(settings, output_dir=None, overwrite=True):
 
-    new = _create_skim_object(data_dir, overwrite)
+    data_dir = settings['asim_local_input_folder']
+    if not output_dir:
+        output_dir = data_dir
+
+    # Ff running in static skims mode and ActivitySim skims already exist
+    # there is no point in recreating them.
+    static_skims = settings['static_skims']
+    if static_skims:
+        overwrite = False
+    new = _create_skim_object(output_dir, overwrite)
     if new:
         auto_df, transit_df, num_taz = _create_skims_by_mode(settings)
 
@@ -244,6 +253,8 @@ def create_skims_from_beam(data_dir, settings, overwrite=True):
 
         # Create offset
         _create_offset(auto_df, data_dir)
+
+    return
 
 
 def _get_full_time_enrollment(state_fips, year):
@@ -356,6 +367,7 @@ def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
     del persons_w_xy
 
     # clean up dataframe structure
+    # TODO: move this to annotate_persons.yaml in asim settings
     p_names_dict = {'member_id': 'PNUM'}
     persons = persons.rename(columns=p_names_dict)
 
@@ -363,11 +375,6 @@ def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
     logger.info("Dropping {0} persons without TAZs".format(
         p_null_taz.sum()))
     persons = persons[~p_null_taz]
-
-    # # FIXME: figure out why this was ever necessary??
-    # persons.sort_values('household_id', inplace=True)
-    # persons.reset_index(drop=True, inplace=True)
-    # persons.index.name = 'person_id'
 
     return persons
 
@@ -388,10 +395,10 @@ def _update_households_table(households, blocks, asim_zone_id_col='TAZ'):
     households['HHT'] = s.where(s == 1, 4)
 
     # clean up dataframe structure
+    # TODO: move this to annotate_households.yaml in asim settings
     hh_names_dict = {
         'persons': 'PERSONS',
-        'cars': 'VEHICL',
-        'member_id': 'PNUM'}
+        'cars': 'VEHICL'}
     households = households.rename(columns=hh_names_dict)
     if 'household_id' in households.columns:
         households.set_index('household_id', inplace=True)
@@ -450,7 +457,7 @@ def _update_blocks_table(
         blocks, households, jobs, settings, zone_id_col):
 
     region = settings['region']
-    tazs_remapped = False
+    blocks_to_taz_mapping_updated = False
 
     blocks['TOTEMP'] = jobs[['block_id', 'sector_id']].groupby(
         'block_id')['sector_id'].count().reindex(blocks.index).fillna(0)
@@ -463,16 +470,34 @@ def _update_blocks_table(
     # update blocks (should only have to be run if asim is loading
     # raw urbansim data that has yet to be touched by pilates
     if zone_id_col not in blocks.columns:
-        logger.info("Mapping block IDs to TAZ")
-        tazs_remapped = True
-        block_taz = map_block_to_taz(
-            settings, region, zone_id_col, reference_taz_id_col='objectid')
+
+        block_to_zone_fpath = \
+            "pilates/utils/data/{0}/blocks_to_taz.csv".format(region)
+        if not os.path.isfile(block_to_zone_fpath):
+            logger.info("Mapping block IDs to TAZ")
+            block_taz = map_block_to_taz(
+                settings, region, zone_id_col=zone_id_col,
+                reference_taz_id_col='objectid')
+            block_taz.to_csv(block_to_zone_fpath)
+        else:
+            logger.info("Reading block to zone mapping from disk!")
+            block_taz = pd.read_csv(
+                block_to_zone_fpath, dtype={
+                    'GEOID': str, zone_id_col: str})
+            block_taz = block_taz.set_index('GEOID')[zone_id_col]
+
         block_taz.index.name = 'block_id'
         blocks = blocks.join(block_taz)
         blocks[zone_id_col] = blocks[zone_id_col].fillna(0)
         blocks = blocks[blocks[zone_id_col] != 0].copy()
+        blocks_to_taz_mapping_updated = True
 
-    return tazs_remapped, blocks
+    else:
+        logger.info(
+            "Blocks table already has zone IDs. Make sure skim zones "
+            "haven't changed.")
+
+    return blocks_to_taz_mapping_updated, blocks
 
 
 def _get_school_enrollment(state_fips, county_codes):
@@ -606,42 +631,49 @@ def _compute_area_type(zones):
 
 
 def _create_land_use_table(
-        data_dir, zones, state_fips, county_codes, local_crs,
+        region, zones, state_fips, county_codes, local_crs,
         households, persons, jobs, blocks, asim_zone_id_col='TAZ',):
 
     logger.info('Creating land use table.')
-    # download missing data and save to datastore
-    if 'schools.csv' not in os.listdir(data_dir):
+
+    # schools
+    path_to_schools_data = \
+        "pilates/utils/data/{0}/schools.csv".format(region)
+    if not os.path.exists(path_to_schools_data):
         schools = _get_school_enrollment(state_fips, county_codes)
-        logger.info("Saving school enrollment data to disk!")
-        schools.to_csv(os.path.join(data_dir, 'schools.csv'))
     else:
-        schools = pd.read_csv(os.path.join(data_dir, 'schools.csv'))
-
-    if 'colleges.csv' not in os.listdir(data_dir):
-        colleges = _get_college_enrollment(state_fips, county_codes)
-        logger.info("Saving college data to disk!")
-        colleges.to_csv(os.path.join(data_dir, 'colleges.csv'))
-    else:
-        colleges = pd.read_csv(os.path.join(data_dir, 'colleges.csv'))
-
-    # assign zone ids to schools and colleges
+        logger.info("Reading school enrollment data from disk!")
+        schools = pd.read_csv(path_to_schools_data, dtype={
+            asim_zone_id_col: zones.index.dtype})
     if asim_zone_id_col not in schools.columns:
         schools_df = schools[['x', 'y']].copy()
         schools_df.index.name = 'school_id'
         schools[asim_zone_id_col] = get_zone_from_points(
             schools_df, zones, asim_zone_id_col, local_crs)
         del schools_df
+        logger.info("Saving school enrollment data to disk!")
+        schools.to_csv(path_to_schools_data)
 
+    # colleges
+    path_to_colleges_data = \
+        "pilates/utils/data/{0}/colleges.csv".format(region)
+    if not os.path.exists(path_to_colleges_data):
+        colleges = _get_college_enrollment(state_fips, county_codes)
+    else:
+        logger.info("Reading college data from disk!")
+        colleges = pd.read_csv(path_to_colleges_data, dtype={
+            asim_zone_id_col: zones.index.dtype})
     if asim_zone_id_col not in colleges.columns:
         colleges_df = colleges[['x', 'y']].copy()
         colleges_df.index.name = 'college_id'
         colleges[asim_zone_id_col] = get_zone_from_points(
             colleges_df, zones, asim_zone_id_col, local_crs)
         del colleges_df
+        logger.info("Saving college data to disk!")
+        colleges.to_csv(path_to_colleges_data)
 
     # create new column variables
-    logger.info("Creating land use table columns.")
+    logger.info("Creating new columns in the land use table.")
     assert zones.index.name == asim_zone_id_col
     zones['TOTHH'] = households[asim_zone_id_col].groupby(households[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
     zones['TOTPOP'] = persons[asim_zone_id_col].groupby(persons[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
@@ -693,10 +725,11 @@ def _create_land_use_table(
     zones['area_type'] = _compute_area_type(zones)
     zones['TERMINAL'] = 0  # FIXME
     zones['COUNTY'] = 1  # FIXME
+
     return zones
 
 
-def _get_zones_table(
+def _get_zones_geoms(
         datastore, region, asim_zone_id_col='TAZ',
         default_zone_id_col='zone_id'):
     zone_key = '/zone_geoms'
@@ -738,48 +771,67 @@ def _get_zones_table(
     return zones
 
 
-def create_asim_data_from_h5(settings, year, keys_with_year=True):
+def create_asim_data_from_h5(
+        settings, year, warm_start=False, output_dir=None):
+    # warm start: year = start_year
+    # asim_no_usim: year = start_year
+    # normal: year = forecast_year
 
     region = settings['region']
+    region_id = settings['region_to_region_id'][region]
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
     usim_local_data_folder = settings['usim_local_data_folder']
-    output_dir = settings['asim_local_input_folder']
-    input_datastore = settings['usim_formattable_output_file_name'].format(
-        year=year)
+    if not output_dir:
+        output_dir = settings['asim_local_input_folder']
 
-    store = pd.HDFStore(os.path.join(usim_local_data_folder, input_datastore))
+    # If `year` is the start year of the whole simulation, or `warm_start` is
+    # True, then land use forecasting has been skipped. This is useful for
+    # generating "warm start" skims for the base year. In this case, the
+    # ActivitySim inputs must be created from the base year land use *inputs*
+    # since no land use outputs have been created yet.
+    if (year == settings['start_year']) or (warm_start):
+        table_prefix_yr = ''  # input data store tables have no year prefix
+        usim_datastore = settings['usim_formattable_input_file_name'].format(
+            region_id=region_id)
+
+    # Otherwise we read from the land use outputs
+    else:
+        usim_datastore = settings['usim_formattable_output_file_name'].format(
+            year=year)
+        table_prefix_yr = str(year)
+
+    usim_datastore_fpath = os.path.join(usim_local_data_folder, usim_datastore)
+    if not os.path.exists(usim_datastore_fpath):
+        raise ValueError('No land use data found at {0}!'.format(
+            usim_datastore_fpath))
+    store = pd.HDFStore(usim_datastore_fpath)
     input_zone_id_col = 'zone_id'
     asim_zone_id_col = 'TAZ'
 
-    def create_key(key, year, keys_with_year):
-        if (keys_with_year):
-            return '/{0}/{1}'.format(key, year)
-        else:
-            return key
+    logger.info("Loading UrbanSim data from .h5")
+    households = store[os.path.join(table_prefix_yr, 'households')]
+    persons = store[os.path.join(table_prefix_yr, 'persons')]
+    blocks = store[os.path.join(table_prefix_yr, 'blocks')]
+    jobs = store[os.path.join(table_prefix_yr, 'jobs')]
 
-    households = store[create_key('households', year, keys_with_year)]
-    persons = store[create_key('persons', year, keys_with_year)]
-    blocks = store[create_key('blocks', year, keys_with_year)]
-    jobs = store[create_key('jobs', year, keys_with_year)]
-
-    # TODO: only call _get_zones_table if blocks table doesn't already
-    # have a zone ID (e.g. TAZ). If it does then we don't need zone geoms
-    # and can simply instantiate the zones table from the unique zone ids
-    # in the blocks/persons/households tables.
-
-    zones = _get_zones_table(store, region)
+    # TODO: only call _get_zones_geoms if blocks or colleges or schools
+    # don't already have a zone ID (e.g. TAZ). If they all do then we don't
+    # need zone geoms and we can simply instantiate the zones table from
+    # the unique zone ids in the blocks/persons/households tables.
+    zones = _get_zones_geoms(store, region)
 
     # update blocks
-    blocks_cols = blocks.columns
-    tazs_remapped, blocks = _update_blocks_table(
+    blocks_cols = blocks.columns.tolist()
+    blocks_to_taz_mapping_updated, blocks = _update_blocks_table(
         blocks, households, jobs, settings, input_zone_id_col)
-    if tazs_remapped:
+    if blocks_to_taz_mapping_updated:
         logger.info(
             "Storing blocks table with TAZ IDs to disk in .h5 datastore!")
-        store['/{0}/blocks'.format(year)] = blocks[blocks_cols]
+        blocks_cols += [input_zone_id_col]
+        store[os.path.join(table_prefix_yr, 'blocks')] = blocks[blocks_cols]
     blocks.rename(columns={input_zone_id_col: asim_zone_id_col}, inplace=True)
 
     # update households
@@ -800,14 +852,14 @@ def create_asim_data_from_h5(settings, year, keys_with_year=True):
         logger.info(
             "Storing jobs table with updated block IDs to disk "
             "in .h5 datastore!")
-        store['/{0}/jobs'.format(year)] = jobs[jobs_cols]
+        store[os.path.join(str(table_prefix_yr), 'jobs')] = jobs[jobs_cols]
+
+    store.close()
 
     # create land use table
     land_use = _create_land_use_table(
-        output_dir, zones, state_fips, county_codes, local_crs,
+        region, zones, state_fips, county_codes, local_crs,
         households, persons, jobs, blocks)
-
-    store.close()
 
     households.to_csv(os.path.join(output_dir, 'households.csv'))
     persons.to_csv(os.path.join(output_dir, 'persons.csv'))
