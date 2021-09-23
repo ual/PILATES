@@ -44,8 +44,9 @@ def run_polaris_local(results_dir, exe_name, scenario_file, num_threads):
 	output, err = proc.communicate()
 	if proc.returncode != 0:
 		logger.critical("POLARIS did not execute correctly - {0}, {1}".format(proc.returncode, err))
-		# exit(1)
-
+		return False
+	else:
+		return True
 
 def copyreplacefile(filename, dest_dir):
 	dest_file = Path(dest_dir / filename.name)
@@ -81,7 +82,7 @@ def execute_sql_script_with_attach(db_name, attach_db_name, script):
 	db = sqlite3.connect(str(db_name))
 	cursor = db.cursor()	
 	try:
-		cursor.execute('ATTACH DATABASE ' + attach_db_name + ' as a;')
+		cursor.execute('ATTACH DATABASE ' + str(attach_db_name) + ' as a;')
 		cursor.executescript(sql_script)
 		db.commit()
 	except sqlite3.Error as err:

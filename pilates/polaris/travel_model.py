@@ -92,6 +92,8 @@ def run_polaris(forecast_year, usim_output):
 	preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output, block_loc_file, db_supply, db_demand, population_scale_factor)
 	cwd = os.getcwd()
 	os.chdir(data_dir)
+	
+	fail_count = 0
 			
 	for loop in range(0, int(num_abm_runs)):
 		scenario_file = ''
@@ -120,15 +122,23 @@ def run_polaris(forecast_year, usim_output):
 		logger.info(f'Executing \'{str(polaris_exe)} {arguments}\'')
 
 		# run executable
-		convergence.run_polaris_local(data_dir, polaris_exe, scenario_file, num_threads)
+		success = convergence.run_polaris_local(data_dir, polaris_exe, scenario_file, num_threads)
 		
-		# get output directory and write files into working dir for next run
-		output_dir = get_latest_polaris_output(out_name, data_dir)
-		convergence.copyreplacefile(output_dir / demand_db_name, data_dir)
-		convergence.copyreplacefile(output_dir / result_db_name, data_dir)
-		convergence.copyreplacefile(output_dir / highway_skim_file_name, data_dir)
-		convergence.execute_sql_script(data_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
-		convergence.execute_sql_script_with_attach(output_dir / demand_db_name, data_dir / supply_db_name, scripts_dir / "wtf_baseline_analysis.sql")
+		if success:
+		fail_count = 0
+			# get output directory and write files into working dir for next run
+			output_dir = get_latest_polaris_output(out_name, data_dir)
+			convergence.copyreplacefile(output_dir / demand_db_name, data_dir)
+			convergence.copyreplacefile(output_dir / result_db_name, data_dir)
+			convergence.copyreplacefile(output_dir / highway_skim_file_name, data_dir)
+			convergence.execute_sql_script(data_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
+			convergence.execute_sql_script_with_attach(output_dir / demand_db_name, data_dir / supply_db_name, scripts_dir / "wtf_baseline_analysis.sql")
+		else:
+			fail_count += 1
+			loop -= 1
+		if fail_count == 3:	
+			logger.critical("POLARIS did not execute correctly 3 consecutive times - exiting.")
+			sys.exit()
 		
 	os.chdir(cwd)
 	# find the latest output
