@@ -62,7 +62,7 @@ if __name__ == '__main__':
     pull_latest = settings.get('pull_latest', False)
 
     # parse land use settings
-    land_use_image = image_names[land_use_model]
+    land_use_image = image_names[land_use_model] if (land_use_model) else "/not_run"
     land_use_freq = settings['land_use_freq']
     skim_zone_source_id_col = settings['skim_zone_source_id_col']
     usim_client_data_folder = settings['usim_client_data_folder']
@@ -84,6 +84,7 @@ if __name__ == '__main__':
     beam_config = settings['beam_config']
     beam_local_input_folder = settings['beam_local_input_folder']
     beam_local_output_folder = settings['beam_local_output_folder']
+    beam_memory = settings['beam_memory']
     replan_iters = settings['replan_iters']
     replan_hh_samp_size = settings['replan_hh_sample_size']
 
@@ -246,7 +247,7 @@ if __name__ == '__main__':
                     command=formattable_asim_cmd.format(
                         forecast_year, replan_hh_samp_size,
                         num_processes, chunk_size
-                    )
+                    ),
                     stdout=docker_stdout,
                     stderr=True, detach=True, remove=True)
                 for log in asim.logs(
@@ -282,6 +283,9 @@ if __name__ == '__main__':
                     abs_beam_output: {
                         'bind': '/app/output',
                         'mode': 'rw'}},
+                environment=
+                {'JAVA_OPTS': '-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
+                    beam_memory)},
                 command="--config={0}".format(path_to_beam_config),
                 stdout=docker_stdout, stderr=True, detach=False, remove=True
             )
@@ -322,7 +326,7 @@ if __name__ == '__main__':
                         command=formattable_asim_cmd.format(
                             forecast_year, replan_hh_samp_size,
                             num_processes, chunk_size
-                        ) + ' -r ' + settings['replan_after']  # only run subset of models
+                        ) + ' -r ' + settings['replan_after'],  # only run subset of models
                         stdout=docker_stdout,
                         stderr=True, detach=True, remove=True)
                     for log in asim.logs(
