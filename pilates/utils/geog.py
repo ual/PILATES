@@ -8,7 +8,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out = 'zone_id'):
+def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out = 'zone_id'):
 
     if region == 'sfbay':
         url = (
@@ -19,14 +19,14 @@ def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out = 'zone_id')
     gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
 
     # zone_id col must be str
-    gdf[zone_id_col_out] = gdf[zone_id_col_out].astype(str)
+    gdf[zone_id_col_out] = gdf[zone_id_col_out].astype(int)
 
     return gdf
 
 
 def get_county_block_geoms(state_fips, county_fips, zone_type = 'blocks', result_size=10000):
 
-    if zone_type == 'blocks':
+    if (zone_type == 'blocks') or (zone_type == 'taz'): #to map blocks to taz. 
         base_url = (
             'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
 #             'Tracts_Blocks/MapServer/12/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
@@ -84,16 +84,17 @@ def get_block_geoms(settings, data_dir='./tmp/'):
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
-    zone_type = settings['zone_type']
+    zone_type = settings['region_zone_type'][region]
     
     all_block_geoms = []
+    file_name = zone_type + "_"+ region + ".shp"
 
-    if os.path.exists(os.path.join(data_dir, zone_type + ".shp")):
+    if os.path.exists(os.path.join(data_dir, file_name)):
         logger.info("Loading block geoms from disk!")
-        blocks_gdf = gpd.read_file(os.path.join(data_dir, zone_type + ".shp"))
+        blocks_gdf = gpd.read_file(os.path.join(data_dir, file_name))
 
     else:
-        logger.info("Downloading {zone_type} geoms from Census TIGERweb API!".format())
+        logger.info("Downloading {} geoms from Census TIGERweb API!".format(zone_type))
 
         # get block geoms from census tigerweb API
         for county in tqdm(
@@ -110,7 +111,7 @@ def get_block_geoms(settings, data_dir='./tmp/'):
         logger.info(
             "Got {0} block geometries. Saving to disk.".format(
                 len(all_block_geoms)))
-        blocks_gdf.to_file(os.path.join(data_dir, zone_type + ".shp"))
+        blocks_gdf.to_file(os.path.join(data_dir, file_name))
 
     return blocks_gdf
 
@@ -166,7 +167,7 @@ def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
 
 def map_block_to_taz(
         settings, region, zones_gdf=None, zone_id_col='zone_id',
-        reference_taz_id_col='objectid', data_dir='./tmp/'):
+        reference_taz_id_col='taz1454', data_dir='./tmp/'):
     """
     Returns:
         A series named 'zone_id' with 'GEOID' as index name
@@ -179,7 +180,7 @@ def map_block_to_taz(
     
     if zones_gdf is None:
         zones_gdf = get_taz_geoms(region, reference_taz_id_col, zone_id_col)
-    blocks_gdf = get_block_geoms(state_fips, county_codes, data_dir)
+    blocks_gdf = get_block_geoms(settings, data_dir)
     blocks_gdf.crs = 'EPSG:4326'
     blocks_to_taz = get_taz_from_block_geoms(
         blocks_gdf, zones_gdf, local_crs, zone_id_col)
@@ -214,5 +215,7 @@ def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
     intx = gpd.sjoin(
         gdf, zones_gdf.reset_index(),
         how='left', op='intersects')
+    
+    
 
     return intx[zone_id_col]
