@@ -12,7 +12,7 @@ end_year: 2012
 land_use_freq: 1
 travel_model_freq: 1
 
-# simulation platforms (leave blank to turn off)
+# simulation platforms (comment out to turn off)
 land_use_model: urbansim
 travel_model: polaris
 activity_demand_model:
@@ -52,6 +52,7 @@ beam_config: gemini/activitysim-base-from-60k-input.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_plans: gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz
+beam_memory: "100g"
 skim_zone_source_id_col: objectid
 replan_iters: 0
 replan_hh_sample_size: 0
