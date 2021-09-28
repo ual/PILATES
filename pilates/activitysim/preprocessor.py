@@ -190,10 +190,6 @@ def read_zone_geoms(settings, year,
     """
     Returns a GeoPandas dataframe with the zones geometries. 
     """
-    ## TO DO 
-    ## asim_zone_id_col does not seems to be necesary here. 
-    ## keep it for firther testing. 
-    
     store, table_prefix_year = read_datastore(settings, year)
     zone_key = '/zone_geoms'
     zone_type = region_zone_type(settings)
@@ -1151,45 +1147,6 @@ def _create_land_use_table(
                                 enrollment_type = 'colleges', 
                                 asim_zone_id_col = asim_zone_id_col)
                     
-                    
-#     # schools
-#     path_to_schools_data = \
-#         "pilates/utils/data/{0}/schools.csv".format(region)
-#     if not os.path.exists(path_to_schools_data):
-#         schools = _get_school_enrollment(state_fips, county_codes)
-#     else:
-#         logger.info("Reading school enrollment data from disk!")
-#         schools = pd.read_csv(path_to_schools_data, dtype={
-#             asim_zone_id_col: zones.index.dtype}) #zones.index.dtype
-#     if asim_zone_id_col not in schools.columns:
-#         schools_df = schools[['x', 'y']].copy()
-#         schools_df.index.name = 'school_id'
-#         schools[asim_zone_id_col] = get_zone_from_points(
-#             schools_df, zones, asim_zone_id_col, local_crs).astype(int)
-#         schools = schools.dropna(subset = [asim_zone_id])
-#         del schools_df
-#         logger.info("Saving school enrollment data to disk!")
-#         schools.to_csv(path_to_schools_data)
-
-#     # colleges
-#     path_to_colleges_data = \
-#         "pilates/utils/data/{0}/colleges.csv".format(region)
-#     if not os.path.exists(path_to_colleges_data):
-#         colleges = _get_college_enrollment(state_fips, county_codes)
-#     else:
-#         logger.info("Reading college data from disk!")
-#         colleges = pd.read_csv(path_to_colleges_data, dtype={
-#             asim_zone_id_col: zones.index.dtype})
-#     if asim_zone_id_col not in colleges.columns:
-#         colleges_df = colleges[['x', 'y']].copy()
-#         colleges_df.index.name = 'college_id'
-#         colleges[asim_zone_id_col] = get_zone_from_points(
-#             colleges_df, zones, asim_zone_id_col, local_crs).astype(int)
-#         colleges = colleges.dropna(subset = [asim_zone_id])
-#         del colleges_df
-#         logger.info("Saving college data to disk!")
-#         colleges.to_csv(path_to_colleges_data)
-
     # create new column variables
     logger.info("Creating new columns in the land use table.")
     assert zones.index.name == asim_zone_id_col
