@@ -76,8 +76,7 @@ chunk_size: 4000000000
 num_processes: 94
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
-asim_validation: True #JDC
-asim_validation_folder: pilates/activitysim/validation #JDC
+asim_validation_folder: pilates/activitysim/validation
 asim_formattable_command: "-h {0} -n {1} -c {2}"
 region_to_asim_subdir:
   austin: austin

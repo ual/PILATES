@@ -58,12 +58,15 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     parser.add_argument(
         "-w", "--warm_start_skims", action="store_true",
         help="generate full activity plans for the base year only.")
+    parser.add_argument(
+        '-f', '--figures', action='store_true', help='outputs validation figures')
     args = parser.parse_args()
 
     # command-line only settings:
     settings.update({
         'static_skims': args.static_skims,
-        'warm_start_skims': args.warm_start_skims})
+        'warm_start_skims': args.warm_start_skims, 
+        'asim_validation': args.figures})
 
     # override .yaml settings with command-line values if command-line
     # values are not False/None
