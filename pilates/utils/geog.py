@@ -19,7 +19,7 @@ def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out = 'zone_id'):
     gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
 
     # zone_id col must be str
-    gdf[zone_id_col_out] = gdf[zone_id_col_out].astype(int)
+    gdf[zone_id_col_out] = gdf[zone_id_col_out].astype(str)
 
     return gdf
 
@@ -184,11 +184,10 @@ def map_block_to_taz(
     blocks_gdf.crs = 'EPSG:4326'
     blocks_to_taz = get_taz_from_block_geoms(
         blocks_gdf, zones_gdf, local_crs, zone_id_col)
+    return blocks_to_taz.astype(str)
 
-    return blocks_to_taz
 
-
-def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
+def get_zone_from_points(df, zones_gdf, local_crs):
     '''
     Assigns the gdf index (zone_id) for each index in df
     Parameters:
@@ -200,8 +199,9 @@ def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
     -----------
         A series with df index and corresponding gdf id
     '''
-
     logger.info("Assigning zone IDs to {0}".format(df.index.name))
+    zone_id_col = zones_gdf.index.name
+    
     gdf = gpd.GeoDataFrame(
         df, geometry=gpd.points_from_xy(df.x, df.y), crs="EPSG:4326")
     
@@ -216,6 +216,6 @@ def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
         gdf, zones_gdf.reset_index(),
         how='left', op='intersects')
     
-    
+    assert len(intx) == len(gdf)
 
     return intx[zone_id_col]

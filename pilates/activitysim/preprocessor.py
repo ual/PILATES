@@ -39,7 +39,6 @@ beam_skims_types = {'timePeriod': str,
                     'DEBUG_TEXT': str
                     }
 
-
 #########################
 #### Common functions ###
 #########################
@@ -101,12 +100,12 @@ def geoid_to_zone_map(settings, year):
     
     if os.path.isfile(geoid_to_zone_fpath):
         logger.info("Reading GEOID to zone mapping.")
-        geoid_to_zone = pd.read_csv(geoid_to_zone_fpath, dtype={'GEOID': str, zone_id_col: int})
+        geoid_to_zone = pd.read_csv(geoid_to_zone_fpath, dtype={'GEOID': str, zone_id_col: str})
         
         num_zones = geoid_to_zone[zone_id_col].nunique()
         
-        assert geoid_to_zone[zone_id_col].min() == 1 
-        assert geoid_to_zone[zone_id_col].max() == num_zones
+        assert geoid_to_zone[zone_id_col].astype(int).min() == 1 
+        assert geoid_to_zone[zone_id_col].astype(int).max() == num_zones
         
         mapping = geoid_to_zone.set_index('GEOID')[zone_id_col].to_dict()
     
@@ -138,10 +137,10 @@ def geoid_to_zone_map(settings, year):
             logger.info("Define a valid zone type value. Options ['taz', 'block_groups', 'blocks']")
         
         if mapping is None:
-            geoid_to_zone = pd.DataFrame({'GEOID':order, 'zone_id':range(1, len(order) + 1)},
-                                         dtype={'GEOID': str, zone_id_col: int})
+            geoid_to_zone = pd.DataFrame({'GEOID':order, 'zone_id': range(1, len(order) + 1)},
+                                           dtype = str)
             
-            geoid_to_zone = geoid_to_zone.set_index('GEOID')['zone_id']
+            geoid_to_zone = geoid_to_zone.set_index('GEOID')[zone_id_col]
             mapping = geoid_to_zone.to_dict()
         
         #Save file to disk
@@ -162,9 +161,9 @@ def zone_order(settings, year):
 
     if zone_type == 'taz':
         num_taz = len(set(mapping.values()))
-        order = np.array(range(1, num_taz + 1))
+        order = np.array(range(1, num_taz + 1)).astype(str)
     else: 
-        order = pd.DataFrame.from_dict(mapping, orient = 'index', columns = ['zone_id'])
+        order = pd.DataFrame.from_dict(mapping, orient = 'index', columns = ['zone_id'], dtype = int)
         order = np.array(order.sort_values('zone_id').index)
     return order
 
@@ -184,6 +183,21 @@ def read_skims(settings, mode = 'a'):
     skims = omx.open_file(path, mode = mode)
     return skims
 
+def zone_id_to_taz(zones, asim_zone_id_col='TAZ', 
+                   default_zone_id_col='zone_id'):
+    
+    if zones.index.name != asim_zone_id_col:
+        if asim_zone_id_col in zones.columns:
+            zones.set_index(asim_zone_id_col, inplace = True)
+        elif zones.index.name == default_zone_id_col:
+            zones.index.name = asim_zone_id_col
+        elif asim_zone_id_col not in zones.columns:
+            zones.rename(columns = {default_zone_id_col: asim_zone_id_col})
+        else:
+            logger.error(
+                "Not sure what column in the zones table is the zone ID!")
+    return zones
+
 def read_zone_geoms(settings, year, 
                     asim_zone_id_col='TAZ', 
                     default_zone_id_col='zone_id'):
@@ -197,17 +211,6 @@ def read_zone_geoms(settings, year,
     if zone_key in store.keys():
         logger.info("Loading zone geometries from .h5 datastore!")
         zones = store[zone_key]
-        
-        if zones.index.name != asim_zone_id_col:
-            if asim_zone_id_col in zones.columns:
-                zones.set_index(asim_zone_id_col, inplace = True)
-            elif zones.index.name == default_zone_id_col:
-                zones.index.name = asim_zone_id_col
-            elif asim_zone_id_col not in zones.columns:
-                zones.rename(columns = {default_zone_id_col: asim_zone_id_col})
-            else:
-                logger.error(
-                    "Not sure what column in the zones table is the zone ID!")
         
         if 'geometry' in zones.columns:
             zones['geometry'] = zones['geometry'].apply(wkt.loads)
@@ -227,8 +230,9 @@ def read_zone_geoms(settings, year,
             mapping = geoid_to_zone_map(settings, year)
             zones = get_block_geoms(settings)
             assert is_string_dtype(zones['GEOID']), "GEOID dtype should be str"
-            zones[default_zone_id_col] = zones['GEOID'].replace(mapping)
+            zones[default_zone_id_col] = zones['GEOID'].replace(mapping) 
             zones.set_index(default_zone_id_col, inplace = True)
+            assert zones.index.inferred_type == 'string', "zone_id dtype should be str"
 
         # save zone geoms in .h5 datastore so we don't
         # have to do this again
@@ -239,7 +243,14 @@ def read_zone_geoms(settings, year,
         store[zone_key] = out_zones
     
     store.close()
-    return zones.sort_index()
+    
+    # Sort zones by zone_id. 
+    # momentary int transformation to 
+    # make sure it sort 1, 2, 10 instead of '1', 10', '2'
+    zones.index = zones.index.astype(int)
+    zones = zones.sort_index()
+    zones.index = zones.index.astype(str)
+    return zone_id_to_taz(zones, asim_zone_id_col, default_zone_id_col)
                                 
 ####################################
 #### RAW BEAM SKIMS TO SKIMS.OMX ###
@@ -257,9 +268,10 @@ def _load_raw_beam_skims(settings, remote_url=None):
     - pandas DataFrame. 
     """
     zone_type = region_zone_type(settings)
-    if zone_type == 'taz':
-        beam_skims_types['origin'] = int
-        beam_skims_types['odestination'] = int
+    
+#     if zone_type == 'taz':
+#         beam_skims_types['origin'] = int
+#         beam_skims_types['odestination'] = int
 
     if not remote_url:
         skims_fname = settings.get('skims_fname', False)
@@ -274,6 +286,12 @@ def _load_raw_beam_skims(settings, remote_url=None):
         # load skims from disk or url
         skims = pd.read_csv(path_to_beam_skims, dtype=beam_skims_types)
         
+        ## TO BE DEPRECIATED: Saves 30mins for sfbay skims. 
+        ## OD with no skim values will not be included in raw skims
+        ## Column 'DEBUG_TEXT' will not be included in skims
+        if 'DEBUG_TEXT' in skims.columns:
+            skims = skims.dropna(axis = 0, subset = ['DEBUG_TEXT'])
+        
     except KeyError:
         raise KeyError(
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
@@ -281,14 +299,14 @@ def _load_raw_beam_skims(settings, remote_url=None):
     return skims
                                 
 
-def _create_skim_object(settings, overwrite = True):
+def _create_skim_object(settings, overwrite=True):
     """ Creates OMX file to store skim matrices
     Parameters: 
     -----------
     - settings: 
     - overwrite: Default True. To overwrite if existing file. 
     
-    Retruns: 
+    Returns: 
     --------
     - True if skim.omx file exist or overwrite is True, False otherwise. 
     
@@ -452,6 +470,8 @@ def impute_distances(zones, origin, destination):
     numpy array of shape (len(origin),). Imputed distance for all OD pairs
     """
     assert len(origin) == len(destination), 'parameters "origin" and "destination" should have the same lenght'
+    origin = (origin + 1).astype(str)
+    destination = (destination + 1).astype(str)
     
     if isinstance(zones, pd.core.frame.DataFrame):
         zones.geometry = zones.geometry.astype(str).apply(wkt.loads)
@@ -465,8 +485,8 @@ def impute_distances(zones, origin, destination):
     gdf = gdf.to_crs('EPSG:3857')
     
     # Select origin and destination pairs 
-    orig = gdf.iloc[origin].reset_index(drop = True).geometry.centroid
-    dest = gdf.iloc[destination].reset_index(drop = True).geometry.centroid
+    orig = gdf.loc[origin].reset_index(drop = True).geometry.centroid
+    dest = gdf.loc[destination].reset_index(drop = True).geometry.centroid
     
     return orig.distance(dest).replace({0:100}).values * (0.621371 / 1000)
     
@@ -491,13 +511,12 @@ def _distance_skims(settings, year, auto_df, order):
     dist_auto = auto_df.drop_duplicates(['origin', 'destination'], keep='last')
     mx_dist = _build_od_matrix(dist_auto, 'origin', 'destination', 
                                dist_column, order, fill_na = np.nan)
-    
     # Impute missing distances 
     missing = np.isnan(mx_dist)
     if missing.any(): 
-        logger.info("Imputing missing distance skims.")
-        zones = read_zone_geoms(settings, year)
         orig, dest = np.where(missing == True)
+        logger.info("Imputing {} missing distance skims.".format(len(orig)))
+        zones = read_zone_geoms(settings, year)
         imputed_dist = impute_distances(zones, orig, dest)
         mx_dist[orig, dest] = imputed_dist
     assert not np.isnan(mx_dist).any()
@@ -610,8 +629,9 @@ def create_skims_from_beam(settings, year,
     
     new = _create_skim_object(settings, overwrite)
     validation = settings['asim_validation']
-    order = zone_order(settings, year)
+    
     if new:
+        order = zone_order(settings, year)
         skims_df = _load_raw_beam_skims(settings, remote_url = remote_url)
         skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
         auto_df, transit_df  = _create_skims_by_mode(settings, skims_df)
@@ -627,6 +647,7 @@ def create_skims_from_beam(settings, year,
         del auto_df, transit_df  
 
     if validation:
+        order = zone_order(settings, year)
         skim_validations(settings, year, order)
 
 def plot_skims(settings, zones, 
@@ -693,7 +714,7 @@ def skim_validations(settings, year, order):
     skims = read_skims(settings, mode = 'r')
     zone =  read_zone_geoms(settings, year, 
                             asim_zone_id_col='TAZ', 
-                            default_zone_id_col='zone_id').sort_index()
+                            default_zone_id_col='zone_id')
 
     # Skims matrices 
     num_zones = len(order)
@@ -778,6 +799,7 @@ def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
     # assign zones
     persons[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
         households['block_id'].reindex(persons['household_id']).values).values
+    persons[asim_zone_id_col] = persons[asim_zone_id_col].astype(str)
 
     # create new column variables
     age_mask_1 = persons.age >= 18
@@ -828,8 +850,8 @@ def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
 
     # clean up dataframe structure
     # TODO: move this to annotate_persons.yaml in asim settings
-    p_names_dict = {'member_id': 'PNUM'}
-    persons = persons.rename(columns=p_names_dict)
+#     p_names_dict = {'member_id': 'PNUM'}
+#     persons = persons.rename(columns=p_names_dict)
 
     p_null_taz = persons[asim_zone_id_col].isnull()
     logger.info("Dropping {0} persons without TAZs".format(
@@ -843,6 +865,7 @@ def _update_households_table(households, blocks, asim_zone_id_col='TAZ'):
     # assign zones
     households[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
         households['block_id']).values
+    households[asim_zone_id_col] = households[asim_zone_id_col].astype(str)
 
     hh_null_taz = households[asim_zone_id_col].isnull()
     logger.info('Dropping {0} households without TAZs'.format(
@@ -855,10 +878,10 @@ def _update_households_table(households, blocks, asim_zone_id_col='TAZ'):
 
     # clean up dataframe structure
     # TODO: move this to annotate_households.yaml in asim settings
-    hh_names_dict = {
-        'persons': 'PERSONS',
-        'cars': 'VEHICL'}
-    households = households.rename(columns=hh_names_dict)
+#     hh_names_dict = {
+#         'persons': 'PERSONS',
+#         'cars': 'VEHICL'}
+#     households = households.rename(columns=hh_names_dict)
     if 'household_id' in households.columns:
         households.set_index('household_id', inplace=True)
     else:
@@ -874,6 +897,8 @@ def _update_jobs_table(
     # assign zones
     jobs[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
         jobs['block_id']).values
+    
+    jobs[asim_zone_id_col] = jobs[asim_zone_id_col].astype(str)
 
     # make sure jobs are only assigned to blocks with land area > 0
     # so that employment density distributions don't contain Inf/NaN
@@ -936,11 +961,11 @@ def _update_blocks_table(settings, year, blocks,
 
         if zone_type == 'block':
             logger.info("Mapping block IDs")
-            blocks[zone_id_col] = blocks.index.astype(int).replace(mapping)
+            blocks[zone_id_col] = blocks.index.astype(str).replace(mapping)
 
         elif zone_type == 'block_groups':
             logger.info("Mapping blocks to block group IDS")
-            blocks[zone_id_col] = blocks.block_group_id.astype(int).replace(mapping)
+            blocks[zone_id_col] = blocks.block_group_id.astype(str).replace(mapping)
 
         elif zone_type == 'taz':
             logger.info("Mapping block IDs to TAZ")
@@ -948,12 +973,11 @@ def _update_blocks_table(settings, year, blocks,
             "pilates/utils/data/{0}/geoid_to_zone.csv".format(region)
             
             block_taz = pd.read_csv(geoid_to_zone_fpath, 
-                        dtype={'GEOID': str, zone_id_col: int})
+                        dtype={'GEOID': str, zone_id_col: str})
             block_taz = block_taz.set_index('GEOID')[zone_id_col]
             block_taz.index.name = 'block_id'
             blocks = blocks.join(block_taz)
-            blocks[zone_id_col] = blocks[zone_id_col].fillna(0).astype(int)
-#             blocks = blocks[blocks[zone_id_col] != 0].copy() #JDC This could be problematic 
+            
         
         geoid_to_zone_mapping_updated = True
 
@@ -961,6 +985,8 @@ def _update_blocks_table(settings, year, blocks,
         logger.info(
             "Blocks table already has zone IDs. Make sure skim zones "
             "haven't changed.")
+        
+    blocks[zone_id_col] = blocks[zone_id_col].astype(str)
 
     return geoid_to_zone_mapping_updated, blocks
 
@@ -969,7 +995,8 @@ def _get_school_enrollment(state_fips, county_codes):
 
     logger.info(
         "Downloading school enrollment data from educationdata.urban.org!")
-    base_url = 'https://educationdata.urban.org/api/v1/' +         '{topic}/{source}/{endpoint}/{year}/?{filters}'
+    base_url = 'https://educationdata.urban.org/api/v1/' + \
+        '{topic}/{source}/{endpoint}/{year}/?{filters}'
 
     # at the moment you can't seem to filter results by county
     enroll_filters = 'fips={0}'.format(state_fips)
@@ -1009,7 +1036,8 @@ def _get_school_enrollment(state_fips, county_codes):
 def _get_college_enrollment(state_fips, county_codes):
     year = '2015'
     logger.info("Downloading college data from educationdata.urban.org!")
-    base_url = 'https://educationdata.urban.org/api/v1/' +         '{topic}/{source}/{endpoint}/{year}/?{filters}'
+    base_url = 'https://educationdata.urban.org/api/v1/' + \
+        '{topic}/{source}/{endpoint}/{year}/?{filters}'
 
     colleges_list = []
     total_count = 0
@@ -1093,8 +1121,8 @@ def _compute_area_type(zones):
 
 
 def enrollment_tables(settings, zones, 
-                      enrollment_type = 'schools', 
-                      asim_zone_id_col = 'TAZ'):
+                      enrollment_type='schools', 
+                      asim_zone_id_col='TAZ'):
     
     region = settings['region']
     FIPS = settings['FIPS'][region]
@@ -1115,17 +1143,17 @@ def enrollment_tables(settings, zones,
     else:
         logger.info("Reading school enrollment data from disk!")
         enrollment = pd.read_csv(path_to_schools_data, dtype={
-            asim_zone_id_col: int})
+            asim_zone_id_col: str})
         
         
     if asim_zone_id_col not in enrollment.columns:
         enrollment_df = enrollment[['x', 'y']].copy()
         enrollment_df.index.name = 'school_id'
         enrollment[asim_zone_id_col] = get_zone_from_points(
-            enrollment_df, zones, asim_zone_id_col, local_crs)
+            enrollment_df, zones, local_crs)
         
         enrollment = enrollment.dropna(subset = [asim_zone_id_col])
-        enrollment[asim_zone_id_col] = enrollment[asim_zone_id_col].astype(int)
+        enrollment[asim_zone_id_col] = enrollment[asim_zone_id_col].astype(str)
         del enrollment_df
         logger.info("Saving {} enrollment data to disk!".format(enrollment_type))
         enrollment.to_csv(path_to_schools_data)
@@ -1135,7 +1163,7 @@ def enrollment_tables(settings, zones,
 
 def _create_land_use_table(
         settings, region, zones, state_fips, county_codes, local_crs,
-        households, persons, jobs, blocks, asim_zone_id_col='TAZ'):
+        households, persons, jobs, blocks, asim_zone_id_col = 'TAZ'):
 
     logger.info('Creating land use table.')
     zone_type = region_zone_type(settings)
@@ -1147,16 +1175,22 @@ def _create_land_use_table(
                                 enrollment_type = 'colleges', 
                                 asim_zone_id_col = asim_zone_id_col)
                     
+    
+    
+    assert zones.index.name == 'TAZ'
+    assert zones.index.inferred_type == 'string', "zone_id dtype should be str"
+    for table in [households, persons, jobs, blocks, schools, colleges]:
+        assert pd.api.types.is_string_dtype(table[asim_zone_id_col]), \
+        "zone_id dtype in should be str"
+    
     # create new column variables
     logger.info("Creating new columns in the land use table.")
-    assert zones.index.name == asim_zone_id_col
-    
     if zone_type != 'taz':
         zones['STATE'] = zones['STATE'].astype(str)
         zones['COUNTY'] = zones['COUNTY'].astype(str)
         zones['TRACT'] = zones['TRACT'].astype(str)
         zones['BLKGRP'] = zones['BLKGRP'].astype(str)
-    
+
     zones['TOTHH'] = households[asim_zone_id_col].groupby(households[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
     zones['TOTPOP'] = persons[asim_zone_id_col].groupby(persons[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
     zones['EMPRES'] = households[[asim_zone_id_col,'workers']].groupby(asim_zone_id_col)['workers'].sum().reindex(zones.index).fillna(0)
@@ -1242,7 +1276,7 @@ def create_asim_data_from_h5(
     # need zone geoms and we can simply instantiate the zones table from
     # the unique zone ids in the blocks/persons/households tables.
     zones = read_zone_geoms(settings, year, 
-                    asim_zone_id_col= asim_zone_id_col, 
+                    asim_zone_id_col=asim_zone_id_col, 
                     default_zone_id_col=input_zone_id_col)
 
     # update blocks
@@ -1281,7 +1315,7 @@ def create_asim_data_from_h5(
     # create land use table
     land_use = _create_land_use_table(
         settings, region, zones, state_fips, county_codes, local_crs,
-        households, persons, jobs, blocks, asim_zone_id_col = asim_zone_id_col)
+        households, persons, jobs, blocks)
 
     households.to_csv(os.path.join(output_dir, 'households.csv'))
     persons.to_csv(os.path.join(output_dir, 'persons.csv'))
