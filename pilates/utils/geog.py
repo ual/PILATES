@@ -8,7 +8,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out = 'zone_id'):
+def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out='zone_id'):
 
     if region == 'sfbay':
         url = (
