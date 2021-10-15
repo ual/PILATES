@@ -13,12 +13,11 @@ import time
 import yaml
 import matplotlib.pyplot as plt 
 
-
-from pilates.utils.geog import get_block_geoms,map_block_to_taz, get_zone_from_points, get_taz_geoms, get_county_block_geoms
-
+from pilates.utils.geog import get_block_geoms,\
+     map_block_to_taz, get_zone_from_points, \
+     get_taz_geoms, get_county_block_geoms
 
 logger = logging.getLogger(__name__)
-
 
 beam_skims_types = {'timePeriod': str,
                     'pathType': str,
@@ -42,14 +41,13 @@ beam_skims_types = {'timePeriod': str,
 #########################
 #### Common functions ###
 #########################
-
 def region_zone_type(settings):
     """ Returns region zone type """
     region = settings['region']
     zone_type = settings['region_zone_type'][region]
     return zone_type
 
-def read_datastore(settings, year, warm_start = False):
+def read_datastore(settings, year, warm_start=False):
     """
     Access to the land use .H5 data store
     """
@@ -167,7 +165,7 @@ def zone_order(settings, year):
         order = np.array(order.sort_values('zone_id').index)
     return order
 
-def read_skims(settings, mode = 'a'):
+def read_skims(settings, mode='a'):
     """
     Opens skims OMX file. 
     Parameters:
@@ -255,7 +253,6 @@ def read_zone_geoms(settings, year,
 ####################################
 #### RAW BEAM SKIMS TO SKIMS.OMX ###
 ####################################
-
 def _load_raw_beam_skims(settings, remote_url=None):
     """ Read BEAM skims (csv format) from local storage or remote URL if provided 
     Parameters: 
@@ -268,11 +265,6 @@ def _load_raw_beam_skims(settings, remote_url=None):
     - pandas DataFrame. 
     """
     zone_type = region_zone_type(settings)
-    
-#     if zone_type == 'taz':
-#         beam_skims_types['origin'] = int
-#         beam_skims_types['odestination'] = int
-
     if not remote_url:
         skims_fname = settings.get('skims_fname', False)
         path_to_beam_skims = os.path.join(
@@ -281,7 +273,6 @@ def _load_raw_beam_skims(settings, remote_url=None):
     else:
         path_to_beam_skims = remote_url
         logger.info("Loading raw beam skims from URL.")
-
     try:
         # load skims from disk or url
         skims = pd.read_csv(path_to_beam_skims, dtype=beam_skims_types)
@@ -290,14 +281,11 @@ def _load_raw_beam_skims(settings, remote_url=None):
         ## OD with no skim values will not be included in raw skims
         ## Column 'DEBUG_TEXT' will not be included in skims
         if 'DEBUG_TEXT' in skims.columns:
-            skims = skims.dropna(axis = 0, subset = ['DEBUG_TEXT'])
-        
+            skims = skims.dropna(axis = 0, subset = ['DEBUG_TEXT'])    
     except KeyError:
         raise KeyError(
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
-
-    return skims
-                                
+    return skims                             
 
 def _create_skim_object(settings, overwrite=True):
     """ Creates OMX file to store skim matrices
@@ -371,7 +359,8 @@ def _create_skims_by_mode(settings, skims_df):
     settings: 
     skims_df: Pandas Dataframe. Clean beam skims. 
     
-    Returns 
+    Returns:
+    ---------
     2 pandas dataframe for auto and transit respectively. 
     """
     logger.info("Splitting BEAM skims by mode.")
@@ -389,13 +378,10 @@ def _create_skims_by_mode(settings, skims_df):
     assert len(transit_df) > 0, 'No transit skims'
     
     del skims_df
-    
     return auto_df, transit_df
 
-
-def _build_od_matrix(df, origin, destination, metric, order, fill_na = 0):
+def _build_od_matrix(df, origin, destination, metric, order, fill_na=0):
     """ Tranform skims from pandas dataframe to numpy square matrix (O-D matrix format) 
-    
     Parameters: 
     -----------
     - df: Pandas dataframe. 
@@ -415,7 +401,6 @@ def _build_od_matrix(df, origin, destination, metric, order, fill_na = 0):
     ---------
     - numpy square 0-D matrix 
     """
-    
     vals = df.pivot(index = origin, 
                     columns = destination, 
                     values = metric)
@@ -442,7 +427,6 @@ def _build_od_matrix(df, origin, destination, metric, order, fill_na = 0):
         empty_df = pd.DataFrame(array, index = missing_rows, columns = missing_cols)
         vals = pd.concat((vals,empty_df), axis = axis)
         
- 
     assert vals.index.isin(order).all(), 'There are missing origins'
     assert vals.columns.isin(order).all(), 'There are missing destinations'
     assert (num_zones, num_zones) == vals.shape, 'Origin-Destination matrix is not square'
@@ -490,7 +474,6 @@ def impute_distances(zones, origin, destination):
     
     return orig.distance(dest).replace({0:100}).values * (0.621371 / 1000)
     
-
 def _distance_skims(settings, year, auto_df, order):
     """
     Generates distance matrices for drive, walk and bike modes.
@@ -527,7 +510,6 @@ def _distance_skims(settings, year, auto_df, order):
     skims['DISTWALK'] = mx_dist
     skims.close()
                                
-
 def _transit_skims(settings, transit_df, order):
     """ Generate transit OMX skims"""
     
@@ -564,8 +546,7 @@ def _transit_skims(settings, transit_df, order):
                 skims[name] = mtx
     skims.close()
     del df, df_
-
-
+    
 def _auto_skims(settings, auto_df, order):
     logger.info("Creating drive skims.")
     
@@ -605,7 +586,6 @@ def _auto_skims(settings, auto_df, order):
     skims.close()
     del df, df_
 
-
 def _create_offset(settings, order):
     logger.info("Creating skims offset keys")
 
@@ -618,8 +598,8 @@ def _create_offset(settings, order):
     skims.close()
                                 
 def create_skims_from_beam(settings, year,
-                           remote_url = None,
-                           overwrite = True):
+                           remote_url=None,
+                           overwrite=True):
                                 
     # If running in static skims mode and ActivitySim skims already exist
     # there is no point in recreating them.
@@ -642,7 +622,6 @@ def create_skims_from_beam(settings, year,
         _transit_skims(settings, transit_df, order)
 
         # Create offset
-
         _create_offset(settings, order)
         del auto_df, transit_df  
 
@@ -652,9 +631,9 @@ def create_skims_from_beam(settings, year,
 
 def plot_skims(settings, zones, 
                skims, order,
-               random_sample = 6, 
-               cols = 2, name = 'DIST', 
-               units = 'in miles'):   
+               random_sample=6, 
+               cols=2, name='DIST', 
+               units='in miles'):   
     """
     Plot a map of skims for a random set zones to all other zones. For validation/debugging purposes. 
     
@@ -737,7 +716,6 @@ def skim_validations(settings, year, order):
 #######################################
 #### UrbanSim to ActivitySim tables ###
 #######################################
-
 def _get_full_time_enrollment(state_fips, year):
     base_url = (
         'https://educationdata.urban.org/api/v1/'
@@ -761,9 +739,7 @@ def _get_full_time_enrollment(state_fips, year):
     full_time['full_time'] = full_time['undergraduate'] + full_time['graduate']
     s = full_time.full_time
     assert s.index.name == 'unitid'
-
     return s
-
 
 def _get_part_time_enrollment(state_fips):
     base_url = (
@@ -790,9 +766,7 @@ def _get_part_time_enrollment(state_fips):
     part_time['part_time'] = part_time['undergraduate'] + part_time['graduate']
     s = part_time.part_time
     assert s.index.name == 'unitid'
-
     return s
-
 
 def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
 
@@ -859,9 +833,7 @@ def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
     persons = persons[~p_null_taz]
     return persons
 
-
 def _update_households_table(households, blocks, asim_zone_id_col='TAZ'):
-
     # assign zones
     households[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
         households['block_id']).values
@@ -889,10 +861,9 @@ def _update_households_table(households, blocks, asim_zone_id_col='TAZ'):
 
     return households
 
-
 def _update_jobs_table(
         jobs, blocks, state_fips, county_codes, local_crs,
-        asim_zone_id_col= 'TAZ'):
+        asim_zone_id_col='TAZ'):
 
     # assign zones
     jobs[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
@@ -903,7 +874,6 @@ def _update_jobs_table(
     # make sure jobs are only assigned to blocks with land area > 0
     # so that employment density distributions don't contain Inf/NaN
     blocks = blocks[['square_meters_land']]
-    
     jobs['square_meters_land'] = blocks.reindex(
         jobs['block_id'])['square_meters_land'].values
     jobs_w_no_land = jobs[jobs['square_meters_land'] == 0]
@@ -950,7 +920,6 @@ def _update_blocks_table(settings, year, blocks,
     
     # update blocks (should only have to be run if asim is loading
     # raw urbansim data that has yet to be touched by pilates)    
-    
     geoid_to_zone_mapping_updated = False
     
     if zone_id_col not in blocks.columns:
@@ -989,7 +958,6 @@ def _update_blocks_table(settings, year, blocks,
     blocks[zone_id_col] = blocks[zone_id_col].astype(str)
 
     return geoid_to_zone_mapping_updated, blocks
-
 
 def _get_school_enrollment(state_fips, county_codes):
 
@@ -1032,7 +1000,6 @@ def _get_school_enrollment(state_fips, county_codes):
 
     return enrollment
 
-
 def _get_college_enrollment(state_fips, county_codes):
     year = '2015'
     logger.info("Downloading college data from educationdata.urban.org!")
@@ -1074,14 +1041,12 @@ def _get_college_enrollment(state_fips, county_codes):
     pte = _get_part_time_enrollment(state_fips)
     colleges['part_time_enrollment'] = pte.reindex(colleges.index)
     return colleges
-        
 
 def _get_park_cost(zones, weights, index_cols, output_cols):
     params = pd.Series(weights, index=index_cols)
     cols = zones[output_cols]
     s = cols @ params
     return s.where(s > 0, 0)
-
 
 def _compute_area_type_metric(zones):
     """
@@ -1099,7 +1064,6 @@ def _compute_area_type_metric(zones):
     this bias results towards higher auto-ownership and larger auto-oriented
     mode shares. However, we haven't found this to be the case.
     """
-
     zones_df = zones[['TOTPOP', 'TOTEMP', 'TOTACRE']].copy()
 
     metric_vals = ((
@@ -1107,7 +1071,6 @@ def _compute_area_type_metric(zones):
         2.5 * zones_df['TOTEMP'])) / zones_df['TOTACRE']
 
     return metric_vals.fillna(0)
-
 
 def _compute_area_type(zones):
     # Integer, 0=regional core, 1=central business district,
@@ -1118,7 +1081,6 @@ def _compute_area_type(zones):
         labels=['5', '4', '3', '2', '1', '0'],
         include_lowest=True).astype(str)
     return area_types
-
 
 def enrollment_tables(settings, zones, 
                       enrollment_type='schools', 
@@ -1145,7 +1107,6 @@ def enrollment_tables(settings, zones,
         enrollment = pd.read_csv(path_to_schools_data, dtype={
             asim_zone_id_col: str})
         
-        
     if asim_zone_id_col not in enrollment.columns:
         enrollment_df = enrollment[['x', 'y']].copy()
         enrollment_df.index.name = 'school_id'
@@ -1159,11 +1120,10 @@ def enrollment_tables(settings, zones,
         enrollment.to_csv(path_to_schools_data)
         
     return enrollment
-                    
 
 def _create_land_use_table(
         settings, region, zones, state_fips, county_codes, local_crs,
-        households, persons, jobs, blocks, asim_zone_id_col = 'TAZ'):
+        households, persons, jobs, blocks, asim_zone_id_col='TAZ'):
 
     logger.info('Creating land use table.')
     zone_type = region_zone_type(settings)
@@ -1174,9 +1134,6 @@ def _create_land_use_table(
     colleges = enrollment_tables(settings, zones, 
                                 enrollment_type = 'colleges', 
                                 asim_zone_id_col = asim_zone_id_col)
-                    
-    
-    
     assert zones.index.name == 'TAZ'
     assert zones.index.inferred_type == 'string', "zone_id dtype should be str"
     for table in [households, persons, jobs, blocks, schools, colleges]:
@@ -1248,7 +1205,6 @@ def create_asim_data_from_h5(
     # warm start: year = start_year
     # asim_no_usim: year = start_year
     # normal: year = forecast_year
-
     region = settings['region']
     region_id = settings['region_to_region_id'][region]
     FIPS = settings['FIPS'][region]
