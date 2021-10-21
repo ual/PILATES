@@ -184,7 +184,7 @@ def warm_start_activities(settings, year, client):
     logger.info("Creating {0} skims from {1}".format(
         activity_demand_model,
         travel_model).upper())
-    asim_pre.create_skims_from_beam(settings)
+    asim_pre.create_skims_from_beam(settings, year)
 
     # data tables
     logger.info("Creating {0} input data from {1} outputs".format(
@@ -303,7 +303,7 @@ def generate_activity_plans(
         activity_demand_model,
         land_use_model)
     formatted_print(print_str)
-    asim_pre.create_skims_from_beam(settings, overwrite=overwrite_skims)
+    asim_pre.create_skims_from_beam(settings, year, overwrite=overwrite_skims)
     asim_pre.create_asim_data_from_h5(
         settings, year=forecast_year, warm_start=warm_start)
 
