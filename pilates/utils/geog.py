@@ -8,12 +8,13 @@ import os
 
 logger = logging.getLogger(__name__)
 
-def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out='zone_id'):
+def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out='zone_id'):
 
     if region == 'sfbay':
         url = (
             'https://opendata.arcgis.com/datasets/'
             '94e6e7107f0745b5b2aabd651340b739_0.geojson')
+    
     gdf = gpd.read_file(url, crs="EPSG:4326")
     gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
 
@@ -23,14 +24,26 @@ def get_taz_geoms(region, taz_id_col_in='objectid', zone_id_col_out='zone_id'):
     return gdf
 
 
-def get_county_block_geoms(state_fips, county_fips, result_size=10000):
+def get_county_block_geoms(state_fips, county_fips, zone_type = 'blocks', result_size=10000):
 
-    base_url = (
-        'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
-        'Tracts_Blocks/MapServer/12/query?where=STATE%3D{0}+and+COUNTY%3D{1}'
-        '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
-        '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CBLOCK%2CCENTLAT'
-        '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
+    if (zone_type == 'blocks') or (zone_type == 'taz'): #to map blocks to taz. 
+        base_url = (
+            'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
+#             'Tracts_Blocks/MapServer/12/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
+            'tigerWMS_Census2010/MapServer/18/query?where=STATE%3D{0}+and+COUNTY%3D{1}'#2010 census
+            '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
+            '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CBLOCK%2CCENTLAT'
+            '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
+
+    elif zone_type == 'block_groups':
+        base_url = (
+            'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
+#             'Tracts_Blocks/MapServer/11/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
+            'tigerWMS_Census2010/MapServer/16/query?where=STATE%3D{0}+and+COUNTY%3D{1}'#2010 census
+            '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
+            '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CCENTLAT'
+            '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
+        
     blocks_remaining = True
     all_features = []
     page = 0
@@ -65,22 +78,30 @@ def get_county_block_geoms(state_fips, county_fips, result_size=10000):
     return gdf
 
 
-def get_block_geoms(state_fips, county_codes, data_dir='./tmp/'):
+def get_block_geoms(settings, data_dir='./tmp/'):
+    
+    region = settings['region']
+    FIPS = settings['FIPS'][region]
+    state_fips = FIPS['state']
+    county_codes = FIPS['counties']
+    zone_type = settings['region_zone_type'][region]
+    
     all_block_geoms = []
+    file_name = zone_type + "_"+ region + ".shp"
 
-    if os.path.exists(os.path.join(data_dir, "blocks.shp")):
+    if os.path.exists(os.path.join(data_dir, file_name)):
         logger.info("Loading block geoms from disk!")
-        blocks_gdf = gpd.read_file(os.path.join(data_dir, "blocks.shp"))
+        blocks_gdf = gpd.read_file(os.path.join(data_dir, file_name))
 
     else:
-        logger.info("Downloading block geoms from Census TIGERweb API!")
+        logger.info("Downloading {} geoms from Census TIGERweb API!".format(zone_type))
 
         # get block geoms from census tigerweb API
         for county in tqdm(
                 county_codes, total=len(county_codes),
                 desc='Getting block geoms for {0} counties'.format(
                     len(county_codes))):
-            county_gdf = get_county_block_geoms(state_fips, county)
+            county_gdf = get_county_block_geoms(state_fips, county, zone_type)
             all_block_geoms.append(county_gdf)
 
         blocks_gdf = gpd.GeoDataFrame(
@@ -90,7 +111,7 @@ def get_block_geoms(state_fips, county_codes, data_dir='./tmp/'):
         logger.info(
             "Got {0} block geometries. Saving to disk.".format(
                 len(all_block_geoms)))
-        blocks_gdf.to_file(os.path.join(data_dir, "blocks.shp"))
+        blocks_gdf.to_file(os.path.join(data_dir, file_name))
 
     return blocks_gdf
 
@@ -146,39 +167,44 @@ def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
 
 def map_block_to_taz(
         settings, region, zones_gdf=None, zone_id_col='zone_id',
-        reference_taz_id_col='objectid', data_dir='./tmp/'):
+        reference_taz_id_col='taz1454', data_dir='./tmp/'):
     """
     Returns:
         A series named 'zone_id' with 'GEOID' as index name
     """
-
-    state_fips = settings['FIPS'][region]['state']
-    county_codes = settings['FIPS'][region]['counties']
+    region = settings['region']
+    FIPS = settings['FIPS'][region]
+    state_fips = FIPS['state']
+    county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
+    
     if zones_gdf is None:
         zones_gdf = get_taz_geoms(region, reference_taz_id_col, zone_id_col)
-    blocks_gdf = get_block_geoms(state_fips, county_codes, data_dir)
+    blocks_gdf = get_block_geoms(settings, data_dir)
     blocks_gdf.crs = 'EPSG:4326'
     blocks_to_taz = get_taz_from_block_geoms(
         blocks_gdf, zones_gdf, local_crs, zone_id_col)
+    return blocks_to_taz.astype(str)
 
-    return blocks_to_taz
 
-
-def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
+def get_zone_from_points(df, zones_gdf, local_crs):
     '''
-    Assigns the gdf index (TAZ ID) for each index in df
-    Input:
+    Assigns the gdf index (zone_id) for each index in df
+    Parameters:
+    -----------
     - df columns names x, and y. The index is the ID of the point feature.
-    - zones_gdf: GeoPandas GeoDataFrame with TAZ as index, geometry, area.
+    - zones_gdf: GeoPandas GeoDataFrame with zone_id as index, geometry, area.
 
-    Output:
+    Returns:
+    -----------
         A series with df index and corresponding gdf id
     '''
-
     logger.info("Assigning zone IDs to {0}".format(df.index.name))
+    zone_id_col = zones_gdf.index.name
+    
     gdf = gpd.GeoDataFrame(
         df, geometry=gpd.points_from_xy(df.x, df.y), crs="EPSG:4326")
+    
     zones_gdf.geometry.crs = "EPSG:4326"
 
     # convert to meters-based local crs
@@ -187,25 +213,9 @@ def get_zone_from_points(df, zones_gdf, zone_id_col, local_crs):
 
     # Spatial join
     intx = gpd.sjoin(
-        gdf.reset_index(), zones_gdf.reset_index(),
+        gdf, zones_gdf.reset_index(),
         how='left', op='intersects')
+    
+    assert len(intx) == len(gdf)
 
-    # Drop duplicates and keep the one with the smallest H3 area
-    intx['intx_area'] = intx['geometry'].area
-    intx = intx.sort_values('intx_area')
-    intx.drop_duplicates(subset=[gdf.index.name], keep='first', inplace=True)
-    intx.set_index(gdf.index.name, inplace=True)
-    gdf[zone_id_col] = intx[zone_id_col].reindex(gdf.index)
-
-    # Check if there is any unassigined object
-    unassigned_mask = pd.isnull(gdf[zone_id_col])
-    if any(unassigned_mask):
-
-        zones_gdf['geometry'] = zones_gdf['geometry'].centroid
-        all_dists = gdf.loc[unassigned_mask, 'geometry'].apply(
-            lambda x: zones_gdf['geometry'].distance(x))
-
-        gdf.loc[unassigned_mask, zone_id_col] = all_dists.idxmin(
-            axis=1).values
-
-    return gdf[zone_id_col]
+    return intx[zone_id_col]
