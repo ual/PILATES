@@ -5,7 +5,7 @@
 ############################
 
 # scenario defs
-region: sfbay
+region: austin
 scenario: base
 start_year: 2010
 end_year: 2013
@@ -29,6 +29,11 @@ pull_latest: False
 # skim settings
 skims_zone_type: taz  # one of [taz, block_group]
 skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+
+region_zone_type:
+  austin: block_groups # one of [taz, block_groups, block]
+  detroit: block_groups # one of [taz, block_groups, block]
+  sfbay: taz # one of [taz, block_groups, block]
 
 #########################################################################################################
 
@@ -71,9 +76,10 @@ chunk_size: 4000000000
 num_processes: 94
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
+asim_validation_folder: pilates/activitysim/validation
 asim_formattable_command: "-h {0} -n {1} -c {2}"
 region_to_asim_subdir:
-  austin: austin_mp 
+  austin: austin
   detroit: detroit 
   sfbay: bay_area
 region_to_asim_bucket:
