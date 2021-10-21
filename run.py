@@ -306,7 +306,6 @@ def forecast_land_use(settings, year, forecast_year, client):
 def generate_activity_plans(
         settings, year, forecast_year, client,
         resume_after=None,
-        household_sample_size=None,
         warm_start=False,
         overwrite_skims=True):
     """
@@ -330,7 +329,7 @@ def generate_activity_plans(
     asim_subdir = settings['region_to_asim_subdir'][region]
     asim_workdir = os.path.join('/activitysim', asim_subdir)
     asim_docker_vols = get_asim_docker_vols(settings)
-    asim_cmd = get_base_asim_cmd(settings, household_sample_size)
+    asim_cmd = get_base_asim_cmd(settings)
     docker_stdout = settings.get('docker_stdout', False)
 
     # If this is the first iteration, skims should only exist because
@@ -344,7 +343,7 @@ def generate_activity_plans(
         activity_demand_model,
         land_use_model)
     formatted_print(print_str)
-    asim_pre.create_skims_from_beam(settings, overwrite=overwrite_skims)
+    asim_pre.create_skims_from_beam(settings, year, overwrite=overwrite_skims)
     asim_pre.create_asim_data_from_h5(
         settings, year=forecast_year, warm_start=warm_start)
 
@@ -522,7 +521,7 @@ def run_replanning_loop(settings, forecast_year):
         formatted_print(print_str)
 
         # a) format new skims for asim
-        asim_pre.create_skims_from_beam(settings, overwrite=True)
+        asim_pre.create_skims_from_beam(settings, year, overwrite=True)
 
         # b) replan with asim
         print_str = (
@@ -625,7 +624,7 @@ if __name__ == '__main__':
 
             generate_activity_plans(
                 settings, year, forecast_year, client,
-                resume_after, warm_start_skims)
+                resume_after=resume_after, warm_start=warm_start_skims)
 
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the
@@ -642,14 +641,10 @@ if __name__ == '__main__':
 
         if traffic_assignment_enabled:
 
-            #################################
-            #    RUN TRAFFIC ASSIGNMENT    #
-            #################################
-
-            # 1. RUN BEAM
+            # 3. RUN BEAM
             run_beam(settings)
 
-            # 2. REPLAN
+            # 4. REPLAN
             if replanning_enabled > 0:
                 run_replanning_loop(settings)
 
