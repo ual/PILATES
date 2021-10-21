@@ -36,7 +36,8 @@ def find_latest_beam_iteration(beam_output_dir):
     print(iter_dirs)
 
 
-def run_beam():
+def run_beam(settings):
+
     abs_beam_input = os.path.abspath(beam_local_input_folder)
     abs_beam_output = os.path.abspath(beam_local_output_folder)
     logger.info(
@@ -77,51 +78,6 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     with open(settings_file) as file:
         settings = yaml.load(file, Loader=yaml.FullLoader)
 
-    # parse scenario settings
-    image_names = settings['docker_images']
-    land_use_model = settings.get('land_use_model', False)
-    activity_demand_model = settings.get('activity_demand_model', False)
-    travel_model = settings.get('travel_model', False)
-    region = settings['region']
-    region_id = settings['region_to_region_id'][region]
-    scenario = settings['scenario']
-    start_year = settings['start_year']
-    end_year = settings['end_year']
-    travel_model_freq = settings['travel_model_freq']
-    skims_fname = settings['skims_fname']
-
-    # parse PILATES defaults
-    household_sample_size = settings.get('household_sample_size', 0)
-    docker_stdout = settings.get('docker_stdout', False)
-    pull_latest = settings.get('pull_latest', False)
-
-    # parse land use settings
-    land_use_image = image_names[land_use_model] if (land_use_model) else "/not_run"
-    land_use_freq = settings['land_use_freq']
-    skim_zone_source_id_col = settings['skim_zone_source_id_col']
-    usim_client_data_folder = settings['usim_client_data_folder']
-    usim_local_data_folder = settings['usim_local_data_folder']
-    formattable_usim_cmd = settings['usim_formattable_command']
-
-    # parse activity demand settings
-    activity_demand_image = image_names[activity_demand_model]
-    asim_subdir = settings['region_to_asim_subdir'][region]
-    asim_workdir = os.path.join('/activitysim', asim_subdir)
-    chunk_size = settings['chunk_size']
-    num_processes = settings['num_processes']
-    asim_local_input_folder = settings['asim_local_input_folder']
-    asim_local_output_folder = settings['asim_local_output_folder']
-    formattable_asim_cmd = settings['asim_formattable_command']
-
-    # parse traffic assignment settings
-    travel_model_image = image_names[travel_model]
-    beam_config = settings['beam_config']
-    beam_local_input_folder = settings['beam_local_input_folder']
-    beam_local_output_folder = settings['beam_local_output_folder']
-    beam_memory = settings['beam_memory']
-    replan_iters = settings['replan_iters']
-    replan_hh_samp_size = settings['replan_hh_sample_size']
-    
     # parse command-line args
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
@@ -139,13 +95,14 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         "-w", "--warm_start_skims", action="store_true",
         help="generate full activity plans for the base year only.")
     parser.add_argument(
-        '-f', '--figures', action='store_true', help='outputs validation figures')
+        '-f', '--figures', action='store_true',
+        help='outputs validation figures')
     args = parser.parse_args()
 
     # command-line only settings:
     settings.update({
         'static_skims': args.static_skims,
-        'warm_start_skims': args.warm_start_skims, 
+        'warm_start_skims': args.warm_start_skims,
         'asim_validation': args.figures})
 
     # override .yaml settings with command-line values if command-line
@@ -173,17 +130,20 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     traffic_assignment_enabled = ((
         settings.get('travel_model', False)) and (
         not settings['static_skims']))
+    replanning_enabled = settings.get('replan_iters', 0) > 0
     settings.update({
         'land_use_enabled': land_use_enabled,
         'activity_demand_enabled': activity_demand_enabled,
-        'traffic_assignment_enabled': traffic_assignment_enabled})
+        'traffic_assignment_enabled': traffic_assignment_enabled,
+        'replanning_enabled': replanning_enabled})
 
     return settings
 
 
-def get_base_asim_cmd(settings):
+def get_base_asim_cmd(settings, household_sample_size=None):
     formattable_asim_cmd = settings['asim_formattable_command']
-    household_sample_size = settings.get('household_sample_size', 0)
+    if not household_sample_size:
+        household_sample_size = settings.get('household_sample_size', 0)
     num_processes = settings.get('num_processes', 4)
     chunk_size = settings.get('chunk_size', 0)  # default no chunking
     base_asim_cmd = formattable_asim_cmd.format(
@@ -346,6 +306,7 @@ def forecast_land_use(settings, year, forecast_year, client):
 def generate_activity_plans(
         settings, year, forecast_year, client,
         resume_after=None,
+        household_sample_size=None,
         warm_start=False,
         overwrite_skims=True):
     """
@@ -369,7 +330,7 @@ def generate_activity_plans(
     asim_subdir = settings['region_to_asim_subdir'][region]
     asim_workdir = os.path.join('/activitysim', asim_subdir)
     asim_docker_vols = get_asim_docker_vols(settings)
-    asim_cmd = get_base_asim_cmd(settings)
+    asim_cmd = get_base_asim_cmd(settings, household_sample_size)
     docker_stdout = settings.get('docker_stdout', False)
 
     # If this is the first iteration, skims should only exist because
@@ -510,6 +471,90 @@ def initialize_docker_client(settings):
     return client
 
 
+def initialize_asim_for_replanning(settings, forecast_year):
+
+    replan_hh_samp_size = settings['replan_hh_samp_size']
+    activity_demand_model = settings['activity_demand_model']
+    image_names = settings['docker_images']
+    activity_demand_image = image_names[activity_demand_model]
+    region = settings['region']
+    asim_subdir = settings['region_to_asim_subdir'][region]
+    asim_workdir = os.path.join('/activitysim', asim_subdir)
+    asim_docker_vols = get_asim_docker_vols(settings)
+    base_asim_cmd = get_base_asim_cmd(settings, replan_hh_samp_size)
+    docker_stdout = settings.get('docker_stdout', False)
+
+    if replan_hh_samp_size > 0:
+        print_str = (
+            "Re-running ActivitySim on smaller sample size to "
+            "prepare cache for re-planning with BEAM.")
+        formatted_print(print_str)
+        asim = client.containers.run(
+            activity_demand_image, working_dir=asim_workdir,
+            volumes=asim_docker_vols,
+            command=base_asim_cmd,
+            stdout=docker_stdout,
+            stderr=True, detach=True, remove=True)
+        for log in asim.logs(
+                stream=True, stderr=True, stdout=docker_stdout):
+            print(log)
+
+
+def run_replanning_loop(settings, forecast_year):
+
+    replan_iters = settings['replan_iters']
+    replan_hh_samp_size = settings['replan_hh_samp_size']
+    activity_demand_model = settings['activity_demand_model']
+    travel_model = settings['travel_model']
+    image_names = settings['docker_images']
+    activity_demand_image = image_names[activity_demand_model]
+    region = settings['region']
+    asim_subdir = settings['region_to_asim_subdir'][region]
+    asim_workdir = os.path.join('/activitysim', asim_subdir)
+    asim_docker_vols = get_asim_docker_vols(settings)
+    base_asim_cmd = get_base_asim_cmd(settings, replan_hh_samp_size)
+    docker_stdout = settings.get('docker_stdout', False)
+    last_asim_step = settings['replan_after']
+
+    for i in range(replan_iters):
+
+        print_str = ('Replanning Iteration {0}'.format(i + 1))
+        formatted_print(print_str)
+
+        # a) format new skims for asim
+        asim_pre.create_skims_from_beam(settings, overwrite=True)
+
+        # b) replan with asim
+        print_str = (
+            "Replanning {0} households with ActivitySim".format(
+                replan_hh_samp_size))
+        formatted_print(print_str)
+        asim = client.containers.run(
+            activity_demand_image, working_dir=asim_workdir,
+            volumes=asim_docker_vols,
+            command=base_asim_cmd + ' -r ' + last_asim_step,
+            stdout=docker_stdout,
+            stderr=True,
+            detach=True,
+            remove=True)
+        for log in asim.logs(
+                stream=True, stderr=True, stdout=docker_stdout):
+            print(log)
+
+        # c) format updated plans for beam
+        print_str = (
+            "Generating {0} {1} input data from "
+            "{2} outputs".format(
+                forecast_year, travel_model, activity_demand_model))
+        formatted_print(print_str)
+        beam_pre.copy_plans_from_asim(settings)
+
+        # e) run BEAM
+        run_beam(settings)
+
+    return
+
+
 if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
@@ -530,6 +575,7 @@ if __name__ == '__main__':
     land_use_enabled = settings['land_use_enabled']
     activity_demand_enabled = settings['activity_demand_enabled']
     traffic_assignment_enabled = settings['traffic_assignment_enabled']
+    replanning_enabled = settings['replanning_enabled']
 
     if warm_start_skims:
         formatted_print('RUNNING PILATES IN "WARM START SKIMS" MODE')
@@ -584,30 +630,8 @@ if __name__ == '__main__':
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the
             # cache for use in re-planning, otherwise cache will use entire pop
-            if (replan_iters > 0) and (replan_hh_samp_size > 0):
-                print_str = (
-                    "Re-running ActivitySim on smaller sample size to "
-                    "prepare cache for re-planning with BEAM.")
-                formatted_print(print_str)
-                asim = client.containers.run(
-                    activity_demand_image, working_dir=asim_workdir,
-                    volumes={
-                        os.path.abspath(settings['asim_local_input_folder']): {
-                            'bind': os.path.join(asim_workdir, 'data'),
-                            'mode': 'rw'},
-                        os.path.abspath(settings['asim_local_output_folder']): {
-                            'bind': os.path.join(asim_workdir, 'output'),
-                            'mode': 'rw'}
-                    },
-                    command=formattable_asim_cmd.format(
-                        forecast_year, replan_hh_samp_size,
-                        num_processes, chunk_size
-                    ),
-                    stdout=docker_stdout,
-                    stderr=True, detach=True, remove=True)
-                for log in asim.logs(
-                        stream=True, stderr=True, stdout=docker_stdout):
-                    print(log)
+            if replanning_enabled:
+                initialize_asim_for_replanning(settings, forecast_year)
 
         else:
 
@@ -616,61 +640,17 @@ if __name__ == '__main__':
             # use data directly from the last set of land use outputs.
             usim_post.create_next_iter_usim_data(settings, year)
 
-        travel_model_enabled = travel_model
-        if travel_model_enabled:
+        if traffic_assignment_enabled:
 
             #################################
             #    RUN TRAFFIC ASSIGNMENT    #
             #################################
 
             # 1. RUN BEAM
-            run_beam()
+            run_beam(settings)
 
             # 2. REPLAN
-            if replan_iters > 0:
-                for i in range(replan_iters):
-
-                    # a) format new skims for asim
-                    asim_pre.create_skims_from_beam(
-                        asim_local_input_folder, settings, overwrite=True)
-
-                    # b) replan with asim
-                    print_str = (
-                        "Replanning {0} households with ActivitySim".format(
-                            replan_hh_samp_size))
-                    formatted_print(print_str)
-                    asim = client.containers.run(
-                        activity_demand_image, working_dir=asim_workdir,
-                        volumes={
-                            os.path.abspath(settings['asim_local_input_folder']): {
-                                'bind': os.path.join(asim_workdir, 'data'),
-                                'mode': 'rw'},
-                            os.path.abspath(settings['asim_local_output_folder']): {
-                                'bind': os.path.join(asim_workdir, 'output'),
-                                'mode': 'rw'}
-                        },
-                        command=formattable_asim_cmd.format(
-                            forecast_year, replan_hh_samp_size,
-                            num_processes, chunk_size
-                        ) + ' -r ' + settings['replan_after'],  # only run subset of models
-                        stdout=docker_stdout,
-                        stderr=True, detach=True, remove=True)
-                    for log in asim.logs(
-                            stream=True, stderr=True, stdout=docker_stdout):
-                        print(log)
-
-                    # c) format updated plans for beam
-                    print_str = (
-                        "Generating {0} {1} input data from "
-                        "{2} outputs".format(
-                            forecast_year, travel_model, activity_demand_model))
-                    formatted_print(print_str)
-                    beam_pre.copy_plans_from_asim(settings)
-
-                    # d) merge updated plans with full pop plans
-                    # we do this inside beam
-
-                    # e) run BEAM
-                    run_beam()
+            if replanning_enabled > 0:
+                run_replanning_loop(settings)
 
         logger.info("Finished")

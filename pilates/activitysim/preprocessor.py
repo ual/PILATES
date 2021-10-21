@@ -109,22 +109,21 @@ def geoid_to_zone_map(settings, year):
     
     else:
         logger.info("Zone mapping not found. Creating it on the fly.")
-        
-        
+
         if zone_type == 'taz':
             logger.info("Mapping block IDs to TAZ")
             geoid_to_zone = map_block_to_taz(
                 settings, region, zone_id_col=zone_id_col,
                 reference_taz_id_col='taz1454')
             mapping = geoid_to_zone.to_dict()
-        
+
         elif zone_type == 'block_groups':
             store, table_prefix_yr = read_datastore(settings, year)
             blocks = store[os.path.join(table_prefix_yr, 'blocks')]
             order = blocks.index.str[:12].unique()
             mapping = None
             store.close()
-        
+
         elif zone_type == 'blocks':
             store, table_prefix_year = read_datastore(settings, year)
             blocks = store[os.path.join(table_prefix_yr, 'blocks')]
@@ -586,33 +585,35 @@ def _auto_skims(settings, auto_df, order):
     skims.close()
     del df, df_
 
+
 def _create_offset(settings, order):
     logger.info("Creating skims offset keys")
 
     # Open skims object
-    skims = read_skims(settings, mode = 'a')
-    zone_id = np.arange(1, len(order) + 1) 
-    
+    skims = read_skims(settings, mode='a')
+    zone_id = np.arange(1, len(order) + 1)
+
     # Generint offset
     skims.create_mapping('zone_id', zone_id)
     skims.close()
-                                
+
+
 def create_skims_from_beam(settings, year,
                            remote_url=None,
                            overwrite=True):
-                                
+
     # If running in static skims mode and ActivitySim skims already exist
     # there is no point in recreating them.
     static_skims = settings['static_skims']
     if static_skims:
         overwrite = False
-    
+
     new = _create_skim_object(settings, overwrite)
     validation = settings['asim_validation']
-    
+
     if new:
         order = zone_order(settings, year)
-        skims_df = _load_raw_beam_skims(settings, remote_url = remote_url)
+        skims_df = _load_raw_beam_skims(settings, remote_url=remote_url)
         skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
         auto_df, transit_df  = _create_skims_by_mode(settings, skims_df)
 
