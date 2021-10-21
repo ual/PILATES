@@ -35,6 +35,41 @@ def find_latest_beam_iteration(beam_output_dir):
     print(iter_dirs)
 
 
+def run_beam():
+    abs_beam_input = os.path.abspath(beam_local_input_folder)
+    abs_beam_output = os.path.abspath(beam_local_output_folder)
+    logger.info(
+        "Starting beam container, input: %s, output: %s, config: %s",
+        abs_beam_input, abs_beam_output, beam_config)
+    path_to_beam_config = '/app/input/{0}/{1}'.format(
+        region, beam_config)
+    client.containers.run(
+        travel_model_image,
+        volumes={
+            abs_beam_input: {
+                'bind': '/app/input',
+                'mode': 'rw'},
+            abs_beam_output: {
+                'bind': '/app/output',
+                'mode': 'rw'}},
+        environment=
+        {'JAVA_OPTS': '-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
+            beam_memory)},
+        command="--config={0}".format(path_to_beam_config),
+        stdout=docker_stdout, stderr=True, detach=False, remove=True
+    )
+    path_to_skims = os.path.join(os.path.abspath(
+        beam_local_output_folder), skims_fname)
+    current_skims = beam_post.merge_current_skims(
+        path_to_skims, previous_skims, beam_local_output_folder)
+    if current_skims == previous_skims:
+        logger.error(
+            "BEAM hasn't produced the new skims for some reason. "
+            "Please check beamLog.out for errors in the directory %s",
+            abs_beam_output)
+        exit(1)
+
+
 if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
@@ -267,38 +302,7 @@ if __name__ == '__main__':
             #################################
 
             # 1. RUN BEAM
-            abs_beam_input = os.path.abspath(beam_local_input_folder)
-            abs_beam_output = os.path.abspath(beam_local_output_folder)
-            logger.info(
-                "Starting beam container, input: %s, output: %s, config: %s",
-                abs_beam_input, abs_beam_output, beam_config)
-            path_to_beam_config = '/app/input/{0}/{1}'.format(
-                region, beam_config)
-            client.containers.run(
-                travel_model_image,
-                volumes={
-                    abs_beam_input: {
-                        'bind': '/app/input',
-                        'mode': 'rw'},
-                    abs_beam_output: {
-                        'bind': '/app/output',
-                        'mode': 'rw'}},
-                environment=
-                {'JAVA_OPTS': '-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
-                    beam_memory)},
-                command="--config={0}".format(path_to_beam_config),
-                stdout=docker_stdout, stderr=True, detach=False, remove=True
-            )
-            path_to_skims = os.path.join(os.path.abspath(
-                beam_local_output_folder), skims_fname)
-            current_skims = beam_post.merge_current_skims(
-                path_to_skims, previous_skims, beam_local_output_folder)
-            if current_skims == previous_skims:
-                logger.error(
-                    "BEAM hasn't produced the new skims for some reason. "
-                    "Please check beamLog.out for errors in the directory %s",
-                    abs_beam_output)
-                exit(1)
+            run_beam()
 
             # 2. REPLAN
             if replan_iters > 0:
@@ -342,7 +346,9 @@ if __name__ == '__main__':
                     beam_pre.copy_plans_from_asim(settings)
 
                     # d) merge updated plans with full pop plans
+                    # we do this inside beam
 
                     # e) run BEAM
+                    run_beam()
 
         logger.info("Finished")
