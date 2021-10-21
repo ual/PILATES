@@ -78,57 +78,65 @@ def usim_model_data_fname(region_id):
     return 'custom_mpo_{0}_model_data.h5'.format(region_id)
 
 
-def add_skims_to_model_data(
-        settings, region, skim_zone_source_id_col):
+def add_skims_to_model_data(settings, data_dir=None):
 
     logger.info("Loading skims from disk")
+    region = settings['region']
+    skim_zone_source_id_col = settings['skim_zone_source_id_col']
     skim_format = settings['travel_model']
     df = _load_raw_skims(settings, skim_format=skim_format)
     region_id = settings['region_to_region_id'][region]
     model_data_fname = usim_model_data_fname(region_id)
-    model_data_fpath = os.path.join(
-        settings['usim_local_data_folder'], model_data_fname)
+    if not data_dir:
+        data_dir = settings['usim_local_data_folder']
+    model_data_fpath = os.path.join(data_dir, model_data_fname)
+    if not os.path.exists(model_data_fpath):
+        raise ValueError('No input data found at {0}'.format(
+            model_data_fpath))
     store = pd.HDFStore(model_data_fpath)
     store['travel_data'] = df
     del df
 
-    # should only have to be run the first time the raw
-    # urbansim data is touched by pilates
-    zone_id_col = 'zone_id'  # col name we want at the end
-    blocks = store['blocks'].copy()
-    if zone_id_col not in blocks.columns:
+    if settings['skims_zone_type'] != 'block_group':
 
-        block_to_zone_fpath = \
-            "pilates/utils/data/{0}/blocks_to_taz.csv".format(region)
-        if not os.path.isfile(block_to_zone_fpath):
-            logger.info("Mapping block IDs to skim zones")
-            block_taz = map_block_to_taz(
-                settings, region, zone_id_col=zone_id_col,
-                reference_taz_id_col=skim_zone_source_id_col)
-            block_taz.to_csv(block_to_zone_fpath)
-        else:
-            block_taz = pd.read_csv(
-                block_to_zone_fpath, dtype={'GEOID': str})
-            block_taz = block_taz.set_index('GEOID')[zone_id_col]
+        # should only have to be run the first time the
+        # the base year urbansim data is touched by pilates
+        zone_id_col = 'zone_id'
+        if zone_id_col not in store['blocks'].columns:
+            blocks = store['blocks'].copy()
+            block_to_zone_fpath = \
+                "pilates/utils/data/{0}/blocks_to_taz.csv".format(region)
+            if not os.path.isfile(block_to_zone_fpath):
+                logger.info("Mapping block IDs to skim zones")
+                block_taz = map_block_to_taz(
+                    settings, region, zone_id_col=zone_id_col,
+                    reference_taz_id_col=skim_zone_source_id_col)
+                block_taz.to_csv(block_to_zone_fpath)
+            else:
+                logger.info("Reading block to zone mapping from disk!")
+                block_taz = pd.read_csv(
+                    block_to_zone_fpath, dtype={
+                        'GEOID': str, zone_id_col: str})
+                block_taz = block_taz.set_index('GEOID')[zone_id_col]
 
-        block_taz.index.name = 'block_id'
-        blocks = blocks.join(block_taz)
-        blocks[zone_id_col] = blocks[zone_id_col].fillna(0)
-        blocks = blocks[blocks[zone_id_col] != 0].copy()
+            block_taz.index.name = 'block_id'
+            blocks = blocks.join(block_taz)
+            blocks[zone_id_col] = blocks[zone_id_col].fillna(0)
+            blocks = blocks[blocks[zone_id_col] != 0].copy()
 
-        logger.info("Write out to the data store.")
-        households = store['households'].copy()
-        persons = store['persons'].copy()
-        jobs = store['jobs'].copy()
-        units = store['residential_units'].copy()
-        assert households['block_id'].isin(blocks.index).all()
-        assert persons['household_id'].isin(households.index).all()
-        assert jobs['block_id'].isin(blocks.index).all()
-        assert units['block_id'].isin(blocks.index).all()
-        store['blocks'] = blocks
-        store['households'] = households
-        store['persons'] = persons
-        store['jobs'] = jobs
-        store['residential_units'] = units
+            logger.info("Write out to the data store.")
+            households = store['households'].copy()
+            persons = store['persons'].copy()
+            jobs = store['jobs'].copy()
+            units = store['residential_units'].copy()
+            assert households['block_id'].isin(blocks.index).all()
+            assert persons['household_id'].isin(households.index).all()
+            assert jobs['block_id'].isin(blocks.index).all()
+            assert units['block_id'].isin(blocks.index).all()
+            store['blocks'] = blocks
+            store['households'] = households
+            store['persons'] = persons
+            store['jobs'] = jobs
+            store['residential_units'] = units
 
     store.close()
