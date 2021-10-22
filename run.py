@@ -37,14 +37,28 @@ def find_latest_beam_iteration(beam_output_dir):
 
 
 def run_beam(settings):
-
+    beam_config = settings['beam_config']
+    region = settings['region']
+    path_to_beam_config = '/app/input/{0}/{1}'.format(
+        region, beam_config)
+    beam_local_input_folder = settings['beam_local_input_folder']
     abs_beam_input = os.path.abspath(beam_local_input_folder)
+    beam_local_output_folder = settings['beam_local_output_folder']
     abs_beam_output = os.path.abspath(beam_local_output_folder)
+    image_names = settings['docker_images']
+    travel_model = settings.get('travel_model', False)
+    travel_model_image = image_names[travel_model]
+    docker_stdout = settings['docker_stdout']
+    skims_fname = settings['skims_fname']
+    beam_memory = settings['beam_memory']
+
+    # remember the last produced skims in order to detect that beam didn't work properly during this run
+    previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
+    logger.info("Found skims from the previous beam run: %s", previous_skims)
+
     logger.info(
         "Starting beam container, input: %s, output: %s, config: %s",
         abs_beam_input, abs_beam_output, beam_config)
-    path_to_beam_config = '/app/input/{0}/{1}'.format(
-        region, beam_config)
     client.containers.run(
         travel_model_image,
         volumes={
@@ -417,7 +431,7 @@ def run_traffic_assignment(settings, year, client):
             "{2} outputs".format(
                 year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings)
+        beam_pre.copy_plans_from_asim(settings, year, 0)
 
     # 3. RUN BEAM
     logger.info(
@@ -546,7 +560,7 @@ def run_replanning_loop(settings, forecast_year):
             "{2} outputs".format(
                 forecast_year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings)
+        beam_pre.copy_plans_from_asim(settings, year, i + 1)
 
         # e) run BEAM
         run_beam(settings)
@@ -646,6 +660,6 @@ if __name__ == '__main__':
 
             # 4. REPLAN
             if replanning_enabled > 0:
-                run_replanning_loop(settings)
+                run_replanning_loop(settings, forecast_year)
 
         logger.info("Finished")
