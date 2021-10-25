@@ -1,8 +1,8 @@
 #!/bin/bash
-BACKUP_DIR=/mnt/c/polaris_development/PILATES/Backup
-SCENARIO_DIR=/mnt/c/polaris_development/PILATES/UrbanSim_files
-SOURCE_DIR=/mnt/c/polaris_development/PILATES/campoInputs
-MODEL_DIR=/mnt/c/polaris_development/PILATES/campoInputs
+BACKUP_DIR=/mnt/c/PILATES/Backup
+SCENARIO_DIR=/mnt/c/PILATES/UrbanSim_files
+SOURCE_DIR=/mnt/c/PILATES/austin
+MODEL_DIR=/mnt/c/PILATES/austin
 echo current directory: $PWD
 echo scenario directory: $SCENARIO_DIR
 echo source directory: $SOURCE_DIR
