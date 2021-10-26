@@ -41,9 +41,8 @@ def merge_current_skims(all_skims_path, previous_skims_path, beam_output_dir):
 
     all_skims = pd.read_csv(all_skims_path, dtype=schema, index_col=index_columns)
     cur_skims = pd.read_csv(current_skims_path, dtype=schema, index_col=index_columns)
-    # replace only those skims that are presented in the all_skims
-    # to keep all_skims conform with ASIM requirements (square matrix)
     all_skims.loc[cur_skims.index.intersection(all_skims.index)] = cur_skims
+    all_skims = pd.concat([all_skims, cur_skims.loc[cur_skims.index.difference(all_skims.index)]])
     all_skims = all_skims.reset_index()
     all_skims.to_csv(all_skims_path, index=False)
     return current_skims_path
