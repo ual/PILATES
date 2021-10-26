@@ -238,9 +238,9 @@ def read_zone_geoms(settings, year,
 
         logger.info("Storing zone geometries to .h5 datastore!")
         store[zone_key] = out_zones
-    
+
     store.close()
-    
+
     # Sort zones by zone_id. 
     # momentary int transformation to 
     # make sure it sort 1, 2, 10 instead of '1', 10', '2'
@@ -1227,7 +1227,6 @@ def create_asim_data_from_h5(
     persons = store[os.path.join(table_prefix_yr, 'persons')]
     blocks = store[os.path.join(table_prefix_yr, 'blocks')]
     jobs = store[os.path.join(table_prefix_yr, 'jobs')]
-    store.close()
 
     # TODO: only call _get_zones_geoms if blocks or colleges or schools
     # don't already have a zone ID (e.g. TAZ). If they all do then we don't
@@ -1236,7 +1235,6 @@ def create_asim_data_from_h5(
     zones = read_zone_geoms(settings, year,
                     asim_zone_id_col=asim_zone_id_col,
                     default_zone_id_col=input_zone_id_col)
-    store, table_prefix_yr = read_datastore(settings, year, warm_start = warm_start)
 
     # update blocks
     blocks_cols = blocks.columns.tolist()
