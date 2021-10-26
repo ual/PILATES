@@ -126,7 +126,7 @@ def geoid_to_zone_map(settings, year):
 
         elif zone_type == 'blocks':
             store, table_prefix_year = read_datastore(settings, year)
-            blocks = store[os.path.join(table_prefix_yr, 'blocks')]
+            blocks = store[os.path.join(table_prefix_year, 'blocks')]
             order = blocks.index.unique()
             mapping = None
             store.close()
