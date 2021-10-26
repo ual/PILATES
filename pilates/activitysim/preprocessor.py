@@ -197,11 +197,14 @@ def zone_id_to_taz(zones, asim_zone_id_col='TAZ',
 
 def read_zone_geoms(settings, year, 
                     asim_zone_id_col='TAZ', 
-                    default_zone_id_col='zone_id'):
+                    default_zone_id_col='zone_id',
+                    store = None,
+                    ):
     """
     Returns a GeoPandas dataframe with the zones geometries. 
     """
-    store, table_prefix_year = read_datastore(settings, year)
+    if store is None:
+        store, table_prefix_year = read_datastore(settings, year)
     zone_key = '/zone_geoms'
     zone_type = region_zone_type(settings)
     
@@ -1232,9 +1235,10 @@ def create_asim_data_from_h5(
     # don't already have a zone ID (e.g. TAZ). If they all do then we don't
     # need zone geoms and we can simply instantiate the zones table from
     # the unique zone ids in the blocks/persons/households tables.
-    zones = read_zone_geoms(settings, year, 
-                    asim_zone_id_col=asim_zone_id_col, 
-                    default_zone_id_col=input_zone_id_col)
+    zones = read_zone_geoms(settings, year,
+                    asim_zone_id_col=asim_zone_id_col,
+                    default_zone_id_col=input_zone_id_col,
+                    store=store)
 
     # update blocks
     blocks_cols = blocks.columns.tolist()
