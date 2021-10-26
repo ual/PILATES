@@ -197,14 +197,11 @@ def zone_id_to_taz(zones, asim_zone_id_col='TAZ',
 
 def read_zone_geoms(settings, year, 
                     asim_zone_id_col='TAZ', 
-                    default_zone_id_col='zone_id',
-                    store = None,
-                    ):
+                    default_zone_id_col='zone_id'):
     """
     Returns a GeoPandas dataframe with the zones geometries. 
     """
-    if store is None:
-        store, table_prefix_year = read_datastore(settings, year)
+    store, table_prefix_year = read_datastore(settings, year)
     zone_key = '/zone_geoms'
     zone_type = region_zone_type(settings)
     
@@ -1230,6 +1227,7 @@ def create_asim_data_from_h5(
     persons = store[os.path.join(table_prefix_yr, 'persons')]
     blocks = store[os.path.join(table_prefix_yr, 'blocks')]
     jobs = store[os.path.join(table_prefix_yr, 'jobs')]
+    store.close()
 
     # TODO: only call _get_zones_geoms if blocks or colleges or schools
     # don't already have a zone ID (e.g. TAZ). If they all do then we don't
@@ -1237,8 +1235,8 @@ def create_asim_data_from_h5(
     # the unique zone ids in the blocks/persons/households tables.
     zones = read_zone_geoms(settings, year,
                     asim_zone_id_col=asim_zone_id_col,
-                    default_zone_id_col=input_zone_id_col,
-                    store=store)
+                    default_zone_id_col=input_zone_id_col)
+    store, table_prefix_yr = read_datastore(settings, year, warm_start = warm_start)
 
     # update blocks
     blocks_cols = blocks.columns.tolist()
