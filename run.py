@@ -431,7 +431,7 @@ def run_traffic_assignment(settings, year, client):
             "{2} outputs".format(
                 year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings, year, 0)
+        beam_pre.copy_plans_from_asim(settings, year)
 
     # 3. RUN BEAM
     logger.info(
@@ -560,7 +560,7 @@ def run_replanning_loop(settings, forecast_year):
             "{2} outputs".format(
                 forecast_year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings, year, i + 1)
+        beam_pre.copy_plans_from_asim(settings, year, i)
 
         # e) run BEAM
         run_beam(settings)
