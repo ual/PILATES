@@ -35,43 +35,6 @@ def find_latest_beam_iteration(beam_output_dir):
                 iter_dirs += os.path.join(root, dir)
     print(iter_dirs)
 
-
-def run_beam(settings):
-
-    abs_beam_input = os.path.abspath(beam_local_input_folder)
-    abs_beam_output = os.path.abspath(beam_local_output_folder)
-    logger.info(
-        "Starting beam container, input: %s, output: %s, config: %s",
-        abs_beam_input, abs_beam_output, beam_config)
-    path_to_beam_config = '/app/input/{0}/{1}'.format(
-        region, beam_config)
-    client.containers.run(
-        travel_model_image,
-        volumes={
-            abs_beam_input: {
-                'bind': '/app/input',
-                'mode': 'rw'},
-            abs_beam_output: {
-                'bind': '/app/output',
-                'mode': 'rw'}},
-        environment=
-        {'JAVA_OPTS': '-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
-            beam_memory)},
-        command="--config={0}".format(path_to_beam_config),
-        stdout=docker_stdout, stderr=True, detach=False, remove=True
-    )
-    path_to_skims = os.path.join(os.path.abspath(
-        beam_local_output_folder), skims_fname)
-    current_skims = beam_post.merge_current_skims(
-        path_to_skims, previous_skims, beam_local_output_folder)
-    if current_skims == previous_skims:
-        logger.error(
-            "BEAM hasn't produced the new skims for some reason. "
-            "Please check beamLog.out for errors in the directory %s",
-            abs_beam_output)
-        exit(1)
-
-
 def parse_args_and_settings(settings_file='settings.yaml'):
 
     # read settings from config file
@@ -114,13 +77,6 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     if args.household_sample_size:
         settings.update({
             'household_sample_size': args.household_sample_size})
-
-    # remember already processed skims
-    previous_skims = beam_post.find_produced_skims(
-        settings['beam_local_output_folder'])
-    settings.update({'previous_skims': previous_skims})
-    if previous_skims:
-        logger.info("Found skims from the previous run: %s", previous_skims)
 
     # turn models on or off
     land_use_enabled = ((
@@ -408,7 +364,11 @@ def run_traffic_assignment(settings, year, client):
     activity_demand_model = settings.get('activity_demand_model', False)
     docker_stdout = settings['docker_stdout']
     skims_fname = settings['skims_fname']
-    previous_skims = settings['previous_skims']
+    beam_memory = settings['beam_memory']
+
+    # remember the last produced skims in order to detect that beam didn't work properly during this run
+    previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
+    logger.info("Found skims from the previous beam run: %s", previous_skims)
 
     # 2. COPY ACTIVITY DEMAND OUTPUTS --> TRAFFIC ASSIGNMENT INPUTS
     if settings['traffic_assignment_enabled']:
@@ -417,7 +377,7 @@ def run_traffic_assignment(settings, year, client):
             "{2} outputs".format(
                 year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings)
+        beam_pre.copy_plans_from_asim(settings, year)
 
     # 3. RUN BEAM
     logger.info(
@@ -432,13 +392,15 @@ def run_traffic_assignment(settings, year, client):
             abs_beam_output: {
                 'bind': '/app/output',
                 'mode': 'rw'}},
+        environment=
+        {'JAVA_OPTS': '-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
+            beam_memory)},
         command="--config={0}".format(path_to_beam_config),
         stdout=docker_stdout, stderr=True, detach=False, remove=True
     )
 
     # 4. POSTPROCESS
-    path_to_skims = os.path.join(os.path.abspath(
-        beam_local_output_folder), skims_fname)
+    path_to_skims = os.path.join(abs_beam_output, skims_fname)
     current_skims = beam_post.merge_current_skims(
         path_to_skims, previous_skims, beam_local_output_folder)
     if current_skims == previous_skims:
@@ -546,10 +508,10 @@ def run_replanning_loop(settings, forecast_year):
             "{2} outputs".format(
                 forecast_year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings)
+        beam_pre.copy_plans_from_asim(settings, year, i)
 
         # e) run BEAM
-        run_beam(settings)
+        run_traffic_assignment(settings, year, client)
 
     return
 
@@ -642,10 +604,10 @@ if __name__ == '__main__':
         if traffic_assignment_enabled:
 
             # 3. RUN BEAM
-            run_beam(settings)
+            run_traffic_assignment(settings, year, client)
 
             # 4. REPLAN
             if replanning_enabled > 0:
-                run_replanning_loop(settings)
+                run_replanning_loop(settings, forecast_year)
 
         logger.info("Finished")
