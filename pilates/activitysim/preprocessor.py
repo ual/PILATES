@@ -126,7 +126,7 @@ def geoid_to_zone_map(settings, year):
 
         elif zone_type == 'blocks':
             store, table_prefix_year = read_datastore(settings, year)
-            blocks = store[os.path.join(table_prefix_yr, 'blocks')]
+            blocks = store[os.path.join(table_prefix_year, 'blocks')]
             order = blocks.index.unique()
             mapping = None
             store.close()
@@ -159,8 +159,8 @@ def zone_order(settings, year):
     if zone_type == 'taz':
         num_taz = len(set(mapping.values()))
         order = np.array(range(1, num_taz + 1)).astype(str)
-    else: 
-        order = pd.DataFrame.from_dict(mapping, orient = 'index', columns = ['zone_id'], dtype = int)
+    else:
+        order = pd.DataFrame.from_dict(mapping, orient = 'index', columns = ['zone_id']).astype(int)
         order = np.array(order.sort_values('zone_id').index)
     return order
 
@@ -238,9 +238,9 @@ def read_zone_geoms(settings, year,
 
         logger.info("Storing zone geometries to .h5 datastore!")
         store[zone_key] = out_zones
-    
+
     store.close()
-    
+
     # Sort zones by zone_id. 
     # momentary int transformation to 
     # make sure it sort 1, 2, 10 instead of '1', 10', '2'
@@ -1217,24 +1217,25 @@ def create_asim_data_from_h5(
 
     if not output_dir:
         output_dir = settings['asim_local_input_folder']
-    
-    store, table_prefix_yr = read_datastore(settings, year, warm_start = warm_start)
+
     input_zone_id_col = 'zone_id'
     asim_zone_id_col = 'TAZ'
+
+    # TODO: only call _get_zones_geoms if blocks or colleges or schools
+    # don't already have a zone ID (e.g. TAZ). If they all do then we don't
+    # need zone geoms and we can simply instantiate the zones table from
+    # the unique zone ids in the blocks/persons/households tables.
+    zones = read_zone_geoms(settings, year,
+                            asim_zone_id_col=asim_zone_id_col,
+                            default_zone_id_col=input_zone_id_col)
+    
+    store, table_prefix_yr = read_datastore(settings, year, warm_start = warm_start)
 
     logger.info("Loading UrbanSim data from .h5")
     households = store[os.path.join(table_prefix_yr, 'households')]
     persons = store[os.path.join(table_prefix_yr, 'persons')]
     blocks = store[os.path.join(table_prefix_yr, 'blocks')]
     jobs = store[os.path.join(table_prefix_yr, 'jobs')]
-
-    # TODO: only call _get_zones_geoms if blocks or colleges or schools
-    # don't already have a zone ID (e.g. TAZ). If they all do then we don't
-    # need zone geoms and we can simply instantiate the zones table from
-    # the unique zone ids in the blocks/persons/households tables.
-    zones = read_zone_geoms(settings, year, 
-                    asim_zone_id_col=asim_zone_id_col, 
-                    default_zone_id_col=input_zone_id_col)
 
     # update blocks
     blocks_cols = blocks.columns.tolist()

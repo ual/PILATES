@@ -62,7 +62,7 @@ skim_zone_source_id_col: objectid
 replan_iters: 0
 replan_hh_sample_size: 0
 replan_after: trip_scheduling  # resume asim after this step
-
+final_asim_plans_folder:
 
 # POLARIS
 polaris_local_data_folder: pilates/polaris/data
