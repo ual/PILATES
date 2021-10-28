@@ -604,12 +604,12 @@ def create_skims_from_beam(settings, year,
 
     # If running in static skims mode and ActivitySim skims already exist
     # there is no point in recreating them.
-    static_skims = settings['static_skims']
+    static_skims = settings.get('static_skims', False)
     if static_skims:
         overwrite = False
 
     new = _create_skim_object(settings, overwrite, output_dir=output_dir)
-    validation = settings['asim_validation']
+    validation = settings.get('asim_validation', False)
 
     if new:
         order = zone_order(settings, year)
@@ -1228,8 +1228,9 @@ def create_asim_data_from_h5(
     zones = read_zone_geoms(settings, year,
                             asim_zone_id_col=asim_zone_id_col,
                             default_zone_id_col=input_zone_id_col)
-    
-    store, table_prefix_yr = read_datastore(settings, year, warm_start = warm_start)
+
+    store, table_prefix_yr = read_datastore(
+        settings, year, warm_start=warm_start)
 
     logger.info("Loading UrbanSim data from .h5")
     households = store[os.path.join(table_prefix_yr, 'households')]
