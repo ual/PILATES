@@ -252,7 +252,7 @@ def read_zone_geoms(settings, year,
 ####################################
 #### RAW BEAM SKIMS TO SKIMS.OMX ###
 ####################################
-def _load_raw_beam_skims(settings, remote_url=None):
+def _load_raw_beam_skims(settings):
     """ Read BEAM skims (csv format) from local storage or remote URL if provided 
     Parameters: 
     ------------
@@ -264,14 +264,10 @@ def _load_raw_beam_skims(settings, remote_url=None):
     - pandas DataFrame. 
     """
     zone_type = region_zone_type(settings)
-    if not remote_url:
-        skims_fname = settings.get('skims_fname', False)
-        path_to_beam_skims = os.path.join(
-            settings['beam_local_output_folder'], skims_fname)
-        logger.info("Loading raw beam skims from disk.")
-    else:
-        path_to_beam_skims = remote_url
-        logger.info("Loading raw beam skims from URL.")
+    skims_fname = settings.get('skims_fname', False)
+    path_to_beam_skims = os.path.join(
+        settings['beam_local_output_folder'], skims_fname)
+    logger.info("Loading raw beam skims from disk.")
     try:
         # load skims from disk or url
         skims = pd.read_csv(path_to_beam_skims, dtype=beam_skims_types)
@@ -286,7 +282,7 @@ def _load_raw_beam_skims(settings, remote_url=None):
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
     return skims                             
 
-def _create_skim_object(settings, overwrite=True):
+def _create_skim_object(settings, overwrite=True, output_dir=None):
     """ Creates OMX file to store skim matrices
     Parameters: 
     -----------
@@ -298,8 +294,9 @@ def _create_skim_object(settings, overwrite=True):
     - True if skim.omx file exist or overwrite is True, False otherwise. 
     
     """
-    data_dir = settings['asim_local_input_folder']
-    skims_path = os.path.join(data_dir, 'skims.omx')
+    if output_dir is None:
+        output_dir = settings['asim_local_input_folder']
+    skims_path = os.path.join(output_dir, 'skims.omx')
     skims_exist = os.path.exists(skims_path)
 
     if skims_exist:
@@ -599,21 +596,24 @@ def _create_offset(settings, order):
 
 
 def create_skims_from_beam(settings, year,
-                           remote_url=None,
+                           output_dir=None,
                            overwrite=True):
+
+    if not output_dir:
+        output_dir = settings['asim_local_input_folder']
 
     # If running in static skims mode and ActivitySim skims already exist
     # there is no point in recreating them.
-    static_skims = settings['static_skims']
+    static_skims = settings.get('static_skims', False)
     if static_skims:
         overwrite = False
 
-    new = _create_skim_object(settings, overwrite)
-    validation = settings['asim_validation']
+    new = _create_skim_object(settings, overwrite, output_dir=output_dir)
+    validation = settings.get('asim_validation', False)
 
     if new:
         order = zone_order(settings, year)
-        skims_df = _load_raw_beam_skims(settings, remote_url=remote_url)
+        skims_df = _load_raw_beam_skims(settings)
         skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
         auto_df, transit_df  = _create_skims_by_mode(settings, skims_df)
 
@@ -1228,8 +1228,9 @@ def create_asim_data_from_h5(
     zones = read_zone_geoms(settings, year,
                             asim_zone_id_col=asim_zone_id_col,
                             default_zone_id_col=input_zone_id_col)
-    
-    store, table_prefix_yr = read_datastore(settings, year, warm_start = warm_start)
+
+    store, table_prefix_yr = read_datastore(
+        settings, year, warm_start=warm_start)
 
     logger.info("Loading UrbanSim data from .h5")
     households = store[os.path.join(table_prefix_yr, 'households')]
