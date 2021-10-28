@@ -164,7 +164,7 @@ def zone_order(settings, year):
         order = np.array(order.sort_values('zone_id').index)
     return order
 
-def read_skims(settings, mode='a'):
+def read_skims(settings, mode='a', data_dir=None):
     """
     Opens skims OMX file. 
     Parameters:
@@ -175,7 +175,8 @@ def read_skims(settings, mode='a'):
         'a' to read/write an existing file (will create it if doesn't exist).
         Ignored in read-only mode.  
     """
-    data_dir = settings['asim_local_input_folder']
+    if data_dir is None:
+        data_dir = settings['asim_local_input_folder']
     path = os.path.join(data_dir, 'skims.omx')
     skims = omx.open_file(path, mode = mode)
     return skims
@@ -470,7 +471,7 @@ def impute_distances(zones, origin, destination):
     
     return orig.distance(dest).replace({0:100}).values * (0.621371 / 1000)
     
-def _distance_skims(settings, year, auto_df, order):
+def _distance_skims(settings, year, auto_df, order, data_dir=None):
     """
     Generates distance matrices for drive, walk and bike modes.
     Parameters:
@@ -482,7 +483,7 @@ def _distance_skims(settings, year, auto_df, order):
         zone_id order to create the num_zones x num_zones skim matrix.
     """
     logger.info("Creating distance skims.")
-    skims = read_skims(settings, mode = 'a')
+    skims = read_skims(settings, mode='a', data_dir=data_dir)
 
     # TO DO: Include walk and bike distances,
     # for now walk and bike are the same as drive.
@@ -506,14 +507,14 @@ def _distance_skims(settings, year, auto_df, order):
     skims['DISTWALK'] = mx_dist
     skims.close()
                                
-def _transit_skims(settings, transit_df, order):
+def _transit_skims(settings, transit_df, order, data_dir=None):
     """ Generate transit OMX skims"""
     
     logger.info("Creating transit skims.")
     transit_paths = settings['transit_paths']
     periods = settings['periods']
     measure_map = settings['beam_asim_transit_measure_map']
-    skims = read_skims(settings, mode = 'a')
+    skims = read_skims(settings, mode='a', data_dir=data_dir)
     num_taz = len(order)
     df = transit_df.copy()
 
@@ -543,14 +544,14 @@ def _transit_skims(settings, transit_df, order):
     skims.close()
     del df, df_
     
-def _auto_skims(settings, auto_df, order):
+def _auto_skims(settings, auto_df, order, data_dir=None):
     logger.info("Creating drive skims.")
     
     # Open skims object
     periods = settings['periods']
     paths = settings['hwy_paths']
     measure_map = settings['beam_asim_hwy_measure_map']
-    skims = read_skims(settings, mode = 'a')
+    skims = read_skims(settings, mode='a', data_dir=data_dir)
     num_taz = len(order)
     
     df = auto_df.copy()
@@ -583,11 +584,11 @@ def _auto_skims(settings, auto_df, order):
     del df, df_
 
 
-def _create_offset(settings, order):
+def _create_offset(settings, order, data_dir=None):
     logger.info("Creating skims offset keys")
 
     # Open skims object
-    skims = read_skims(settings, mode='a')
+    skims = read_skims(settings, mode='a', data_dir=data_dir)
     zone_id = np.arange(1, len(order) + 1)
 
     # Generint offset
@@ -615,20 +616,20 @@ def create_skims_from_beam(settings, year,
         order = zone_order(settings, year)
         skims_df = _load_raw_beam_skims(settings)
         skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
-        auto_df, transit_df  = _create_skims_by_mode(settings, skims_df)
+        auto_df, transit_df = _create_skims_by_mode(settings, skims_df)
 
         # Create skims
-        _distance_skims(settings, year, auto_df, order)
-        _auto_skims(settings, auto_df, order)
-        _transit_skims(settings, transit_df, order)
+        _distance_skims(settings, year, auto_df, order, data_dir=output_dir)
+        _auto_skims(settings, auto_df, order, data_dir=output_dir)
+        _transit_skims(settings, transit_df, order, data_dir=output_dir)
 
         # Create offset
-        _create_offset(settings, order)
-        del auto_df, transit_df  
+        _create_offset(settings, order, data_dir=output_dir)
+        del auto_df, transit_df
 
     if validation:
         order = zone_order(settings, year)
-        skim_validations(settings, year, order)
+        skim_validations(settings, year, order, data_dir=output_dir)
 
 def plot_skims(settings, zones, 
                skims, order,
@@ -689,9 +690,9 @@ def plot_skims(settings, zones,
     save_path = os.path.join(asim_validation, 'skims_validation_' + name + '.pdf')
     fig.savefig(save_path)
             
-def skim_validations(settings, year, order):
+def skim_validations(settings, year, order, data_dir=None):
     logger.info("Generating skims validation plots.")
-    skims = read_skims(settings, mode = 'r')
+    skims = read_skims(settings, mode='r', data_dir=data_dira)
     zone =  read_zone_geoms(settings, year, 
                             asim_zone_id_col='TAZ', 
                             default_zone_id_col='zone_id')
