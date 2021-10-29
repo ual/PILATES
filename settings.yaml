@@ -60,7 +60,7 @@ beam_plans: gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz
 beam_memory: "100g"
 skim_zone_source_id_col: objectid
 replan_iters: 0
-replan_hh_sample_size: 0
+replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
 final_asim_plans_folder:
 
