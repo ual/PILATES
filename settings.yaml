@@ -19,7 +19,7 @@ activity_demand_model: activitysim
 
 # docker settings
 docker_images:
-  urbansim: mxndrwgrdnr/block_model_update
+  urbansim: mxndrwgrdnr/block_model_v2_pb
   beam: dimaopen/beam:0.8.6.3
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
@@ -27,13 +27,13 @@ docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_zone_type: taz  # one of [taz, block_group]
-skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+skims_zone_type: block_group  # one of [taz, block_group, block]
+skims_fname: austin-skims-res-full-new.csv.gz
 
-region_zone_type:
-  austin: block_groups # one of [taz, block_groups, block]
-  detroit: block_groups # one of [taz, block_groups, block]
-  sfbay: taz # one of [taz, block_groups, block]
+# region_zone_type:
+#   austin: block_groups # one of [taz, block_groups, block]
+#   detroit: block_groups # one of [taz, block_groups, block]
+#   sfbay: taz # one of [taz, block_groups, block]
 
 #########################################################################################################
 
@@ -49,7 +49,7 @@ usim_local_data_folder: pilates/urbansim/data/
 usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
-usim_formattable_command: "-r {0} -i {1} -y {2} -f {3}"
+usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -ss {4}"
 
 
 # BEAM 

@@ -144,9 +144,10 @@ def get_usim_cmd(settings, year, forecast_year):
     region = settings['region']
     region_id = settings['region_to_region_id'][region]
     land_use_freq = settings['land_use_freq']
+    skims_source = settings['travel_model']
     formattable_usim_cmd = settings['usim_formattable_command']
     usim_cmd = formattable_usim_cmd.format(
-        region_id, year, forecast_year, land_use_freq)
+        region_id, year, forecast_year, land_use_freq, skims_source)
     return usim_cmd
 
 
