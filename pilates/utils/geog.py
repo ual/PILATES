@@ -6,6 +6,8 @@ from shapely.geometry import Polygon
 from tqdm import tqdm
 import os
 
+from pilates.utils.io import read_datastore
+
 logger = logging.getLogger(__name__)
 
 def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out='zone_id'):
@@ -14,7 +16,7 @@ def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out='zone_id'):
         url = (
             'https://opendata.arcgis.com/datasets/'
             '94e6e7107f0745b5b2aabd651340b739_0.geojson')
-    
+
     gdf = gpd.read_file(url, crs="EPSG:4326")
     gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
 
@@ -24,9 +26,10 @@ def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out='zone_id'):
     return gdf
 
 
-def get_county_block_geoms(state_fips, county_fips, zone_type = 'blocks', result_size=10000):
+def get_county_block_geoms(
+        state_fips, county_fips, zone_type='block', result_size=10000):
 
-    if (zone_type == 'blocks') or (zone_type == 'taz'): #to map blocks to taz. 
+    if (zone_type == 'block') or (zone_type == 'taz'): #to map blocks to taz. 
         base_url = (
             'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
 #             'Tracts_Blocks/MapServer/12/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
@@ -35,7 +38,7 @@ def get_county_block_geoms(state_fips, county_fips, zone_type = 'blocks', result
             '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CBLOCK%2CCENTLAT'
             '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
 
-    elif zone_type == 'block_groups':
+    elif zone_type == 'block_group':
         base_url = (
             'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
 #             'Tracts_Blocks/MapServer/11/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
@@ -43,7 +46,7 @@ def get_county_block_geoms(state_fips, county_fips, zone_type = 'blocks', result
             '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
             '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CCENTLAT'
             '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
-        
+
     blocks_remaining = True
     all_features = []
     page = 0
@@ -79,15 +82,15 @@ def get_county_block_geoms(state_fips, county_fips, zone_type = 'blocks', result
 
 
 def get_block_geoms(settings, data_dir='./tmp/'):
-    
+
     region = settings['region']
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
-    zone_type = settings['region_zone_type'][region]
-    
+    zone_type = settings['skims_zone_type']
+
     all_block_geoms = []
-    file_name = zone_type + "_"+ region + ".shp"
+    file_name = zone_type + "_" + region + ".shp"
 
     if os.path.exists(os.path.join(data_dir, file_name)):
         logger.info("Loading block geoms from disk!")
@@ -173,11 +176,8 @@ def map_block_to_taz(
         A series named 'zone_id' with 'GEOID' as index name
     """
     region = settings['region']
-    FIPS = settings['FIPS'][region]
-    state_fips = FIPS['state']
-    county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
-    
+
     if zones_gdf is None:
         zones_gdf = get_taz_geoms(region, reference_taz_id_col, zone_id_col)
     blocks_gdf = get_block_geoms(settings, data_dir)
@@ -219,3 +219,74 @@ def get_zone_from_points(df, zones_gdf, local_crs):
     assert len(intx) == len(gdf)
 
     return intx[zone_id_col]
+
+
+def geoid_to_zone_map(settings, year=None):
+    """"
+    Maps the GEOID to a unique zone_id. 
+
+    Returns
+    --------
+    Returns a dictionary. Keys are GEOIDs and values are the 
+    corresponding zone_id where the GEOID belongs to. 
+   """
+    region = settings['region']
+    zone_type = settings['skims_zone_type']
+    zone_id_col = 'zone_id'
+
+    geoid_to_zone_fpath = \
+        "pilates/utils/data/{0}/geoid_to_zone.csv".format(region)
+
+    if os.path.isfile(geoid_to_zone_fpath):
+        logger.info("Reading GEOID to zone mapping.")
+        geoid_to_zone = pd.read_csv(
+            geoid_to_zone_fpath, dtype={'GEOID': str, zone_id_col: str})
+
+        num_zones = geoid_to_zone[zone_id_col].nunique()
+
+        assert geoid_to_zone[zone_id_col].astype(int).min() == 1
+        assert geoid_to_zone[zone_id_col].astype(int).max() == num_zones
+
+        mapping = geoid_to_zone.set_index('GEOID')[zone_id_col].to_dict()
+
+    else:
+        logger.info("Zone mapping not found. Creating it on the fly.")
+
+        if zone_type == 'taz':
+            logger.info("Mapping block IDs to TAZ")
+            geoid_to_zone = map_block_to_taz(
+                settings, region, zone_id_col=zone_id_col,
+                reference_taz_id_col='taz1454')
+            mapping = geoid_to_zone.to_dict()
+
+        elif zone_type == 'block_group':
+            store, table_prefix_yr = read_datastore(settings, year)
+            blocks = store[os.path.join(table_prefix_yr, 'blocks')]
+            order = blocks.index.str[:12].unique()
+            store.close()
+
+        elif zone_type == 'block':
+            store, table_prefix_year = read_datastore(settings, year)
+            blocks = store[os.path.join(table_prefix_year, 'blocks')]
+            order = blocks.index.unique()
+            store.close()
+
+        else:
+            logger.info(
+                "Define a valid zone type value. Options "
+                "['taz', 'block_group', 'block']")
+
+        # zone IDs are generated on-the-fly for GEOID/FIPS-based skims
+        if zone_type in ['block', 'block_group']:
+
+            geoid_to_zone = pd.DataFrame(
+                {'GEOID': order, 'zone_id': range(1, len(order) + 1)},
+                dtype=str)
+
+            geoid_to_zone = geoid_to_zone.set_index('GEOID')[zone_id_col]
+            mapping = geoid_to_zone.to_dict()
+
+        # Save file to disk
+        geoid_to_zone.to_csv(geoid_to_zone_fpath)
+
+    return mapping
