@@ -5,3 +5,4 @@ pyyaml
 openmatrix
 pandas
 geopandas
+# geopandas require python >= 3.7
