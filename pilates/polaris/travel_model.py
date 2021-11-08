@@ -125,7 +125,7 @@ def run_polaris(forecast_year, usim_output):
 		success = convergence.run_polaris_local(data_dir, polaris_exe, scenario_file, num_threads)
 		
 		if success:
-		fail_count = 0
+			fail_count = 0
 			# get output directory and write files into working dir for next run
 			output_dir = get_latest_polaris_output(out_name, data_dir)
 			convergence.copyreplacefile(output_dir / demand_db_name, data_dir)

@@ -18,7 +18,7 @@ travel_model: polaris
 activity_demand_model:
 
 # docker or singularity
-container_manager: docker
+container_manager: singularity
 #singularity settings
 singularity_images:
   urbansim: block_model_v2_pb_latest.sif

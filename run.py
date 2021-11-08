@@ -10,6 +10,7 @@
 # h5py
 # docker
 # sortedcontainers
+import subprocess
 
 import yaml
 import docker
@@ -83,17 +84,8 @@ def run_land_use_docker(settings, region_id, year, forecast_year, land_use_freq,
 
 def run_land_use_singularity(settings, region_id, year, forecast_year, land_use_freq, usim_local_data_folder, usim_client_data_folder):
     logger.info("Running land use with singulrity")
-    formattable_usim_cmd_singularity = "\"-r\", \"{0}\", \"-i\", \"{1}\", \"-y\", \"{2}\", \"-f\", \"{3}\""
-    usim_cmd = formattable_usim_cmd_singularity.format(
-        region_id, year, forecast_year, land_use_freq)
-    command = "[\"{0}\]\", \"--bind\", \"{1}\":\"{2}\"]".format(usim_cmd, os.path.abspath(usim_local_data_folder),
-                                                            usim_client_data_folder)
-    s_client = Client
-    # land_use_image = settings.get('singularity:urbansim')
-    # s_client.load('docker://mxndrwgrdnr/block_model_v2_pb')
-    s_client.load('./block_model_v2_pb/block_model_v2_pb.sif')
-    output = s_client.execute(command)
-    logger.info(output)
+    subprocess.run(['bash', './run_urbansim.sh', os.path.abspath(usim_local_data_folder), str(region_id), str(year), str(forecast_year), str(land_use_freq)])
+    # logger.info(output)
 
 
 def run_travel_model(name, forecast_year, usim_output):
@@ -176,13 +168,14 @@ if __name__ == '__main__':
         household_sample_size = args.household_sample_size
 
     # prep docker environment
-    client = docker.from_env()
-    if pull_latest:
-        for model in [land_use_model, activity_demand_model, travel_model]:
-            if model:
-                image = image_names[model]
-                print('Pulling latest image for {0}'.format(image))
-                client.images.pull(image)
+    if(container_manager == "docker"):
+        client = docker.from_env()
+        if pull_latest:
+            for model in [land_use_model, activity_demand_model, travel_model]:
+                if model:
+                    image = image_names[model]
+                    print('Pulling latest image for {0}'.format(image))
+                    client.images.pull(image)
 
     # remember already processed skims
     travel_model_enabled = travel_model
