@@ -2,12 +2,13 @@ import os
 import sys
 import subprocess
 import yaml
+import shutil
 import pilates.polaris.preprocessor as preprocessor
 import pilates.polaris.postprocessor as postprocessor
-import pilates.polaris.run_convergence as convergence
 import logging
 import glob
 import fnmatch
+import polarisruntime as PR
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ def run_polaris(forecast_year, usim_output):
 	db_name = polaris_settings.get('db_name')
 	out_name = polaris_settings.get('out_name')
 	polaris_exe = polaris_settings.get('polaris_exe')
-	scenario_init_file = polaris_settings.get('scenario_main_init')
+	scenario_init_file = polaris_settings.get('scenario_main_init', None)
 	scenario_main_file = polaris_settings.get('scenario_main')
 	num_threads = polaris_settings.get('num_threads')
 	num_abm_runs = polaris_settings.get('num_abm_runs')
@@ -86,7 +87,7 @@ def run_polaris(forecast_year, usim_output):
 	transit_skim_file_name = "transit_skim_file.bin"
 	
 	# start with fresh demand database from backup
-	convergence.copyreplacefile(backup_dir / demand_db_name, data_dir)
+	PR.copyreplacefile(backup_dir / demand_db_name, data_dir)
 	
 	# load the urbansim population for the init run	
 	preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output, block_loc_file, db_supply, db_demand, population_scale_factor)
@@ -94,55 +95,63 @@ def run_polaris(forecast_year, usim_output):
 	os.chdir(data_dir)
 	
 	fail_count = 0
+	loop = 0
 			
-	for loop in range(0, int(num_abm_runs)):
+	while loop < int(num_abm_runs):
 		scenario_file = ''
 		if loop == 0:
-			scenario_file = update_scenario_file(scenario_init_file, forecast_year)
-			modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
-			modify_scenario(scenario_file, "percent_to_synthesize", population_scale_factor)
-			modify_scenario(scenario_file, "demand_reduction_factor", population_scale_factor)
-			modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
-			modify_scenario(scenario_file, "read_population_from_urbansim", 'true')
-			modify_scenario(scenario_file, "read_population_from_database", 'false')
-			modify_scenario(scenario_file, "replan_workplaces", 'true')
+			scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
+			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
+			PR.modify_scenario(scenario_file, "percent_to_synthesize", population_scale_factor)
+			PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
+			PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
+			PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'true')
+			PR.modify_scenario(scenario_file, "read_population_from_database", 'false')
+			PR.modify_scenario(scenario_file, "replan_workplaces", 'true')
 		else:
-			scenario_file = update_scenario_file(scenario_main_file, forecast_year)
-			modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0/int(loop))
-			modify_scenario(scenario_file, "percent_to_synthesize", 0.0)
-			modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
-			modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
-			modify_scenario(scenario_file, "read_population_from_urbansim", 'false')
-			modify_scenario(scenario_file, "read_population_from_database", 'true')
-			modify_scenario(scenario_file, "replan_workplaces", 'true')
-			if loop >= 3:
-				modify_scenario(scenario_file, "replan_workplaces", 'false')
+			scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)
+			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0/int(loop))
+			PR.modify_scenario(scenario_file, "percent_to_synthesize", 0.0)
+			PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
+			PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
+			PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'false')
+			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
+			PR.modify_scenario(scenario_file, "replan_workplaces", 'true')
+
 
 		arguments = '{0} {1}'.format(scenario_file, str(num_threads))
 		logger.info(f'Executing \'{str(polaris_exe)} {arguments}\'')
 
 		# run executable
-		success = convergence.run_polaris_local(data_dir, polaris_exe, scenario_file, num_threads)
-		
+		success = PR.run_polaris_instance(data_dir, polaris_exe, scenario_file, num_threads, None)
+		# get output directory and write files into working dir for next run
+		output_dir = PR.get_latest_polaris_output(out_name, data_dir)
+			
 		if success:
 			fail_count = 0
-			# get output directory and write files into working dir for next run
-			output_dir = get_latest_polaris_output(out_name, data_dir)
-			convergence.copyreplacefile(output_dir / demand_db_name, data_dir)
-			convergence.copyreplacefile(output_dir / result_db_name, data_dir)
-			convergence.copyreplacefile(output_dir / highway_skim_file_name, data_dir)
-			convergence.execute_sql_script(data_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
-			convergence.execute_sql_script_with_attach(output_dir / demand_db_name, data_dir / supply_db_name, scripts_dir / "wtf_baseline_analysis.sql")
+
+			PR.copyreplacefile(output_dir / demand_db_name, data_dir)
+			PR.copyreplacefile(output_dir / result_db_name, data_dir)
+			PR.copyreplacefile(output_dir / highway_skim_file_name, data_dir)
+			PR.copyreplacefile(data_dir / supply_db_name, output_dir)
+			PR.execute_sql_script(data_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
+			if loop == int(num_abm_runs)-1:
+				PR.execute_sql_script_with_attach(output_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", data_dir / supply_db_name)
+			
+			loop += 1
 		else:
-			fail_count += 1
-			loop -= 1
-		if fail_count == 3:	
-			logger.critical("POLARIS did not execute correctly 3 consecutive times - exiting.")
-			sys.exit()
+			fail_count += 1		
+			if fail_count >= 3:
+				logger.info("POLARIS crashed three times in a row")
+				sys.exit()
+			else:
+				shutil.rmtree(output_dir)
+				logger.info(f"Deleting failed results directory for attempt: {loop}")
+	
 		
 	os.chdir(cwd)
 	# find the latest output
-	output_dir = get_latest_polaris_output(out_name, data_dir)
+	output_dir = PR.get_latest_polaris_output(out_name, data_dir)
 	# db_supply = "{0}/{1}-Supply.sqlite".format(output_dir, db_name)
 	# db_demand = "{0}/{1}-Demand.sqlite".format(output_dir, db_name)
 	# db_result =  "{0}/{1}-Result.sqlite".format(output_dir, db_name)
