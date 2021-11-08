@@ -13,7 +13,10 @@
 import subprocess
 
 import yaml
-import docker
+try:
+	import docker
+except ImportError:
+	print('Warning: Unable to import Docker Module')
 from spython.main import Client
 import os
 import argparse
