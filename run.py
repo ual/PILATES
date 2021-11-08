@@ -176,6 +176,8 @@ if __name__ == '__main__':
                     image = image_names[model]
                     print('Pulling latest image for {0}'.format(image))
                     client.images.pull(image)
+    else:
+        Client.pull('docker://mxndrwgrdnr/block_model_v2_pb')
 
     # remember already processed skims
     travel_model_enabled = travel_model

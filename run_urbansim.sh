@@ -10,5 +10,5 @@ singularity exec \
     --cleanenv \
     --pwd /base/block_model_probaflow \
     -B $host_data:/base/block_model_probaflow/data/ \
-    block_model_v2_pb_latest.sif \
+    block_model_v2_pb.sif \
     python -u simulate.py -c -cf custom -l -sg -r $region_id -i $year -y $forecast_year -f $time_step
