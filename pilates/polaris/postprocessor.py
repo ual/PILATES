@@ -24,7 +24,7 @@ def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
 	tgt = os.path.join(archive, os.path.basename(output_dir))
 	shutil.copytree(output_dir, tgt)
 
-def archive_and_generate_usim_skims(forecast_year, db_name, output_dir):
+def archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level):
 	logger.info('Archiving UrbanSim skims')
 
 	# rename existing h5 file
@@ -40,7 +40,7 @@ def archive_and_generate_usim_skims(forecast_year, db_name, output_dir):
 	ResultDbPath = '{0}/{1}-Result.sqlite'.format(output_dir, db_name)
 	auto_skim_path = '{0}/highway_skim_file.bin'.format(output_dir)
 	transit_skim_path = '{0}/transit_skim_file.bin'.format(output_dir)
-	vot_level = 2
+	#vot_level = 2
 	generate_polaris_skims_for_usim(data_dir, db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
 
 

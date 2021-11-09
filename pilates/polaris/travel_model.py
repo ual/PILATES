@@ -78,6 +78,7 @@ def run_polaris(forecast_year, usim_output):
 	db_supply = "{0}/{1}-Supply.sqlite".format(str(data_dir), db_name)
 	db_demand = "{0}/{1}-Demand.sqlite".format(str(data_dir), db_name)
 	block_loc_file = "{0}/{1}".format(str(data_dir), block_loc_file_name)
+	vot_level = polaris_settings.get('vot_level')
 	
 	# store the original inputs
 	supply_db_name = db_name + "-Supply.sqlite"
@@ -157,8 +158,8 @@ def run_polaris(forecast_year, usim_output):
 	# db_result =  "{0}/{1}-Result.sqlite".format(output_dir, db_name)
 	# auto_skim = "{0}/{1}".format(output_dir, polaris_settings.get('auto_skim_file'))
 	# transit_skim = "{0}/{1}".format(output_dir, polaris_settings.get('transit_skim_file'))
-	# vot_level = polaris_settings.get('vot_level')
+	
 	# postprocessor.generate_polaris_skims_for_usim( 'pilates/polaris/data', db_name, db_supply, db_demand, db_result, auto_skim, transit_skim, vot_level)
 		
 	postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, data_dir)
-	postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir)
+	postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level)
