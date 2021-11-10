@@ -2,6 +2,7 @@ import os
 import logging
 import gzip
 import shutil
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,14 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
                 beam_file_path, 'wb') as f_out:
             f_out.writelines(f_in)
 
-    copy_with_compression_asim_file_to_beam('final_plans.csv', 'plans.csv.gz')
+    def merge_only_updated_households(asim_file_path, beam_file_path):
+        original = pd.read_csv(beam_file_path)
+        updated = pd.read_csv(asim_file_path)
+        unchanged = original.loc[~original.household_id.isin(updated.household_id.unique()), :]
+        final = pd.concat([updated, unchanged])
+        final.to_csv(beam_file_path, compression='gzip')
+
+    merge_only_updated_households('final_plans.csv', 'plans.csv.gz')
     if replanning_iteration_number == 0:
         copy_with_compression_asim_file_to_beam('final_households.csv', 'households.csv.gz')
         copy_with_compression_asim_file_to_beam('final_persons.csv', 'persons.csv.gz')
