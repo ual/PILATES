@@ -574,8 +574,8 @@ if __name__ == '__main__':
                 warm_start_skims = True
 
             resume_after = None
-            if mandatory_activities_generated_this_year:
-                resume_after = 'auto_ownership'
+            # if mandatory_activities_generated_this_year:
+            #     resume_after = 'auto_ownership'
 
             generate_activity_plans(
                 settings, year, forecast_year, client,
