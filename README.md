@@ -57,7 +57,7 @@ In order to have BEAM to run correctly one needs to set the following settings:
 
 1. **skims_fname**: `gemini/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz` The full skim file that contains all Origin Destinations pairs with ActivitySim path types.
 2. **beam_config**: `gemini/activitysim-base-from-60k-input.conf` Path to beam config. This path must be relative to `beam_local_input_folder` and `region`. The BEAM docker container is provided with this config as an input.
-3. **beam_plans**: `gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz` File with BEAM plans that is going to be replace with the ActiveSim output.
+3. **beam_scenario_folder**: `gemini/activitysim-plans-base-2010-cut-60k` Folder with BEAM scenario where ActivitySim output goes. Files from this folder are a scenario input for BEAM.
 4. **beam_local_input_folder**: `pilates/beam/production/` Path to BEAM input folder. This folder is going to be mapped to the BEAM container input folder.
 5. **beam_local_output_folder**: `pilates/beam/beam_output/` The BEAM output is going to be saved here. In order to have a clean run this directory should be empty before start.
 
