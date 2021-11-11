@@ -23,11 +23,14 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
                 beam_file_path, 'wb') as f_out:
             f_out.writelines(f_in)
 
-    def merge_only_updated_households(asim_file_path, beam_file_path):
+    def merge_only_updated_households(asim_file_name, beam_file_name):
+        asim_file_path = os.path.join(asim_output_data_dir, asim_file_name)
+        beam_file_path = os.path.join(beam_scenario_folder, beam_file_name)
         original = pd.read_csv(beam_file_path)
         updated = pd.read_csv(asim_file_path)
-        unchanged = original.loc[~original.household_id.isin(updated.household_id.unique()), :]
-        final = pd.concat([updated, unchanged])
+        updated_filtered = updated.loc[updated.household_id.isin(original.household_id.unique()), :]
+        unchanged = original.loc[~original.household_id.isin(updated_filtered.household_id.unique()), :]
+        final = pd.concat([updated_filtered, unchanged])
         final.to_csv(beam_file_path, compression='gzip')
 
     merge_only_updated_households('final_plans.csv', 'plans.csv.gz')
