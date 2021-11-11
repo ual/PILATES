@@ -301,8 +301,6 @@ def generate_activity_plans(
         land_use_model)
     formatted_print(print_str)
     asim_pre.create_skims_from_beam(settings, year, overwrite=overwrite_skims)
-
-    breakpoint()
     asim_pre.create_asim_data_from_h5(
         settings, year=forecast_year, warm_start=warm_start)
 
@@ -346,7 +344,8 @@ def generate_activity_plans(
     return
 
 
-def run_traffic_assignment(settings, year, client, replanning_iteration_number=0):
+def run_traffic_assignment(
+        settings, year, client, replanning_iteration_number=0):
     """
     This step will run the traffic simulation platform and
     generate new skims with updated congested travel times.
@@ -369,7 +368,8 @@ def run_traffic_assignment(settings, year, client, replanning_iteration_number=0
     skims_fname = settings['skims_fname']
     beam_memory = settings['beam_memory']
 
-    # remember the last produced skims in order to detect that beam didn't work properly during this run
+    # remember the last produced skims in order to detect that
+    # beam didn't work properly during this run
     previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
     logger.info("Found skims from the previous beam run: %s", previous_skims)
 
@@ -380,7 +380,8 @@ def run_traffic_assignment(settings, year, client, replanning_iteration_number=0
             "{2} outputs".format(
                 year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings, year, replanning_iteration_number)
+        beam_pre.copy_plans_from_asim(
+            settings, year, replanning_iteration_number)
 
     # 3. RUN BEAM
     logger.info(
@@ -395,9 +396,11 @@ def run_traffic_assignment(settings, year, client, replanning_iteration_number=0
             abs_beam_output: {
                 'bind': '/app/output',
                 'mode': 'rw'}},
-        environment=
-        {'JAVA_OPTS': '-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
-            beam_memory)},
+        environment={
+            'JAVA_OPTS': (
+                '-XX:+UnlockExperimentalVMOptions -XX:+'
+                'UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
+                    beam_memory))},
         command="--config={0}".format(path_to_beam_config),
         stdout=docker_stdout, stderr=True, detach=False, remove=True
     )
@@ -469,7 +472,6 @@ def run_replanning_loop(settings, forecast_year):
     replan_iters = settings['replan_iters']
     replan_hh_samp_size = settings['replan_hh_samp_size']
     activity_demand_model = settings['activity_demand_model']
-    travel_model = settings['travel_model']
     image_names = settings['docker_images']
     activity_demand_image = image_names[activity_demand_model]
     region = settings['region']
@@ -482,7 +484,8 @@ def run_replanning_loop(settings, forecast_year):
 
     for i in range(replan_iters):
         replanning_iteration_number = i + 1
-        print_str = ('Replanning Iteration {0}'.format(replanning_iteration_number))
+        print_str = (
+            'Replanning Iteration {0}'.format(replanning_iteration_number))
         formatted_print(print_str)
 
         # a) format new skims for asim
@@ -506,7 +509,8 @@ def run_replanning_loop(settings, forecast_year):
             print(log)
 
         # e) run BEAM
-        run_traffic_assignment(settings, year, client, replanning_iteration_number)
+        run_traffic_assignment(
+            settings, year, client, replanning_iteration_number)
 
     return
 
@@ -556,11 +560,9 @@ if __name__ == '__main__':
             if year == start_year:
                 warm_start_activities(settings, year, client)
                 mandatory_activities_generated_this_year = True
-                breakpoint()
 
             forecast_year = year + travel_model_freq
             forecast_land_use(settings, year, forecast_year, client)
-            breakpoint()
 
         else:
             forecast_year = year
@@ -579,7 +581,7 @@ if __name__ == '__main__':
 
             resume_after = None
             if mandatory_activities_generated_this_year:
-                resume_after = 'auto_ownership'
+                resume_after = 'auto_ownership_simulate'
 
             generate_activity_plans(
                 settings, year, forecast_year, client,
