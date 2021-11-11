@@ -93,6 +93,14 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         'traffic_assignment_enabled': traffic_assignment_enabled,
         'replanning_enabled': replanning_enabled})
 
+    # raise errors/warnings for conflicting settings
+    if (settings['household_sample_size'] > 0) and land_use_enabled:
+        raise ValueError(
+            'Land use models must be disabled (explicitly or via "warm '
+            'start" mode to use a non-zero household sample size. The '
+            'household sample size you specified is {0}'.format(
+                settings['household_sample_size']))
+
     return settings
 
 
