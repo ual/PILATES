@@ -344,7 +344,7 @@ def generate_activity_plans(
     return
 
 
-def run_traffic_assignment(settings, year, client):
+def run_traffic_assignment(settings, year, client, replanning_iteration_number=0):
     """
     This step will run the traffic simulation platform and
     generate new skims with updated congested travel times.
@@ -378,7 +378,7 @@ def run_traffic_assignment(settings, year, client):
             "{2} outputs".format(
                 year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings, year)
+        beam_pre.copy_plans_from_asim(settings, year, replanning_iteration_number)
 
     # 3. RUN BEAM
     logger.info(
@@ -479,8 +479,8 @@ def run_replanning_loop(settings, forecast_year):
     last_asim_step = settings['replan_after']
 
     for i in range(replan_iters):
-
-        print_str = ('Replanning Iteration {0}'.format(i + 1))
+        replanning_iteration_number = i + 1
+        print_str = ('Replanning Iteration {0}'.format(replanning_iteration_number))
         formatted_print(print_str)
 
         # a) format new skims for asim
@@ -503,16 +503,8 @@ def run_replanning_loop(settings, forecast_year):
                 stream=True, stderr=True, stdout=docker_stdout):
             print(log)
 
-        # c) format updated plans for beam
-        print_str = (
-            "Generating {0} {1} input data from "
-            "{2} outputs".format(
-                forecast_year, travel_model, activity_demand_model))
-        formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings, year, i)
-
         # e) run BEAM
-        run_traffic_assignment(settings, year, client)
+        run_traffic_assignment(settings, year, client, replanning_iteration_number)
 
     return
 
