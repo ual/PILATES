@@ -232,10 +232,11 @@ def geoid_to_zone_map(settings, year=None):
    """
     region = settings['region']
     zone_type = settings['skims_zone_type']
+    travel_model = settings['travel_model']
     zone_id_col = 'zone_id'
 
     geoid_to_zone_fpath = \
-        "pilates/utils/data/{0}/geoid_to_zone.csv".format(region)
+        "pilates/utils/data/{0}/{1}/geoid_to_zone.csv".format(region, travel_model)
 
     if os.path.isfile(geoid_to_zone_fpath):
         logger.info("Reading GEOID to zone mapping.")
@@ -244,8 +245,9 @@ def geoid_to_zone_map(settings, year=None):
 
         num_zones = geoid_to_zone[zone_id_col].nunique()
 
-        assert geoid_to_zone[zone_id_col].astype(int).min() == 1
-        assert geoid_to_zone[zone_id_col].astype(int).max() == num_zones
+        if zone_type != 'taz':
+            assert geoid_to_zone[zone_id_col].astype(int).min() == 1
+            assert geoid_to_zone[zone_id_col].astype(int).max() == num_zones
 
         mapping = geoid_to_zone.set_index('GEOID')[zone_id_col].to_dict()
 
