@@ -3,7 +3,7 @@ import logging
 import os
 import h5py
 
-from pilates.utils.geog import map_block_to_taz
+from pilates.utils.geog import geoid_to_zone_map
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,13 @@ def _load_raw_skims(settings, skim_format):
     logger.info("Converting skims to UrbanSim data format.")
     skims['from_zone_id'] = skims['from_zone_id'].astype('str')
     skims['to_zone_id'] = skims['to_zone_id'].astype('str')
+
+    # for GEOID/FIPS-based skims, we have to convert the zone IDs
+    if settings['skims_zone_type'] in ['block', 'block_group']:
+        mapping = geoid_to_zone_map(settings)
+        for col in ['from_zone_id', 'to_zone_id']:
+            skims[col] = skims[col].map(mapping)
+
     skims = skims.set_index(['from_zone_id', 'to_zone_id'])
 
     return skims
@@ -78,48 +85,63 @@ def usim_model_data_fname(region_id):
     return 'custom_mpo_{0}_model_data.h5'.format(region_id)
 
 
-def add_skims_to_model_data(
-        settings, region, skim_zone_source_id_col):
+def add_skims_to_model_data(settings, data_dir=None):
 
+    # load skims
     logger.info("Loading skims from disk")
-    skim_format = settings.get('skim_format')
-    if not skim_format :
-        skim_format = settings['travel_model']
+    region = settings['region']
+    skim_format = settings['travel_model']
     df = _load_raw_skims(settings, skim_format=skim_format)
+
+    # load datastore
     region_id = settings['region_to_region_id'][region]
     model_data_fname = usim_model_data_fname(region_id)
-    model_data_fpath = os.path.join(
-        settings['usim_local_data_folder'], model_data_fname)
+    if not data_dir:
+        data_dir = settings['usim_local_data_folder']
+    model_data_fpath = os.path.join(data_dir, model_data_fname)
     if not os.path.exists(model_data_fpath):
-        raise ValueError('No model data found at {0}'.format(
+        raise ValueError('No input data found at {0}'.format(
             model_data_fpath))
     store = pd.HDFStore(model_data_fpath)
+
+    # add skims
     store['travel_data'] = df
     del df
 
-    # should only have to be run the first time the raw
-    # urbansim data is touched by pilates
-    zone_id_col = 'zone_id'  # col name we want at the end
-    blocks = store['blocks'].copy()
-    if zone_id_col not in blocks.columns:
+    # update blocks table with zone ID's that match the skims.
+    # note: should only have to be run the first time the
+    # the base year urbansim data is touched by pilates
+    zone_id_col = 'zone_id'
+    if zone_id_col not in store['blocks'].columns:
 
-        block_to_zone_fpath = \
-            "pilates/utils/data/{0}/blocks_to_taz.csv".format(region)
-        if not os.path.isfile(block_to_zone_fpath):
-            logger.info("Mapping block IDs to skim zones")
-            block_taz = map_block_to_taz(
-                settings, region, zone_id_col=zone_id_col,
-                reference_taz_id_col=skim_zone_source_id_col)
-            block_taz.to_csv(block_to_zone_fpath)
-        else:
+        blocks = store['blocks'].copy()
+        mapping = geoid_to_zone_map(settings)
+        zone_type = settings['skims_zone_type']
+
+        if zone_type == 'block':
+            logger.info("Mapping block IDs")
+            blocks[zone_id_col] = blocks.index.astype(str).replace(mapping)
+
+        elif zone_type == 'block_group':
+            logger.info("Mapping blocks to block group IDS")
+            blocks[zone_id_col] = blocks.block_group_id.astype(str).replace(
+                mapping)
+
+        elif zone_type == 'taz':
+            logger.info("Mapping block IDs to TAZ")
+            geoid_to_zone_fpath = \
+                "pilates/utils/data/{0}/{1}/geoid_to_zone.csv".format(
+                    region, skim_format)
+
             block_taz = pd.read_csv(
-                block_to_zone_fpath, dtype={'GEOID': str})
+                geoid_to_zone_fpath, dtype={'GEOID': str, zone_id_col: str})
             block_taz = block_taz.set_index('GEOID')[zone_id_col]
+            block_taz.index.name = 'block_id'
+            blocks = blocks.join(block_taz)
 
-        block_taz.index.name = 'block_id'
-        blocks = blocks.join(block_taz)
-        blocks[zone_id_col] = blocks[zone_id_col].fillna(0)
-        blocks = blocks[blocks[zone_id_col] != 0].copy()
+        blocks[zone_id_col] = blocks[zone_id_col].fillna('foo')
+        blocks = blocks[blocks[zone_id_col] != 'foo'].copy()
+        blocks[zone_id_col] = blocks[zone_id_col].astype(str)
 
         logger.info("Write out to the data store.")
         households = store['households'].copy()
