@@ -588,12 +588,22 @@ if __name__ == '__main__':
                 warm_start_skims = True
 
             resume_after = None
+            
             if mandatory_activities_generated_this_year:
                 resume_after = 'auto_ownership_simulate'
 
             generate_activity_plans(
                 settings, year, forecast_year, client,
                 resume_after=resume_after, warm_start=warm_start_skims)
+
+            if settings['traffic_assignment_enabled']:
+                print_str = (
+                    "Copying full {0} BEAM input data from "
+                    "Activitysim outputs before replanning loop".format(
+                        year))
+                formatted_print(print_str)
+                beam_pre.copy_plans_from_asim(
+                    settings, year, -1)
 
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the
