@@ -45,7 +45,7 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
             
             hh_o = (original_persons.household_id.unique())
             hh_u = (updated_persons.household_id.unique())
-            overlap = np.in1d(hh_u, hh_0).sum()
+            overlap = np.in1d(hh_u, hh_o).sum()
             logger.info("There were %s households replanned out of %s originally, and %s of them existed before", len(hh_u), len(hh_o), overlap)  
 
             persons_final = pd.concat([updated_persons, original_persons.loc[~original_persons.person_id.isin(per_u),:]])
