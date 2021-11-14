@@ -581,6 +581,15 @@ if __name__ == '__main__':
                 settings, year, forecast_year, client,
                 resume_after=resume_after, warm_start=warm_start_skims)
 
+            if settings['traffic_assignment_enabled']:
+                print_str = (
+                    "Copying full {0} BEAM input data from "
+                    "Activitysim outputs before replanning loop".format(
+                        year))
+                formatted_print(print_str)
+                beam_pre.copy_plans_from_asim(
+                    settings, year, -1)
+
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the
             # cache for use in re-planning, otherwise cache will use entire pop
