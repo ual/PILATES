@@ -93,6 +93,14 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         'traffic_assignment_enabled': traffic_assignment_enabled,
         'replanning_enabled': replanning_enabled})
 
+    # raise errors/warnings for conflicting settings
+    if (settings['household_sample_size'] > 0) and land_use_enabled:
+        raise ValueError(
+            'Land use models must be disabled (explicitly or via "warm '
+            'start" mode to use a non-zero household sample size. The '
+            'household sample size you specified is {0}'.format(
+                settings['household_sample_size']))
+
     return settings
 
 
@@ -344,7 +352,8 @@ def generate_activity_plans(
     return
 
 
-def run_traffic_assignment(settings, year, client, replanning_iteration_number=0):
+def run_traffic_assignment(
+        settings, year, client, replanning_iteration_number=0):
     """
     This step will run the traffic simulation platform and
     generate new skims with updated congested travel times.
@@ -367,7 +376,8 @@ def run_traffic_assignment(settings, year, client, replanning_iteration_number=0
     skims_fname = settings['skims_fname']
     beam_memory = settings['beam_memory']
 
-    # remember the last produced skims in order to detect that beam didn't work properly during this run
+    # remember the last produced skims in order to detect that
+    # beam didn't work properly during this run
     previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
     logger.info("Found skims from the previous beam run: %s", previous_skims)
 
@@ -378,7 +388,8 @@ def run_traffic_assignment(settings, year, client, replanning_iteration_number=0
             "{2} outputs".format(
                 year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings, year, replanning_iteration_number)
+        beam_pre.copy_plans_from_asim(
+            settings, year, replanning_iteration_number)
 
     # 3. RUN BEAM
     logger.info(
@@ -393,9 +404,11 @@ def run_traffic_assignment(settings, year, client, replanning_iteration_number=0
             abs_beam_output: {
                 'bind': '/app/output',
                 'mode': 'rw'}},
-        environment=
-        {'JAVA_OPTS': '-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
-            beam_memory)},
+        environment={
+            'JAVA_OPTS': (
+                '-XX:+UnlockExperimentalVMOptions -XX:+'
+                'UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
+                    beam_memory))},
         command="--config={0}".format(path_to_beam_config),
         stdout=docker_stdout, stderr=True, detach=False, remove=True
     )
@@ -467,7 +480,6 @@ def run_replanning_loop(settings, forecast_year):
     replan_iters = settings['replan_iters']
     replan_hh_samp_size = settings['replan_hh_samp_size']
     activity_demand_model = settings['activity_demand_model']
-    travel_model = settings['travel_model']
     image_names = settings['docker_images']
     activity_demand_image = image_names[activity_demand_model]
     region = settings['region']
@@ -480,7 +492,8 @@ def run_replanning_loop(settings, forecast_year):
 
     for i in range(replan_iters):
         replanning_iteration_number = i + 1
-        print_str = ('Replanning Iteration {0}'.format(replanning_iteration_number))
+        print_str = (
+            'Replanning Iteration {0}'.format(replanning_iteration_number))
         formatted_print(print_str)
 
         # a) format new skims for asim
@@ -504,7 +517,8 @@ def run_replanning_loop(settings, forecast_year):
             print(log)
 
         # e) run BEAM
-        run_traffic_assignment(settings, year, client, replanning_iteration_number)
+        run_traffic_assignment(
+            settings, year, client, replanning_iteration_number)
 
     return
 
@@ -574,8 +588,9 @@ if __name__ == '__main__':
                 warm_start_skims = True
 
             resume_after = None
-            # if mandatory_activities_generated_this_year:
-            #     resume_after = 'auto_ownership'
+            
+            if mandatory_activities_generated_this_year:
+                resume_after = 'auto_ownership_simulate'
 
             generate_activity_plans(
                 settings, year, forecast_year, client,

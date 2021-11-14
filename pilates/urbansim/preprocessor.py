@@ -130,7 +130,8 @@ def add_skims_to_model_data(settings, data_dir=None):
         elif zone_type == 'taz':
             logger.info("Mapping block IDs to TAZ")
             geoid_to_zone_fpath = \
-                "pilates/utils/data/{0}/geoid_to_zone.csv".format(region)
+                "pilates/utils/data/{0}/{1}/geoid_to_zone.csv".format(
+                    region, skim_format)
 
             block_taz = pd.read_csv(
                 geoid_to_zone_fpath, dtype={'GEOID': str, zone_id_col: str})
