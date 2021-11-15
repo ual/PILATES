@@ -317,9 +317,11 @@ def generate_activity_plans(
         "Generating activity plans for the year "
         "{0} with {1}".format(
             forecast_year, activity_demand_model))
-    formatted_print(print_str)
     if resume_after:
         asim_cmd += ' -r {0}'.format(resume_after)
+        print_str += ". Picking up after {1}".format(resume_after)
+    formatted_print(print_str)
+
     asim = client.containers.run(
         activity_demand_image,
         working_dir=asim_workdir,
@@ -537,6 +539,8 @@ if __name__ == '__main__':
     # parse scenario settings
     start_year = settings['start_year']
     end_year = settings['end_year']
+    formatted_print(
+        'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = settings.get('travel_model_freq', 1)
     warm_start_skims = settings['warm_start_skims']
     static_skims = settings['static_skims']
@@ -546,10 +550,10 @@ if __name__ == '__main__':
     replanning_enabled = settings['replanning_enabled']
 
     if warm_start_skims:
-        formatted_print('RUNNING PILATES IN "WARM START SKIMS" MODE')
+        formatted_print('"WARM START SKIMS" MODE ENABLED')
         logger.info('Generating activity plans for the base year only.')
     elif static_skims:
-        formatted_print('RUNNING PILATES IN "STATIC SKIMS" MODE')
+        formatted_print('"STATIC SKIMS" MODE ENABLED')
         logger.info('Using the same set of skims for every iteration.')
 
     # start docker client
@@ -579,7 +583,7 @@ if __name__ == '__main__':
         if activity_demand_enabled:
 
             # If the forecast year is the same as the base year of this
-            # iteration, then land use forecasting have not been run. In this
+            # iteration, then land use forecasting has not been run. In this
             # case we have to read from the land use *inputs* because no
             # *outputs* have been generated yet. This is usually only the case
             # for generating "warm start" skims, so we treat it the same even
@@ -587,14 +591,9 @@ if __name__ == '__main__':
             if forecast_year == year:
                 warm_start_skims = True
 
-            resume_after = None
-            
-            if mandatory_activities_generated_this_year:
-                resume_after = 'auto_ownership_simulate'
-
             generate_activity_plans(
                 settings, year, forecast_year, client,
-                resume_after=resume_after, warm_start=warm_start_skims)
+                warm_start=warm_start_skims)
 
             if settings['traffic_assignment_enabled']:
                 print_str = (
