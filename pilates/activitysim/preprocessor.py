@@ -182,6 +182,7 @@ def _load_raw_beam_skims(settings):
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
     return skims                             
 
+
 def _create_skim_object(settings, overwrite=True, output_dir=None):
     """ Creates OMX file to store skim matrices
     Parameters: 
@@ -811,7 +812,7 @@ def _update_jobs_table(
 
 def _update_blocks_table(settings, year, blocks,
                          households, jobs, zone_id_col):
-    
+
     blocks['TOTEMP'] = jobs[['block_id', 'sector_id']].groupby(
         'block_id')['sector_id'].count().reindex(blocks.index).fillna(0)
 
@@ -821,7 +822,7 @@ def _update_blocks_table(settings, year, blocks,
     blocks['TOTACRE'] = blocks['square_meters_land'] / 4046.86
 
     # update blocks (should only have to be run if asim is loading
-    # raw urbansim data that has yet to be touched by pilates)    
+    # raw urbansim data that has yet to be touched by pilates)
     geoid_to_zone_mapping_updated = False
 
     if zone_id_col not in blocks.columns:
@@ -829,6 +830,7 @@ def _update_blocks_table(settings, year, blocks,
         region = settings['region']
         mapping = geoid_to_zone_map(settings, year)
         zone_type = settings['skims_zone_type']
+        travel_model = settings['travel_model']
 
         if zone_type == 'block':
             logger.info("Mapping block IDs")
@@ -842,7 +844,8 @@ def _update_blocks_table(settings, year, blocks,
         elif zone_type == 'taz':
             logger.info("Mapping block IDs to TAZ")
             geoid_to_zone_fpath = \
-                "pilates/utils/data/{0}/geoid_to_zone.csv".format(region)
+                "pilates/utils/data/{0}/{1}/geoid_to_zone.csv".format(
+                    region, travel_model)
 
             block_taz = pd.read_csv(
                 geoid_to_zone_fpath, dtype={'GEOID': str, zone_id_col: str})
