@@ -16,12 +16,13 @@ travel_model_freq: 5
 land_use_model: urbansim
 travel_model: polaris
 activity_demand_model:
+traffic_assignment_enabled: False
 
 # docker or singularity
 container_manager: singularity
 #singularity settings
 singularity_images:
-  urbansim: block_model_v2_pb_latest.sif
+  urbansim: block_model_v2_pb.sif
   beam:
   activitysim:
   polaris:
@@ -31,18 +32,19 @@ docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
   beam: dimaopen/beam:0.8.6.3
   activitysim: mxndrwgrdnr/activitysim:latest
+  activity_cemand_model:
   polaris:
 docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_zone_type: block_group  # one of [taz, block_group, block]
+skims_zone_type: taz  # one of [taz, block_group, block]
 # skims_fname: austin-skims-res-full-new.csv.gz
 skims_fname: campo_skims.hdf5
 skim_format: polaris
 
-# region_zone_type:
-#   austin: block_groups # one of [taz, block_groups, block]
+region_zone_type:
+  austin: taz # one of [taz, block_groups, block]
 #   detroit: block_groups # one of [taz, block_groups, block]
 #   sfbay: taz # one of [taz, block_groups, block]
 
