@@ -1,8 +1,28 @@
+#### many are conda packages not in pip, so better to do
+#### conda env create -n conda-env -f /path/to/environment.yml
+#### will be removing this soon
+
 docker
-pyyaml
-#argparse
-#logging
-openmatrix
-pandas
-geopandas
+# argparse
+# logging
+# pandas
+# geopandas
 # geopandas require python >= 3.7
+####
+# pilates seems to be using python 3.8
+# below from https://github.com/ual/PILATES/blob/master/environment.yml
+# cat environment.yml | grep -- '-' | sed -- 's/-//g' | awk -F\= '{print $1 "==" $2}' >> requirements.txt
+# + some manual tweaks eg pip
+##   condaforge==
+##   defaults==
+##   _libgcc_mutex==0.1
+##   _openmp_mutex==4.5
+   #alsalib==1.2.3
+##   pip:==
+    h5py==3.4.0
+    openmatrix==0.3.5.0
+########
+##alsa-lib==1.2.3
+alsa-lib 
+## alsa-lib not in pip
+appdirs==1.4.4
