@@ -1,0 +1,46 @@
+
+# conda environment setup
+# (eg on hima)
+# Pilates is using python 3.8
+
+
+
+normal use
+----------
+
+
+
+eval "$(/opt/anaconda3/bin/conda shell.bash hook)"
+conda activate pilates-conda-env
+
+python run.py -v 
+
+
+one time setup
+--------------
+
+install Anaconda3-2021.05-Linux-x86_64.sh to /opt/anaconda3 (as user)
+
+eval "$(/opt/anaconda3/bin/conda shell.bash hook)"
+conda config --set auto_activate_base false
+
+conda init
+
+conda env create -n pilates-conda-env -f ./environment.yml   # installed to /opt/anaconda3/env/pilates-conda-env 
+
+conda activate pilates-conda-env
+conda list
+conda deactivate
+
+
+(pilates-conda-env) **^ tin hima.lbl.gov ~/tin-gh/PILATES ^**>  which python
+/opt/anaconda3/envs/pilates-conda-env/bin/python
+(pilates-conda-env) **^ tin hima.lbl.gov ~/tin-gh/PILATES ^**>  which python2
+/bin/python2
+(pilates-conda-env) **^ tin hima.lbl.gov ~/tin-gh/PILATES ^**>  which python3
+/opt/anaconda3/envs/pilates-conda-env/bin/python3
+(pilates-conda-env) **^ tin hima.lbl.gov ~/tin-gh/PILATES ^**>  python --version
+Python 3.8.12
+
+
+
