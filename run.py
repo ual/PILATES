@@ -46,6 +46,7 @@ logging.basicConfig(
 def clean_and_init_data():
     usim_path = os.path.abspath('pilates/urbansim/data')
     clean_data(usim_path, '*.h5')
+    clean_data(usim_path, '*.txt')
     init_data(usim_path, '*.h5')
 
     polaris_path = os.path.abspath('pilates/polaris/data')
@@ -89,7 +90,7 @@ def run_travel_model(name, forecast_year):
     logger.info("Running travel model: %s", name)
     if name == "polaris":
         usim_local_data_folder = settings['usim_local_data_folder']
-        # pilates.polaris.travel_model.run_polaris(forecast_year, os.path.abspath(usim_local_data_folder))
+        pilates.polaris.travel_model.run_polaris(forecast_year, os.path.abspath(usim_local_data_folder))
     elif name == "beam":
         run_beam()
 
