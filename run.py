@@ -45,15 +45,15 @@ logging.basicConfig(
 
 def clean_and_init_data():
     usim_path = os.path.abspath('pilates/urbansim/data')
-    clean_data(usim_path)
-    init_data(usim_path)
+    clean_data(usim_path, '*.h5')
+    init_data(usim_path, '*.h5')
 
     polaris_path = os.path.abspath('pilates/polaris/data')
-    clean_data(polaris_path)
-    init_data(polaris_path)
+    clean_data(polaris_path, '*.hdf5')
+    init_data(polaris_path, '*.hdf5')
 
-def clean_data(path):
-    search_path = Path(path) / '*.h5'
+def clean_data(path, wildcard):
+    search_path = Path(path) / wildcard
     filelist = glob.glob(str(search_path) )
     for filepath in filelist:
         try:
@@ -61,8 +61,8 @@ def clean_data(path):
         except:
             logger.error("Error whie deleting file : {0}".format(filepath))
 
-def init_data(dest):
-    backup_dir = Path(dest) / 'backup/*.h5'
+def init_data(dest, wildcard):
+    backup_dir = Path(dest) / 'backup' / wildcard
     for filepath in glob.glob(str(backup_dir)):
         shutil.copy(filepath, dest)
 
@@ -89,7 +89,7 @@ def run_travel_model(name, forecast_year):
     logger.info("Running travel model: %s", name)
     if name == "polaris":
         usim_local_data_folder = settings['usim_local_data_folder']
-        pilates.polaris.travel_model.run_polaris(forecast_year, os.path.abspath(usim_local_data_folder))
+        # pilates.polaris.travel_model.run_polaris(forecast_year, os.path.abspath(usim_local_data_folder))
     elif name == "beam":
         run_beam()
 
