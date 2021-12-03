@@ -20,9 +20,10 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
         beam_file_path = os.path.join(beam_scenario_folder, beam_file_name)
         logger.info("Copying asim file %s to beam input scenario file %s", asim_file_path, beam_file_path)
 
-        with open(asim_file_path, 'rb') as f_in, gzip.open(
-                beam_file_path, 'wb') as f_out:
-            f_out.writelines(f_in)
+        if os.path.exists(asim_file_path):
+            with open(asim_file_path, 'rb') as f_in, gzip.open(
+                    beam_file_path, 'wb') as f_out:
+                f_out.writelines(f_in)
 
     def merge_only_updated_households():
         asim_plans_path = os.path.join(asim_output_data_dir, 'final_plans.csv')
@@ -76,11 +77,11 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
         asim_partial_plans = os.path.join(asim_output_data_dir, 'final_plans.csv')
         beam_local_plans = os.path.join(beam_scenario_folder, 'plans.csv.gz')
         final_plans_name = f"final_plans_{year}_{replanning_iteration_number:02d}.csv.gz"
-        partial_plans_name = f"partial_plans_{year}_{replanning_iteration_number:02d}.csv.gz"
+        partial_plans_name = f"partial_plans_{year}_{replanning_iteration_number:02d}.csv"
         final_plans_location = os.path.join(settings['final_asim_plans_folder'], final_plans_name)
         partial_plans_location = os.path.join(settings['final_asim_plans_folder'], partial_plans_name)
         logger.info("Copying asim plans %s to final asim folder %s", beam_local_plans, final_plans_location)
         shutil.copyfile(beam_local_plans, final_plans_location)
-        shutil.copyfile(asim_partial_plans, partial_plans_location)
+        # shutil.copyfile(asim_partial_plans, partial_plans_location)
 
     return
