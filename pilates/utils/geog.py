@@ -109,6 +109,10 @@ def get_block_geoms(settings, data_dir='./tmp/'):
 
         blocks_gdf = gpd.GeoDataFrame(
             pd.concat(all_block_geoms, ignore_index=True), crs="EPSG:4326")
+        
+        # make sure geometries match with geometries in blocks table
+        geoids = list(geoid_to_zone_map(settings, year=None).keys())
+        blocks_gdf = blocks_gdf[blocks_gdf.GEOID.isin(geoids)]
 
         # save to disk
         logger.info(
