@@ -20,7 +20,7 @@ activity_demand_model: activitysim
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  beam: dimaopen/beam:0.8.6.austin.01
+  beam: zaneedell/beam:0.8.6.austin.03
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
 docker_stdout: False
@@ -57,7 +57,7 @@ beam_config: austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/test/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim_v2_oct_2021/
-beam_memory: "100g"
+beam_memory: "400g"
 skim_zone_source_id_col: objectid
 replan_iters: 6
 replan_hh_samp_size: 0

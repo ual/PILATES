@@ -308,7 +308,8 @@ def generate_activity_plans(
         activity_demand_model,
         land_use_model)
     formatted_print(print_str)
-    asim_pre.create_skims_from_beam(settings, year, overwrite=overwrite_skims)
+    asim_pre.create_skims_from_beam(
+        settings, year=forecast_year, overwrite=overwrite_skims)
     asim_pre.create_asim_data_from_h5(
         settings, year=forecast_year, warm_start=warm_start)
 
