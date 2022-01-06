@@ -104,8 +104,8 @@ def read_zone_geoms(settings, year,
     Returns a GeoPandas dataframe with the zones geometries. 
     """
     store, table_prefix_year = read_datastore(settings, year)
-    zone_key = '/zone_geoms'
     zone_type = settings['skims_zone_type']
+    zone_key = '/{0}_zone_geoms'.format(zone_type)
     
     if zone_key in store.keys():
         logger.info("Loading zone geometries from .h5 datastore!")
@@ -123,7 +123,7 @@ def read_zone_geoms(settings, year,
         logger.info("Downloading zone geometries on the fly!")
         region = settings['region']
         if zone_type == 'taz':
-            zones = get_taz_geoms(region, zone_id_col_out=default_zone_id_col)
+            zones = get_taz_geoms(settings, zone_id_col_out=default_zone_id_col)
             zones.set_index(default_zone_id_col, inplace=True)
         else:
             mapping = geoid_to_zone_map(settings, year)
@@ -239,17 +239,24 @@ def _raw_beam_skims_preprocess(settings, year, skims_df):
     
     order = zone_order(settings, year)
     
-#     test_1 = set(origin_taz).issubset(set(order))
-#     test_2 = set(destination_taz).issubset(set(order))
+    test_1 = set(origin_taz).issubset(set(order))
+    test_2 = set(destination_taz).issubset(set(order))
     test_3 = len(set(order) - set(origin_taz))
     test_4 = len(set(order) - set(destination_taz))
-    assert test_3 == 0, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
-    assert test_4 == 0, 'There are {} missing destination zone ids in BEAM skims'.format(test_4)
+    assert test_1, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
+    assert test_2, 'There are {} missing destination zone ids in BEAM skims'.format(test_4)
     
     # Preprocess skims:
     df_clean = skims_df.copy()
     df_clean['DIST_miles'] = df_clean['DIST_meters'] * (0.621371 / 1000)
     df_clean['DDIST_miles'] = df_clean['DDIST_meters'] * (0.621371 / 1000)
+    df_clean = df_clean.replace({np.inf : np.nan, 0: np.nan}) ## TEMPORARY FIX 
+    
+    inf = np.isinf(df_clean['DDIST_miles']).values.sum() > 0
+    zeros = (df_clean['DDIST_miles'] == 0).sum() > 0
+    if (inf) or (zeros):
+        raise ValueError('Origin-Destination distances contains inf or zero values.')
+    
     return df_clean
 
 def _create_skims_by_mode(settings, skims_df):
@@ -829,13 +836,13 @@ def _update_blocks_table(settings, year, blocks,
     # update blocks (should only have to be run if asim is loading
     # raw urbansim data that has yet to be touched by pilates)
     geoid_to_zone_mapping_updated = False
+    
+    zone_type = settings['skims_zone_type']
+    zone_id_col = "{}_{}".format(zone_type, zone_id_col)
 
     if zone_id_col not in blocks.columns:
 
-        region = settings['region']
         mapping = geoid_to_zone_map(settings, year)
-        zone_type = settings['skims_zone_type']
-        travel_model = settings['travel_model']
 
         if zone_type == 'block':
             logger.info("Mapping block IDs")
@@ -848,15 +855,8 @@ def _update_blocks_table(settings, year, blocks,
 
         elif zone_type == 'taz':
             logger.info("Mapping block IDs to TAZ")
-            geoid_to_zone_fpath = \
-                "pilates/utils/data/{0}/{1}/geoid_to_zone.csv".format(
-                    region, travel_model)
-
-            block_taz = pd.read_csv(
-                geoid_to_zone_fpath, dtype={'GEOID': str, zone_id_col: str})
-            block_taz = block_taz.set_index('GEOID')[zone_id_col]
-            block_taz.index.name = 'block_id'
-            blocks = blocks.join(block_taz)
+            blocks[zone_id_col] = blocks.index.astype(str)
+            blocks[zone_id_col] = blocks[zone_id_col].replace(mapping)
 
         geoid_to_zone_mapping_updated = True
 
@@ -1001,17 +1001,20 @@ def enrollment_tables(settings, zones,
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
-    
-    assert enrollment_type in ['schools', 'colleges'], "enrollment_type should be one of ['schools', 'colleges']"
+    zone_type = settings['skims_zone_type']
     
     path_to_schools_data = \
-        "pilates/utils/data/{0}/{1}.csv".format(region, enrollment_type)
+        "pilates/utils/data/{0}/{1}_{2}.csv".format(region, zone_type, enrollment_type)
+    
+    assert enrollment_type in ['schools', 'colleges'], "enrollemnt type one of ['schools', 'colleges']"
     
     if not os.path.exists(path_to_schools_data):
         if enrollment_type == 'schools':
             enrollment = _get_school_enrollment(state_fips, county_codes)
         elif enrollment_type == 'colleges':
             enrollment = _get_college_enrollment(state_fips, county_codes)
+        else:
+            raise KeyError("enrollemnt type one of ['schools', 'colleges']")
     else:
         logger.info("Reading school enrollment data from disk!")
         enrollment = pd.read_csv(path_to_schools_data, dtype={
@@ -1154,7 +1157,8 @@ def create_asim_data_from_h5(
         settings, year, blocks, households, jobs, input_zone_id_col)
     if blocks_to_taz_mapping_updated:
         logger.info(
-            "Storing blocks table with TAZ IDs to disk in .h5 datastore!")
+            "Storing blocks table with {} zone IDs to disk in .h5 datastore!".format(zone_type))
+        input_zone_id_col = "{0}_zone_id".format(zone_type)
         blocks_cols += [input_zone_id_col]
         store[os.path.join(table_prefix_yr, 'blocks')] = blocks[blocks_cols]
     blocks.rename(
