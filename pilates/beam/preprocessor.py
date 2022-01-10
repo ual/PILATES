@@ -54,7 +54,7 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
             households_final = pd.concat([updated_households, original_households.loc[~original_households.household_id.isin(hh_u),:]])
             households_final.to_csv(beam_households_path, index=False, compression='gzip')
             
-            original_plans = pd.read_csv(beam_plans_path)
+            original_plans = pd.read_csv(beam_plans_path).rename(columns={'tripId':'trip_id'})
             updated_plans = pd.read_csv(asim_plans_path)
             unchanged_plans = original_plans.loc[~original_plans.person_id.isin(per_u), :]
             logger.info("Adding %s new plan elements after and keeping %s from previous iteration", len(updated_plans), len(unchanged_plans))

@@ -578,7 +578,7 @@ if __name__ == '__main__':
             forecast_land_use(settings, year, forecast_year, client)
 
         else:
-            forecast_year = year
+            forecast_year = start_year
 
         # 2. GENERATE ACTIVITIES
         if activity_demand_enabled:

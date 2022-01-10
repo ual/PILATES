@@ -5,12 +5,12 @@
 ############################
 
 # scenario defs
-region: austin
+region: sfbay
 scenario: base
-start_year: 2018
-end_year: 2022
-land_use_freq: 1
-travel_model_freq: 1
+start_year: 2010
+end_year: 2018
+land_use_freq: 2
+travel_model_freq: 2
 
 # simulation platforms (comment out to turn off)
 land_use_model:
@@ -27,8 +27,8 @@ docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_zone_type: block_group  # one of [taz, block_group, block]
-skims_fname: as-skims.csv.gz
+skims_zone_type: taz # one of [taz, block_group, block]
+skims_fname: as-skims-mod.csv.gz
 
 # region_zone_type:
 #   austin: block_groups # one of [taz, block_groups, block]
@@ -53,13 +53,13 @@ usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 
 
 # BEAM 
-beam_config: austin-pilates-base.conf
-beam_local_input_folder: pilates/beam/test/
+beam_config: sfbay-pilates-base.conf
+beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
-beam_scenario_folder: urbansim_v2_oct_2021/
+beam_scenario_folder: urbansim/
 beam_memory: "400g"
 skim_zone_source_id_col: objectid
-replan_iters: 6
+replan_iters: 4
 replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
 final_asim_plans_folder: pilates/activitysim/output/final_plans
@@ -77,7 +77,7 @@ polaris_skim_keys:
 # ACTIVITYSIM
 household_sample_size: 160000  # zero means no sampling, whole pop.
 chunk_size: 4000000000
-num_processes: 94
+num_processes: 62
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
 asim_validation_folder: pilates/activitysim/validation
