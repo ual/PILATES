@@ -500,7 +500,7 @@ def run_replanning_loop(settings, forecast_year):
         formatted_print(print_str)
 
         # a) format new skims for asim
-        asim_pre.create_skims_from_beam(settings, year, overwrite=True)
+        asim_pre.create_skims_from_beam(settings, forecast_year, overwrite=True)
 
         # b) replan with asim
         print_str = (
