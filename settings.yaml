@@ -49,14 +49,14 @@ usim_local_data_folder: pilates/urbansim/data/
 usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
-usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -ss {4}"
+usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 
 
 # BEAM 
 beam_config: gemini/activitysim-base-from-60k-input.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
-beam_plans: gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz
+beam_scenario_folder: gemini/activitysim-plans-base-2010-cut-60k
 beam_memory: "100g"
 skim_zone_source_id_col: objectid
 replan_iters: 0

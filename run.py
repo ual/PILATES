@@ -93,6 +93,14 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         'traffic_assignment_enabled': traffic_assignment_enabled,
         'replanning_enabled': replanning_enabled})
 
+    # raise errors/warnings for conflicting settings
+    if (settings['household_sample_size'] > 0) and land_use_enabled:
+        raise ValueError(
+            'Land use models must be disabled (explicitly or via "warm '
+            'start" mode to use a non-zero household sample size. The '
+            'household sample size you specified is {0}'.format(
+                settings['household_sample_size']))
+
     return settings
 
 
@@ -309,9 +317,11 @@ def generate_activity_plans(
         "Generating activity plans for the year "
         "{0} with {1}".format(
             forecast_year, activity_demand_model))
-    formatted_print(print_str)
     if resume_after:
         asim_cmd += ' -r {0}'.format(resume_after)
+        print_str += ". Picking up after {1}".format(resume_after)
+    formatted_print(print_str)
+
     asim = client.containers.run(
         activity_demand_image,
         working_dir=asim_workdir,
@@ -344,7 +354,8 @@ def generate_activity_plans(
     return
 
 
-def run_traffic_assignment(settings, year, client):
+def run_traffic_assignment(
+        settings, year, client, replanning_iteration_number=0):
     """
     This step will run the traffic simulation platform and
     generate new skims with updated congested travel times.
@@ -367,7 +378,8 @@ def run_traffic_assignment(settings, year, client):
     skims_fname = settings['skims_fname']
     beam_memory = settings['beam_memory']
 
-    # remember the last produced skims in order to detect that beam didn't work properly during this run
+    # remember the last produced skims in order to detect that
+    # beam didn't work properly during this run
     previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
     logger.info("Found skims from the previous beam run: %s", previous_skims)
 
@@ -378,7 +390,8 @@ def run_traffic_assignment(settings, year, client):
             "{2} outputs".format(
                 year, travel_model, activity_demand_model))
         formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings, year)
+        beam_pre.copy_plans_from_asim(
+            settings, year, replanning_iteration_number)
 
     # 3. RUN BEAM
     logger.info(
@@ -393,9 +406,11 @@ def run_traffic_assignment(settings, year, client):
             abs_beam_output: {
                 'bind': '/app/output',
                 'mode': 'rw'}},
-        environment=
-        {'JAVA_OPTS': '-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
-            beam_memory)},
+        environment={
+            'JAVA_OPTS': (
+                '-XX:+UnlockExperimentalVMOptions -XX:+'
+                'UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
+                    beam_memory))},
         command="--config={0}".format(path_to_beam_config),
         stdout=docker_stdout, stderr=True, detach=False, remove=True
     )
@@ -467,7 +482,6 @@ def run_replanning_loop(settings, forecast_year):
     replan_iters = settings['replan_iters']
     replan_hh_samp_size = settings['replan_hh_samp_size']
     activity_demand_model = settings['activity_demand_model']
-    travel_model = settings['travel_model']
     image_names = settings['docker_images']
     activity_demand_image = image_names[activity_demand_model]
     region = settings['region']
@@ -479,8 +493,9 @@ def run_replanning_loop(settings, forecast_year):
     last_asim_step = settings['replan_after']
 
     for i in range(replan_iters):
-
-        print_str = ('Replanning Iteration {0}'.format(i + 1))
+        replanning_iteration_number = i + 1
+        print_str = (
+            'Replanning Iteration {0}'.format(replanning_iteration_number))
         formatted_print(print_str)
 
         # a) format new skims for asim
@@ -503,16 +518,9 @@ def run_replanning_loop(settings, forecast_year):
                 stream=True, stderr=True, stdout=docker_stdout):
             print(log)
 
-        # c) format updated plans for beam
-        print_str = (
-            "Generating {0} {1} input data from "
-            "{2} outputs".format(
-                forecast_year, travel_model, activity_demand_model))
-        formatted_print(print_str)
-        beam_pre.copy_plans_from_asim(settings, year, i)
-
         # e) run BEAM
-        run_traffic_assignment(settings, year, client)
+        run_traffic_assignment(
+            settings, year, client, replanning_iteration_number)
 
     return
 
@@ -531,6 +539,8 @@ if __name__ == '__main__':
     # parse scenario settings
     start_year = settings['start_year']
     end_year = settings['end_year']
+    formatted_print(
+        'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = settings.get('travel_model_freq', 1)
     warm_start_skims = settings['warm_start_skims']
     static_skims = settings['static_skims']
@@ -540,10 +550,10 @@ if __name__ == '__main__':
     replanning_enabled = settings['replanning_enabled']
 
     if warm_start_skims:
-        formatted_print('RUNNING PILATES IN "WARM START SKIMS" MODE')
+        formatted_print('"WARM START SKIMS" MODE ENABLED')
         logger.info('Generating activity plans for the base year only.')
     elif static_skims:
-        formatted_print('RUNNING PILATES IN "STATIC SKIMS" MODE')
+        formatted_print('"STATIC SKIMS" MODE ENABLED')
         logger.info('Using the same set of skims for every iteration.')
 
     # start docker client
@@ -573,7 +583,7 @@ if __name__ == '__main__':
         if activity_demand_enabled:
 
             # If the forecast year is the same as the base year of this
-            # iteration, then land use forecasting have not been run. In this
+            # iteration, then land use forecasting has not been run. In this
             # case we have to read from the land use *inputs* because no
             # *outputs* have been generated yet. This is usually only the case
             # for generating "warm start" skims, so we treat it the same even
@@ -581,13 +591,9 @@ if __name__ == '__main__':
             if forecast_year == year:
                 warm_start_skims = True
 
-            resume_after = None
-            if mandatory_activities_generated_this_year:
-                resume_after = 'auto_ownership'
-
             generate_activity_plans(
                 settings, year, forecast_year, client,
-                resume_after=resume_after, warm_start=warm_start_skims)
+                warm_start=warm_start_skims)
 
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the
