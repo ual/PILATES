@@ -300,6 +300,7 @@ def forecast_land_use(settings, year, forecast_year, client):
 ## vsim  = vehicle simulation  (asim was used by activitysim)
 def run_atlas(settings, freq, output_year, client):
 
+
     # 1. PARSE SETTINGS
     image_names = settings['docker_images']
     vehicle_ownership_model = settings.get('vehicle_ownership_model',False)
@@ -308,13 +309,15 @@ def run_atlas(settings, freq, output_year, client):
     vsim_cmd = get_vsim_cmd(settings, freq, output_year)
     docker_stdout = settings.get('docker_stdout', False)
 
+
     # 2. PREPARE ATLAS DATA
     print_str = (
-        "Preparing {0} input data for vehicle ownership simulation.".format(output_year) )
+        "Preparing input data for vehicle ownership simulation for {0}.".format(output_year) )
     formatted_print(print_str)
     ## ++ may need to move/copy data into the right folder?
+    atlas_pre.get_data_inplace()
 
-    # 3. RUN ATLAS
+    # 3. RUN ATLAS via docker container client
     print_str = (
         "Simulating vehicle ownership for {0} "
         "with frequency {1}.".format(
@@ -597,10 +600,7 @@ def run_replanning_loop(settings, forecast_year):
 
     return
 
-## ATLAS Ling/Tin/Yuhan
-def run_atlas(settings, freq, output_year, client):
-    atlas_pre.get_data_inplace()
-    ## then do docker run ... 
+
 
 if __name__ == '__main__':
 
@@ -658,8 +658,9 @@ if __name__ == '__main__':
 
 
         # 1.5 :) RUN ATLAS   ## Ling/Tin/Yuhan
-        if  vehicle_ownership_model_enabled:
-            run_atlas( settings, freq, output_year, client)
+        ##++?? if  vehicle_ownership_model_enabled:
+            #run_atlas( settings, freq, output_year, client)
+            run_atlas( settings, 1, 2017, client)
 
 
         # 2. GENERATE ACTIVITIES
