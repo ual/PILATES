@@ -1,0 +1,2 @@
+at run time, input data for atlas expected to be found in this dir.
+If running in container, this dir is expected to be mounted from the host containing the data
