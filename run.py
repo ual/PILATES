@@ -11,6 +11,7 @@ from pilates.urbansim import preprocessor as usim_pre
 from pilates.urbansim import postprocessor as usim_post
 from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
+from pilates.atlas import preprocessor as atlas_pre  ##
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.INFO,
@@ -524,6 +525,10 @@ def run_replanning_loop(settings, forecast_year):
 
     return
 
+## ATLAS Ling/Tin/Yuhan
+def run_atlas(freq, output_year):
+    atlas_pre.get_data_inplace()
+    ## then do docker run ... 
 
 if __name__ == '__main__':
 
@@ -578,6 +583,12 @@ if __name__ == '__main__':
 
         else:
             forecast_year = year
+
+
+        # 1.5 :) RUN ATLAS   ## Ling/Tin/Yuhan
+        if vehicle_ownership_model_enabled:
+            run_atlas() 
+
 
         # 2. GENERATE ACTIVITIES
         if activity_demand_enabled:

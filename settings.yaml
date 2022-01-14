@@ -20,6 +20,7 @@ activity_demand_model: activitysim
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
+  atlas: ghcr.io/lbnl-science-it/atlas:integration
   beam: dimaopen/beam:0.8.6.3
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
@@ -50,6 +51,18 @@ usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
 usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
+
+# ATLAS - Ling/Tin/Yuhan
+
+#atlas_input_dir=/home/ubuntu/AWS/PILATES/pilates/atlas/atlas_input
+#atlas_output_dir=/home/ubuntu/AWS/PILATES/pilates/atlas/atlas_output
+atlas_local_input_folder:  pilates/atlas/data
+atlas_local_output_folder: pilates/atlas/atlas_output
+atlas_codedir: /
+atlas_basedir: /
+atlas_outyear: 2017
+atlas_freq:    1
+
 
 
 # BEAM 
