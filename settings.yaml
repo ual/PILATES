@@ -58,10 +58,11 @@ usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 ##atlas_output_dir=/home/ubuntu/AWS/PILATES/pilates/atlas/atlas_output
 atlas_local_input_folder:  pilates/atlas/data
 atlas_local_output_folder: pilates/atlas/atlas_output
-atlas_client_data_folder:   /atlas_input
+atlas_client_input_folder:   /atlas_input
 atlas_client_output_folder: /atlas_output
 ## local is what's inside the container , local to the place of execution
-## client is what's on the host, thus aka remote
+## client is what's on the host, thus aka remote ?? 
+## or did i flip this?
 atlas_basedir: /
 atlas_codedir: /
 atlas_outyear: 2017    ## maybe can use  start_year ??
