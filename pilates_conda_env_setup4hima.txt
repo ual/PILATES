@@ -2,7 +2,10 @@
 # conda environment setup
 # (eg on hima)
 # Pilates is using python 3.8
-
+# Note: while this was ran and most of Pilates seemed to work
+# the workflow from run.py did not finish to completion, 
+# and we migrated to use AMI circa Dec 2021
+# -Tin
 
 
 normal use
@@ -43,7 +46,7 @@ conda deactivate
 Python 3.8.12
 
 
-exa4
+ex4
 ----
 
 2021.1118
@@ -80,5 +83,5 @@ chmod 777 pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.g
 chmod 777 pilates/urbansim/data
 chmod 777 pilates/urbansim/data/custom_mpo_06197001_model_data.h5
 
-new testL
+new test:
 chmod 777 pilates/activitysim/output/

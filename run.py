@@ -298,6 +298,7 @@ def forecast_land_use(settings, year, forecast_year, client):
 
 ## Atlas - Ling/Tin/Yuhan
 ## vsim  = vehicle simulation  (asim was used by activitysim)
+## (notes in gmail 2021.1122, search for 3bd22b3 )
 def run_atlas(settings, freq, output_year, client):
 
 
