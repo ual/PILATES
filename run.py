@@ -93,6 +93,7 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         'activity_demand_enabled': activity_demand_enabled,
         'traffic_assignment_enabled': traffic_assignment_enabled,
         'replanning_enabled': replanning_enabled})
+    vehicle_ownership_model_enabled = settings.get('vehicle_ownership_model', False)  ## Atlas
 
     # raise errors/warnings for conflicting settings
     if (settings['household_sample_size'] > 0) and land_use_enabled:
@@ -158,6 +159,29 @@ def get_usim_cmd(settings, year, forecast_year):
     usim_cmd = formattable_usim_cmd.format(
         region_id, year, forecast_year, land_use_freq, skims_source)
     return usim_cmd
+
+## Atlas vehicle ownership model
+## local is what's inside the container , local to the place of execution
+## client is what's on the host, thus aka remote
+## equiv of docker run -v vsim_remote_data_folder:vsim_local_data_folder
+def get_vsim_docker_vols(settings):
+    vsim_remote_data_folder = settings['atlas_client_data_folder']
+    vsim_local_data_folder = os.path.abspath(
+        settings['atlas_local_input_folder'])
+    vsim_docker_vols = {
+        vsim_local_data_folder: {
+            'bind': vsim_remote_data_folder,
+            'mode': 'rw'}}
+    return vsim_docker_vols
+
+## For Atlas container command, vsim for vehicle simulation
+def get_vsim_cmd(settings, freq, output_year):
+    basedir = settings.get('basedir','/')
+    codedir = settings.get('codedir','/')
+    formattable_vsim_cmd = settings['vsim_formattable_command']
+    vsim_cmd = formattable_vsim_cmd.format(freq, forecast_year, basedir, codedir)
+    return vsim_cmd
+
 
 
 def warm_start_activities(settings, year, client):
@@ -267,6 +291,47 @@ def forecast_land_use(settings, year, forecast_year, client):
     logger.info('Done!')
 
     return
+
+## Atlas - Ling/Tin/Yuhan
+## vsim  = vehicle simulation  (asim was used by activitysim)
+def run_atlas(settings, freq, output_year, client):
+
+    # 1. PARSE SETTINGS
+    image_names = settings['docker_images']
+    vsim_docker_vols = get_vsim_docker_vols(settings)
+    vsim_cmd = get_vsim_cmd(settings, freq, output_year)
+    docker_stdout = settings.get('docker_stdout', False)
+
+    # 2. PREPARE ATLAS DATA
+    print_str = (
+        "Preparing {0} input data for vehicle ownership simulation.".format(output_year) )
+    formatted_print(print_str)
+
+    # 3. RUN ATLAS
+    print_str = (
+        "Simulating vehicle ownership for {0} "
+        "with frequency {1}.".format(
+            year, freq ))
+    formatted_print(print_str)
+    asim = client.containers.run(
+        land_use_image,
+        volumes=vsim_docker_vols,
+        command=vsim_cmd,
+        stdout=docker_stdout,
+        stderr=True,
+        detach=True)
+    for log in vsim.logs(
+            stream=True, stderr=True, stdout=docker_stdout):
+        print(log)
+
+    # 4. CLEAN UP
+    ##?? vsim.remove()
+
+    logger.info('Done!')
+
+    return
+
+
 
 
 def generate_activity_plans(
@@ -586,7 +651,7 @@ if __name__ == '__main__':
 
 
         # 1.5 :) RUN ATLAS   ## Ling/Tin/Yuhan
-        if vehicle_ownership_model_enabled:
+        if  vehicle_ownership_model == "atlas":
             run_atlas() 
 
 
