@@ -163,7 +163,7 @@ def get_usim_cmd(settings, year, forecast_year):
 
 ## line 163 of example_run.py
 ## suggested there is a need to define this warm start for Atlas
-def wamr_start_veh_ownership(settings, year, client)
+def warm_start_veh_ownership(settings, year, client) :
   atlas_post.update_usim_inputs()    ## update_usim? or to vsim??
   return
 
@@ -178,7 +178,7 @@ def get_vsim_docker_vols(settings):
     vsim_local_input_folder   = os.path.abspath(settings['atlas_local_input_folder'])
     vsim_local_output_folder  = os.path.abspath(settings['atlas_local_output_folder'])
     vsim_docker_vols = {
-        vsim_local_data_folder: {
+        vsim_local_input_folder: {
             'bind': vsim_remote_input_folder,
             'mode': 'rw'},
         vsim_local_output_folder: {
@@ -352,7 +352,7 @@ def run_atlas(settings, freq, output_year, client):
     # 4. CLEAN UP
     vsim.remove()
 
-    logger.info('Atlas Done!')
+    logg r.info('Atlas Done!')
 
     return
 
