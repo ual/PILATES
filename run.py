@@ -352,7 +352,7 @@ def run_atlas(settings, freq, output_year, client):
     # 4. CLEAN UP
     vsim.remove()
 
-    logg r.info('Atlas Done!')
+    logger.info('Atlas Done!')
 
     return
 
