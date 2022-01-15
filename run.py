@@ -167,24 +167,16 @@ def warm_start_veh_ownership(settings, year, client) :
   atlas_post.update_usim_inputs()    ## update_usim? or to vsim??
   return
 
-## Atlas vehicle ownership model
-## local is what's inside the container , local to the place of execution
-## client is what's on the host, thus aka remote
-## equiv of docker run -v vsim_remote_input_folder:vsim_local_input_folder
-## equiv of docker run -v vsim_host_input_folder:vsim_container_input_folder   ## likely this
-## i might still have these folders/mounts done in reverse.  debug TBD     ++
+## Atlas vehicle ownership model volume mount defintion, equivalent to 
+## docker run -v vsim_host_input_folder:vsim_container_input_folder 
 def get_vsim_docker_vols(settings):
-    #oirg vsim_host_input_folder  = settings['atlas_host_input_folder']
-    #oirg vsim_host_output_folder = settings['atlas_host_output_folder']
-    vsim_host_input_folder  = os.path.abspath(settings['atlas_host_input_folder'])
-    vsim_host_output_folder = os.path.abspath(settings['atlas_host_output_folder'])
-    #//vsim_container_input_folder   = (settings['atlas_container_input_folder'])
-    #//vsim_container_output_folder  = (settings['atlas_container_output_folder'])
+    vsim_host_input_folder        = os.path.abspath(settings['atlas_host_input_folder'])
+    vsim_host_output_folder       = os.path.abspath(settings['atlas_host_output_folder'])
     vsim_container_input_folder   = os.path.abspath(settings['atlas_container_input_folder'])
     vsim_container_output_folder  = os.path.abspath(settings['atlas_container_output_folder'])
     vsim_docker_vols = {
-        vsim_host_input_folder: {        ## destination?  NOPE                 ## "local"
-            'bind': vsim_container_input_folder,   ## source location? NOPE    ## "remote", "client"
+        vsim_host_input_folder: {                    ## source location, aka "local"  
+            'bind': vsim_container_input_folder,     ## destination loc, aka "remote", "client"
             'mode': 'rw'},
         vsim_host_output_folder: {
             'bind': vsim_container_output_folder,
