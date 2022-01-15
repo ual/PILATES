@@ -161,7 +161,7 @@ def get_usim_cmd(settings, year, forecast_year):
         region_id, year, forecast_year, land_use_freq, skims_source)
     return usim_cmd
 
-## line 163 of example_run.py
+## from line 163 of example_run.py
 ## suggested there is a need to define this warm start for Atlas
 def warm_start_veh_ownership(settings, year, client) :
   atlas_post.update_usim_inputs()    ## update_usim? or to vsim??
@@ -171,18 +171,23 @@ def warm_start_veh_ownership(settings, year, client) :
 ## local is what's inside the container , local to the place of execution
 ## client is what's on the host, thus aka remote
 ## equiv of docker run -v vsim_remote_input_folder:vsim_local_input_folder
+## equiv of docker run -v vsim_host_input_folder:vsim_container_input_folder   ## likely this
 ## i might still have these folders/mounts done in reverse.  debug TBD     ++
 def get_vsim_docker_vols(settings):
-    vsim_remote_input_folder  = settings['atlas_client_input_folder']
-    vsim_remote_output_folder = settings['atlas_client_output_folder']
-    vsim_local_input_folder   = os.path.abspath(settings['atlas_local_input_folder'])
-    vsim_local_output_folder  = os.path.abspath(settings['atlas_local_output_folder'])
+    #oirg vsim_host_input_folder  = settings['atlas_host_input_folder']
+    #oirg vsim_host_output_folder = settings['atlas_host_output_folder']
+    vsim_host_input_folder  = os.path.abspath(settings['atlas_host_input_folder'])
+    vsim_host_output_folder = os.path.abspath(settings['atlas_host_output_folder'])
+    #//vsim_container_input_folder   = (settings['atlas_container_input_folder'])
+    #//vsim_container_output_folder  = (settings['atlas_container_output_folder'])
+    vsim_container_input_folder   = os.path.abspath(settings['atlas_container_input_folder'])
+    vsim_container_output_folder  = os.path.abspath(settings['atlas_container_output_folder'])
     vsim_docker_vols = {
-        vsim_local_input_folder: {
-            'bind': vsim_remote_input_folder,
+        vsim_host_input_folder: {        ## destination?  NOPE                 ## "local"
+            'bind': vsim_container_input_folder,   ## source location? NOPE    ## "remote", "client"
             'mode': 'rw'},
-        vsim_local_output_folder: {
-            'bind': vsim_remote_output_folder,
+        vsim_host_output_folder: {
+            'bind': vsim_container_output_folder,
             'mode': 'rw'} }
     return vsim_docker_vols
 
