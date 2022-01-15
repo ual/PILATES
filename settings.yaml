@@ -25,7 +25,8 @@ docker_images:
   beam: dimaopen/beam:0.8.6.3
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
-docker_stdout: False
+##docker_stdout: False
+docker_stdout: True           ## change this to True to get regular container std out (esp useful for debug), something else control std err though.
 pull_latest: False
 
 # skim settings
@@ -54,20 +55,20 @@ usim_formattable_output_file_name: "model_data_{year}.h5"
 usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 
 ## ATLAS: vsim, vehicle simulation - Ling/Tin/Yuhan 
-##atlas_input_dir=/home/ubuntu/AWS/PILATES/pilates/atlas/atlas_input
-##atlas_output_dir=/home/ubuntu/AWS/PILATES/pilates/atlas/atlas_output
-atlas_local_input_folder:  pilates/atlas/data
-atlas_local_output_folder: pilates/atlas/atlas_output
-atlas_client_input_folder:   /atlas_input
-atlas_client_output_folder: /atlas_output
-## local is what's inside the container , local to the place of execution
-## client is what's on the host, thus aka remote ?? 
-## or did i flip this?
+## Docker bind mounts: host == local; container == remote == client
+atlas_host_input_folder: pilates/atlas/atlas_input  
+atlas_host_output_folder: pilates/atlas/atlas_output
+atlas_container_input_folder: /atlas_input
+atlas_container_output_folder: /atlas_output
 atlas_basedir: /
 atlas_codedir: /
-atlas_outyear: 2017    ## maybe can use  start_year ??
-atlas_freq:    1       ## travel_model_freq ??
+atlas_outyear: 2017      ## maybe can use  start_year ??
+atlas_freq:    1         ## travel_model_freq ??
+atlas_sample_size: 0     # zero means no sampling, whole pop.
+atlas_num_processes: 94  # can't you just detect num of cpu?
 vsim_formattable_command: "--freq {0} --outyear {1} --basedir {2} --codedir {3}" 
+## command line options to main.R may need to be updated to handle additional params:
+## --size {4} --proc {5} 
 
 
 # BEAM 
