@@ -65,9 +65,13 @@ atlas_client_output_folder: /atlas_output
 ## or did i flip this?
 atlas_basedir: /
 atlas_codedir: /
-atlas_outyear: 2017    ## maybe can use  start_year ??
-atlas_freq:    1       ## travel_model_freq ??
+atlas_outyear: 2017      ## maybe can use  start_year ??
+atlas_freq:    1         ## travel_model_freq ??
+atlas_sample_size: 0     # zero means no sampling, whole pop.
+atlas_num_processes: 94  # can't you just detect num of cpu?
 vsim_formattable_command: "--freq {0} --outyear {1} --basedir {2} --codedir {3}" 
+## command line options to main.R may need to be updated to handle additional params:
+## --size {4} --proc {5} 
 
 
 # BEAM 

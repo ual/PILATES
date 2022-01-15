@@ -11,7 +11,8 @@ from pilates.urbansim import preprocessor as usim_pre
 from pilates.urbansim import postprocessor as usim_post
 from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
-from pilates.atlas import preprocessor as atlas_pre  ##
+from pilates.atlas import preprocessor  as atlas_pre   ##
+from pilates.atlas import postprocessor as atlas_post  ##
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.INFO,
@@ -160,18 +161,25 @@ def get_usim_cmd(settings, year, forecast_year):
         region_id, year, forecast_year, land_use_freq, skims_source)
     return usim_cmd
 
+## line 163 of example_run.py
+## suggested there is a need to define this warm start for Atlas
+def wamr_start_veh_ownership(settings, year, client)
+  atlas_post.update_usim_inputs()    ## update_usim? or to vsim??
+  return
+
 ## Atlas vehicle ownership model
 ## local is what's inside the container , local to the place of execution
 ## client is what's on the host, thus aka remote
-## equiv of docker run -v vsim_remote_data_folder:vsim_local_data_folder
+## equiv of docker run -v vsim_remote_input_folder:vsim_local_input_folder
+## i might still have these folders/mounts done in reverse.  debug TBD     ++
 def get_vsim_docker_vols(settings):
-    vsim_remote_data_folder   = settings['atlas_client_data_folder']
+    vsim_remote_input_folder  = settings['atlas_client_input_folder']
     vsim_remote_output_folder = settings['atlas_client_output_folder']
-    vsim_local_data_folder    = os.path.abspath(settings['atlas_local_input_folder'])
+    vsim_local_input_folder   = os.path.abspath(settings['atlas_local_input_folder'])
     vsim_local_output_folder  = os.path.abspath(settings['atlas_local_output_folder'])
     vsim_docker_vols = {
         vsim_local_data_folder: {
-            'bind': vsim_remote_data_folder,
+            'bind': vsim_remote_input_folder,
             'mode': 'rw'},
         vsim_local_output_folder: {
             'bind': vsim_remote_output_folder,
@@ -301,6 +309,12 @@ def forecast_land_use(settings, year, forecast_year, client):
 ## (notes in gmail 2021.1122, search for 3bd22b3 )
 def run_atlas(settings, freq, output_year, client):
 
+    ## it was suggested to run in a loop, line 536 of example_run.py
+    ## but is it really needed to loop here?  
+    ## or the code in main.R in the atlas container will deal with those details?
+    ##
+    ##for i in range(input_year, output_year): 
+    ##	run_atlas_1_yr()
 
     # 1. PARSE SETTINGS
     image_names = settings['docker_images']
