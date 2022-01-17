@@ -11,6 +11,8 @@ from pilates.urbansim import preprocessor as usim_pre
 from pilates.urbansim import postprocessor as usim_post
 from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
+from pilates.atlas import preprocessor  as atlas_pre   ##
+from pilates.atlas import postprocessor as atlas_post  ##
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.INFO,
@@ -92,6 +94,7 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         'activity_demand_enabled': activity_demand_enabled,
         'traffic_assignment_enabled': traffic_assignment_enabled,
         'replanning_enabled': replanning_enabled})
+    vehicle_ownership_model_enabled = settings.get('vehicle_ownership_model', False)  ## Atlas
 
     # raise errors/warnings for conflicting settings
     if (settings['household_sample_size'] > 0) and land_use_enabled:
@@ -157,6 +160,37 @@ def get_usim_cmd(settings, year, forecast_year):
     usim_cmd = formattable_usim_cmd.format(
         region_id, year, forecast_year, land_use_freq, skims_source)
     return usim_cmd
+
+## from line 163 of example_run.py
+## suggested there is a need to define this warm start for Atlas
+def warm_start_veh_ownership(settings, year, client) :
+  atlas_post.update_usim_inputs()    ## update_usim? or to vsim??
+  return
+
+## Atlas vehicle ownership model volume mount defintion, equivalent to 
+## docker run -v vsim_host_input_folder:vsim_container_input_folder 
+def get_vsim_docker_vols(settings):
+    vsim_host_input_folder        = os.path.abspath(settings['atlas_host_input_folder'])
+    vsim_host_output_folder       = os.path.abspath(settings['atlas_host_output_folder'])
+    vsim_container_input_folder   = os.path.abspath(settings['atlas_container_input_folder'])
+    vsim_container_output_folder  = os.path.abspath(settings['atlas_container_output_folder'])
+    vsim_docker_vols = {
+        vsim_host_input_folder: {                    ## source location, aka "local"  
+            'bind': vsim_container_input_folder,     ## destination loc, aka "remote", "client"
+            'mode': 'rw'},
+        vsim_host_output_folder: {
+            'bind': vsim_container_output_folder,
+            'mode': 'rw'} }
+    return vsim_docker_vols
+
+## For Atlas container command, vsim for vehicle simulation
+def get_vsim_cmd(settings, freq, output_year):
+    basedir = settings.get('basedir','/')
+    codedir = settings.get('codedir','/')
+    formattable_vsim_cmd = settings['vsim_formattable_command']
+    vsim_cmd = formattable_vsim_cmd.format(freq, forecast_year, basedir, codedir)
+    return vsim_cmd
+
 
 
 def warm_start_activities(settings, year, client):
@@ -266,6 +300,60 @@ def forecast_land_use(settings, year, forecast_year, client):
     logger.info('Done!')
 
     return
+
+## Atlas - Ling/Tin/Yuhan
+## vsim  = vehicle simulation  (asim was used by activitysim)
+## (notes in gmail 2021.1122, search for 3bd22b3 )
+def run_atlas(settings, freq, output_year, client):
+
+    ## it was suggested to run in a loop, line 536 of example_run.py
+    ## but is it really needed to loop here?  
+    ## or the code in main.R in the atlas container will deal with those details?
+    ##
+    ##for i in range(input_year, output_year): 
+    ##	run_atlas_1_yr()
+
+    # 1. PARSE SETTINGS
+    image_names = settings['docker_images']
+    vehicle_ownership_model = settings.get('vehicle_ownership_model',False)
+    atlas_image = image_names[vehicle_ownership_model]  ## ie atlas
+    vsim_docker_vols = get_vsim_docker_vols(settings)
+    vsim_cmd = get_vsim_cmd(settings, freq, output_year)
+    docker_stdout = settings.get('docker_stdout', False)
+
+
+    # 2. PREPARE ATLAS DATA
+    print_str = (
+        "Preparing input data for vehicle ownership simulation for {0}.".format(output_year) )
+    formatted_print(print_str)
+    ## ++ may need to move/copy data into the right folder?
+    atlas_pre.get_data_inplace()
+
+    # 3. RUN ATLAS via docker container client
+    print_str = (
+        "Simulating vehicle ownership for {0} "
+        "with frequency {1}.".format(
+            year, freq ))
+    formatted_print(print_str)
+    vsim = client.containers.run(
+        atlas_image,
+        volumes=vsim_docker_vols,
+        command=vsim_cmd,
+        stdout=docker_stdout,
+        stderr=True,
+        detach=True)
+    for log in vsim.logs(
+            stream=True, stderr=True, stdout=docker_stdout):
+        print(log)
+
+    # 4. CLEAN UP
+    vsim.remove()
+
+    logger.info('Atlas Done!')
+
+    return
+
+
 
 
 def generate_activity_plans(
@@ -525,6 +613,7 @@ def run_replanning_loop(settings, forecast_year):
     return
 
 
+
 if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
@@ -578,6 +667,13 @@ if __name__ == '__main__':
 
         else:
             forecast_year = year
+
+
+        # 1.5 :) RUN ATLAS   ## Ling/Tin/Yuhan
+        ##++?? if  vehicle_ownership_model_enabled:
+            #run_atlas( settings, freq, output_year, client)
+            run_atlas( settings, 1, 2017, client)
+
 
         # 2. GENERATE ACTIVITIES
         if activity_demand_enabled:
