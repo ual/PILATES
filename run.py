@@ -327,7 +327,7 @@ def run_atlas(settings, freq, output_year, client):
         "Preparing input data for vehicle ownership simulation for {0}.".format(output_year) )
     formatted_print(print_str)
     ## ++ may need to move/copy data into the right folder?
-    atlas_pre.get_data_inplace()
+    atlas_pre.prepare_atlas_inputs(settings, year)
 
     # 3. RUN ATLAS via docker container client
     print_str = (
