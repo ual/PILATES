@@ -31,7 +31,7 @@ def prepare_atlas_inputs(settings, year):
     # if atlas input path does not exist, create one
     if not os.path.exists(atlas_input_path):
         os.makedirs(atlas_input_path)
-        print('ATLAS Input Path Created for Year {}'.format(year))
+        logger.info('ATLAS Input Path Created for Year {}'.format(year))
     
     # read urbansim h5 outputs
     with pd.HDFStore(urbansim_output,mode='r') as data:
@@ -57,5 +57,5 @@ def prepare_atlas_inputs(settings, year):
             jobs.to_csv('{}/jobs.csv'.format(atlas_input_path))
 
         except: 
-            print('Urbansim Year {} Output Was Not Loaded Correctly by ATLAS')
+            logger.info('Urbansim Year {} Output Was Not Loaded Correctly by ATLAS')
 
