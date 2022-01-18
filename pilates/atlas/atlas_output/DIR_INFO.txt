@@ -1,0 +1,2 @@
+at run time, output data for atlas expected to be placed in this dir.
+If running in container, this dir is expected to be mounted from the host so data will persist after container exit
