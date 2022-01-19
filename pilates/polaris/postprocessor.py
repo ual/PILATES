@@ -301,17 +301,28 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 	skim_reader.WriteSkimsHDF5(output_file, skims, False)
 	print ('Done.')
 
-def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand):
+def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings):
 	if not os.path.exists(db_demand):
 		logger.critical("Error: input polaris demand db not found at: " + db_demand)
 		sys.exit()
+		
+	# verify filepaths
+	if forecast_year:
+		usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
+	else:
+		# no forecast year so read the input urbansim model from settings
+		region = usim_settings['region']
+		region_id = usim_settings['region_to_region_id'][region]
+		usim_base_fname = usim_settings['usim_formattable_input_file_name']
+		usim_base = usim_base_fname.format(region_id=region_id)
+		usim_output = "{0}/{1}".format(usim_output_dir, usim_base)
 	
 	# load the polaris person table into a data frame - should be updated with work and school locations
 	dbcon = sqlite3.connect(db_demand)
 	per_df = pd.read_sql_query("SELECT * FROM person", dbcon)
 	
 	# populate the urbansim object to update
-	usim = Usim_Data(forecast_year, usim_output_dir)
+	usim = Usim_Data(forecast_year, usim_output)
 	p = usim.per_data
 	p['work_zone_id'] = per_df['work_location_id'].reindex(p.index)
 	p['school_zone_id'] = per_df['school_location_id'].reindex(p.index)

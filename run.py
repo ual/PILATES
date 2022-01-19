@@ -146,11 +146,11 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         settings.get('travel_model', False)) and (
         not settings['static_skims']))
     replanning_enabled = settings.get('replan_iters', 0) > 0
-	
-	if activity_demand_enabled:
-		if settings['activity_demand_model'] == 'polaris':
-			replanning_enabled = False
-			
+    
+    if activity_demand_enabled:
+        if settings['activity_demand_model'] == 'polaris':
+            replanning_enabled = False
+
     settings.update({
         'land_use_enabled': land_use_enabled,
         'activity_demand_enabled': activity_demand_enabled,
@@ -661,9 +661,12 @@ if __name__ == '__main__':
         if land_use_enabled:
 
             # 1a. IF START YEAR, WARM START MANDATORY ACTIVITIES
-            if year == start_year and travel_model != 'polaris':
-                warm_start_activities(settings, year, client)
-                mandatory_activities_generated_this_year = True
+            if year == start_year:
+                if demand_model != 'polaris':
+                    warm_start_activities(settings, year, client)
+                    mandatory_activities_generated_this_year = True
+                else:
+                    pilates.polaris.travel_model.run_polaris(None, settings, warm_start=True)
 
             forecast_year = year + travel_model_freq
             if container_manager == "docker":
@@ -689,12 +692,12 @@ if __name__ == '__main__':
             if forecast_year == year:
                 warm_start_skims = True
 
-			if demand_model == 'polaris':
-				pilates.polaris.travel_model.run_polaris(year, forecast_year, os.path.abspath(settings['usim_local_data_folder']), warm_start=warm_start_skims)
-			else:
-				generate_activity_plans(
-					settings, year, forecast_year, client,
-					warm_start=warm_start_skims)
+            if demand_model == 'polaris':
+                pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=False)
+            else:
+                generate_activity_plans(
+                    settings, year, forecast_year, client,
+                    warm_start=warm_start_skims)
 
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the

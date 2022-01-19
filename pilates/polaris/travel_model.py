@@ -58,7 +58,10 @@ def modify_scenario(scenario_file, parameter, value):
 	f.write(newdata)
 	f.close()
 
-def run_polaris(forecast_year, usim_output):
+def run_polaris(forecast_year, usim_settings, warm_start=False):
+
+	logger.info('**** RUNNING POLARIS FOR FORECAST YEAR {0}, WARM START MODE = {1}'.format(forecast_year, warm_start))
+
 	# read settings from config file
 	with open('pilates/polaris/polaris_settings.yaml') as file:
 		polaris_settings = yaml.load(file, Loader=yaml.FullLoader)
@@ -80,6 +83,10 @@ def run_polaris(forecast_year, usim_output):
 	block_loc_file = "{0}/{1}".format(str(data_dir), block_loc_file_name)
 	vot_level = polaris_settings.get('vot_level')
 	
+	usim_output_dir = os.path.abspath(usim_settings['usim_local_data_folder'])
+	if warm_start:
+		forecast_year = None
+	
 	# store the original inputs
 	supply_db_name = db_name + "-Supply.sqlite"
 	demand_db_name = db_name + "-Demand.sqlite"
@@ -91,17 +98,39 @@ def run_polaris(forecast_year, usim_output):
 	PR.copyreplacefile(backup_dir / demand_db_name, data_dir)
 	
 	# load the urbansim population for the init run	
-	preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output, block_loc_file, db_supply, db_demand, population_scale_factor)
+	preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, population_scale_factor, usim_settings)
 	cwd = os.getcwd()
 	os.chdir(data_dir)
 	
+	#check if warm start and initialize changes
+	if warm_start:
+		num_abm_runs = 1
+		scenario_init_file = polaris_settings.get('scenario_warm_start', None)
+		PR.modify_scenario(scenario_file, "warm_start_mode", 'true')
+		PR.modify_scenario(scenario_file, "time_dependent_routing", 'false')
+		PR.modify_scenario(scenario_file, "multimodal_routing", 'false')
+		PR.modify_scenario(scenario_file, "use_tnc_system", 'false')
+		PR.modify_scenario(scenario_file, "output_moe_for_assignment_interval", 'false')
+		PR.modify_scenario(scenario_file, "output_link_moe_for_simulation_interval" , 'false')
+		PR.modify_scenario(scenario_file, "output_link_moe_for_assignment_interval" , 'false')
+		PR.modify_scenario(scenario_file, "output_turn_movement_moe_for_assignment_interval" , 'false')
+		PR.modify_scenario(scenario_file, "output_turn_movement_moe_for_simulation_interval" , 'false')
+		PR.modify_scenario(scenario_file, "output_network_moe_for_simulation_interval" , 'false,')
+		PR.modify_scenario(scenario_file, "write_skim_tables" , 'false')
+		PR.modify_scenario(scenario_file, "write_vehicle_trajectory" , 'false')
+		PR.modify_scenario(scenario_file, "write_transit_trajectory" , 'false')
+		if not scenario_init_file:
+			logger.info("Error: warm start mode specified, but the scenario_warm_start value was not set in settings file...")
+			sys.exit()
+
 	fail_count = 0
 	loop = 0
 			
 	while loop < int(num_abm_runs):
 		scenario_file = ''
 		if loop == 0:
-			scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
+			if forecast_year:
+				scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
 			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
 			PR.modify_scenario(scenario_file, "percent_to_synthesize", population_scale_factor)
 			PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
@@ -110,7 +139,8 @@ def run_polaris(forecast_year, usim_output):
 			PR.modify_scenario(scenario_file, "read_population_from_database", 'false')
 			PR.modify_scenario(scenario_file, "replan_workplaces", 'true')
 		else:
-			scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)
+			if forecast_year:
+				scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)
 			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0/int(loop))
 			PR.modify_scenario(scenario_file, "percent_to_synthesize", 0.0)
 			PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
@@ -161,5 +191,8 @@ def run_polaris(forecast_year, usim_output):
 	
 	# postprocessor.generate_polaris_skims_for_usim( 'pilates/polaris/data', db_name, db_supply, db_demand, db_result, auto_skim, transit_skim, vot_level)
 		
-	postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, data_dir)
-	postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level)
+	if not warm_start: 
+		postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, data_dir)
+	if not warm_start:
+		postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level)
+	postprocessor.update_usim_after_polaris(forecast_year, usim_output_dir, db_demand)
