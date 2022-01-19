@@ -95,6 +95,7 @@ def run_travel_model(name, forecast_year):
         run_beam()
 
 def parse_args_and_settings(settings_file='settings.yaml'):
+
     # read settings from config file
     with open(settings_file) as file:
         settings = yaml.load(file, Loader=yaml.FullLoader)
@@ -145,6 +146,11 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         settings.get('travel_model', False)) and (
         not settings['static_skims']))
     replanning_enabled = settings.get('replan_iters', 0) > 0
+	
+	if activity_demand_enabled:
+		if settings['activity_demand_model'] == 'polaris':
+			replanning_enabled = False
+			
     settings.update({
         'land_use_enabled': land_use_enabled,
         'activity_demand_enabled': activity_demand_enabled,
@@ -606,45 +612,6 @@ def run_replanning_loop(settings, forecast_year):
 
     return
 
-def run_beam():
-    # 2. GENERATE ACTIVITIES
-    if activity_demand_enabled:
-
-        # If the forecast year is the same as the base year of this
-        # iteration, then land use forecasting has not been run. In this
-        # case we have to read from the land use *inputs* because no
-        # *outputs* have been generated yet. This is usually only the case
-        # for generating "warm start" skims, so we treat it the same even
-        # if the "warm_start_skims" setting was not set to True at runtime
-        if forecast_year == year:
-            warm_start_skims = True
-
-        generate_activity_plans(
-            settings, year, forecast_year, client,
-            warm_start=warm_start_skims)
-
-        # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
-        # have to re-run asim all the way through on sample to shrink the
-        # cache for use in re-planning, otherwise cache will use entire pop
-        if replanning_enabled:
-            initialize_asim_for_replanning(settings, forecast_year)
-
-    else:
-
-        # If not generating activities with a separate ABM (e.g.
-        # ActivitySim), then we need to create the next iteration of land
-        # use data directly from the last set of land use outputs.
-        usim_post.create_next_iter_usim_data(settings, year)
-
-    if traffic_assignment_enabled:
-
-        # 3. RUN BEAM
-        run_traffic_assignment(settings, year, client)
-
-        # 4. REPLAN
-        if replanning_enabled > 0:
-            run_replanning_loop(settings, forecast_year)
-
 
 if __name__ == '__main__':
 
@@ -661,7 +628,9 @@ if __name__ == '__main__':
     # parse scenario settings
     start_year = settings['start_year']
     end_year = settings['end_year']
-    travel_model = settings['travel_model']
+    demand_model = settings['activity_demand_model']
+    formatted_print(
+        'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = settings.get('travel_model_freq', 1)
     warm_start_skims = settings['warm_start_skims']
     static_skims = settings['static_skims']
@@ -708,8 +677,45 @@ if __name__ == '__main__':
         else:
             forecast_year = year
 
-        # 2. Run Travel Model
-        run_travel_model(travel_model, forecast_year)
+        # 2. GENERATE ACTIVITIES
+        if activity_demand_enabled:
 
+            # If the forecast year is the same as the base year of this
+            # iteration, then land use forecasting has not been run. In this
+            # case we have to read from the land use *inputs* because no
+            # *outputs* have been generated yet. This is usually only the case
+            # for generating "warm start" skims, so we treat it the same even
+            # if the "warm_start_skims" setting was not set to True at runtime
+            if forecast_year == year:
+                warm_start_skims = True
+
+			if demand_model == 'polaris':
+				pilates.polaris.travel_model.run_polaris(year, forecast_year, os.path.abspath(settings['usim_local_data_folder']), warm_start=warm_start_skims)
+			else:
+				generate_activity_plans(
+					settings, year, forecast_year, client,
+					warm_start=warm_start_skims)
+
+            # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
+            # have to re-run asim all the way through on sample to shrink the
+            # cache for use in re-planning, otherwise cache will use entire pop
+            if replanning_enabled:
+                initialize_asim_for_replanning(settings, forecast_year)
+
+        else:
+
+            # If not generating activities with a separate ABM (e.g.
+            # ActivitySim), then we need to create the next iteration of land
+            # use data directly from the last set of land use outputs.
+            usim_post.create_next_iter_usim_data(settings, year)
+
+        if traffic_assignment_enabled:
+
+            # 3. RUN BEAM
+            run_traffic_assignment(settings, year, client)
+
+            # 4. REPLAN
+            if replanning_enabled > 0:
+                run_replanning_loop(settings, forecast_year)
 
     logger.info("Finished")

@@ -1,4 +1,5 @@
 import os
+import glob
 import openmatrix as omx
 import pandas as pd
 from pandas.api.types import is_string_dtype
@@ -12,6 +13,7 @@ from tqdm import tqdm
 import time
 import yaml
 import matplotlib.pyplot as plt 
+from multiprocessing import Pool
 
 from pilates.utils.geog import get_block_geoms,\
      map_block_to_taz, get_zone_from_points, \
@@ -152,12 +154,16 @@ def read_zone_geoms(settings, year,
 ####################################
 #### RAW BEAM SKIMS TO SKIMS.OMX ###
 ####################################
+def read_skim(filename):
+    logger.info("Loading raw beam skims from disk: {}".format(filename))
+    df = pd.read_csv(filename, index_col=None, header=0, dtype=beam_skims_types)
+    return df
+
 def _load_raw_beam_skims(settings):
-    """ Read BEAM skims (csv format) from local storage or remote URL if provided 
+    """ Read BEAM skims (csv format) from local storage. 
     Parameters: 
     ------------
-    - settings: 
-    - remore_url: str. raw BEAM skims URL location. 
+    - settings:
     
     Return:
     --------
@@ -167,20 +173,20 @@ def _load_raw_beam_skims(settings):
     skims_fname = settings.get('skims_fname', False)
     path_to_beam_skims = os.path.join(
         settings['beam_local_output_folder'], skims_fname)
-    logger.info("Loading raw beam skims from disk.")
+    
     try:
-        # load skims from disk or url
-        skims = pd.read_csv(path_to_beam_skims, dtype=beam_skims_types)
-        
-        ## TO BE DEPRECIATED: Saves 30mins for sfbay skims. 
-        ## OD with no skim values will not be included in raw skims
-        ## Column 'DEBUG_TEXT' will not be included in skims
-        if 'DEBUG_TEXT' in skims.columns:
-            skims = skims.dropna(axis = 0, subset = ['DEBUG_TEXT'])    
+        if '.csv' in path_to_beam_skims: 
+            skims = read_skim(path_to_beam_skims)
+        else: # path is a folder with multiple files
+            all_files = glob.glob(path_to_beam_skims + "/*")
+            agents = len(all_files)
+            pool = Pool(processes=agents) 
+            result = pool.map(read_skim, all_files)
+            skims = pd.concat(result, axis=0, ignore_index=True)
     except KeyError:
         raise KeyError(
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
-    return skims                             
+    return skims                          
 
 
 def _create_skim_object(settings, overwrite=True, output_dir=None):
@@ -234,12 +240,12 @@ def _raw_beam_skims_preprocess(settings, year, skims_df):
     
     order = zone_order(settings, year)
     
-    test_1 = set(origin_taz).issubset(set(order))
-    test_2 = set(destination_taz).issubset(set(order))
+#     test_1 = set(origin_taz).issubset(set(order))
+#     test_2 = set(destination_taz).issubset(set(order))
     test_3 = len(set(order) - set(origin_taz))
     test_4 = len(set(order) - set(destination_taz))
-    assert test_1, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
-    assert test_2, 'There are {} missing destination zone ids in BEAM skims'.format(test_4)
+    assert test_3 == 0, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
+    assert test_4 == 0, 'There are {} missing destination zone ids in BEAM skims'.format(test_4)
     
     # Preprocess skims:
     df_clean = skims_df.copy()

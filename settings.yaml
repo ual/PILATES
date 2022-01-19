@@ -14,8 +14,7 @@ travel_model_freq: 5
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
-travel_model: polaris
-activity_demand_model:
+activity_demand_model: polaris
 traffic_assignment_enabled: False
 
 # docker or singularity

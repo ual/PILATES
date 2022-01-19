@@ -1,8 +1,10 @@
 import os
-# import sys
+import pandas as pd
+import sys
 import sqlite3
 import argparse
 import pilates.polaris.skim_file_reader as skim_reader
+from pilates.polaris.preprocessor import Usim_Data
 from pathlib import Path
 import shutil
 import logging
@@ -298,6 +300,28 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 	output_file = '{0}/{1}_skims.hdf5'.format(output_dir, database_name)
 	skim_reader.WriteSkimsHDF5(output_file, skims, False)
 	print ('Done.')
+
+def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand):
+	if not os.path.exists(db_demand):
+		logger.critical("Error: input polaris demand db not found at: " + db_demand)
+		sys.exit()
+	
+	# load the polaris person table into a data frame - should be updated with work and school locations
+	dbcon = sqlite3.connect(db_demand)
+	per_df = pd.read_sql_query("SELECT * FROM person", dbcon)
+	
+	# populate the urbansim object to update
+	usim = Usim_Data(forecast_year, usim_output_dir)
+	p = usim.per_data
+	p['work_zone_id'] = per_df['work_location_id'].reindex(p.index)
+	p['school_zone_id'] = per_df['school_location_id'].reindex(p.index)
+	
+	# update the person data table in the usim object
+	usim.per_data = p
+	
+	# close saves it back to original datastore and writes to file
+	usim.Close()
+	
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Process the skim data for UrbanSim')

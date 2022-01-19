@@ -22,22 +22,37 @@ logger = logging.getLogger(__name__)
 
 
 class Household:
-	def __init__(self, id, hh):
+	def __init__(self, id, hh, from_usim=True):
 		self.id = id
-		self.hhold = hh['serialno']
-		self.block_id = hh['block_id']
-		self.location = -1
-		self.zone = -1
-		self.vehicles = hh['cars']
-		self.persons = hh['persons']
-		self.income = hh['income']
-		self.workers = hh['workers']
-		# 1= own_1p_<54, 2=own_1p_55+, 3=own_2p_<54, 4=own_2p_55+, 5= rent_1p_<54, 6=rent_1p_55+, 7=rent_2p_<54, 8=rent_2p_55+
-		hht_mapping = {1: 4, 2: 4, 3: 1, 4: 1, 5: 9, 6: 9, 7: 6, 8: 6} 
-		self.hhtype = hht_mapping[hh['hh_type']] 
-		hu_type_map = {'yes': 1, 'no': 3}
-		self.housing_unit_type = hu_type_map[hh['sf_detached']]	
-		self.person_list = {}
+		if from_usim:
+			self.hhold = hh['household_id']
+			self.block_id = hh['block_id']
+			self.location = -1
+			self.zone = -1
+			self.vehicles = hh['cars']
+			self.persons = hh['persons']
+			self.income = hh['income']
+			self.workers = hh['workers']
+			# 1= own_1p_<54, 2=own_1p_55+, 3=own_2p_<54, 4=own_2p_55+, 5= rent_1p_<54, 6=rent_1p_55+, 7=rent_2p_<54, 8=rent_2p_55+
+			hht_mapping = {1: 4, 2: 4, 3: 1, 4: 1, 5: 9, 6: 9, 7: 6, 8: 6} 
+			self.hhtype = hht_mapping[hh['hh_type']] 
+			hu_type_map = {'yes': 1, 'no': 3}
+			self.housing_unit_type = hu_type_map[hh['sf_detached']]				
+			self.person_list = {}
+			self.usim_record = hh
+		else:
+			self.hhold = hh['hhold']
+			self.block_id = None
+			self.location = hh['location']
+			self.zone = None
+			self.vehicles = hh['vehicles']
+			self.persons = hh['persons']
+			self.income = hh['income']
+			self.workers = hh['workers']
+			self.hhtype = hh['type']
+			self.housing_unit_type = hh['housing_unit_type']
+			self.person_list = {}
+			self.usim_record = False
 	
 	def push_to_db(self, dbCon):
 		query = 'insert into Household (household,hhold,location,persons,workers,vehicles,type,income,housing_unit_type, ecom, dispose_veh) values (?,?,?,?,?,?,?,?,?,0,0);'
@@ -60,7 +75,7 @@ class Household:
 
 class Person:
 	def __init__(self, per):
-		self.id = per['member_id']-1
+		self.id = per['person_id']-1
 		self.household = per['household_id']
 		self.age = per['age']
 		self.worker_class = per['worker']
@@ -77,10 +92,20 @@ class Person:
 		self.school_grade_level = max(min(per['student']*(self. age-3), 15), 0)  # use age to guess at grade level for those enrolled in school
 		self.work_hours = per['hours']
 		self.telecommute_level = per['work_at_home']*4
+		# create and initialze the school and work zones if they don't exist - otherwise read them. Note - called 'zone' in the urbansim data, but in polaris refers to the activity location id
+		if 'work_zone_id' in per:
+			self.work_zone_id = per['work_zone_id']
+		else:
+			self.work_zone_id = -1
+		if 'school_zone_id' in per:
+			self.school_zone_id = per['school_zone_id']
+		else:
+			self.school_zone_id = -1
+		self.usim_record = per
 		
 	def push_to_db(self, dbCon):
-		query = 'insert into Person (household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0);'
-		dbCon.execute(query, [self.household, self.id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level])
+		query = 'insert into Person (household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0);'
+		dbCon.execute(query, [self.household, self.id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.work_zone_id, self.school_zone_id])
 		
 
 class Job:
@@ -89,7 +114,8 @@ class Job:
 		self.sector = job['sector_id']
 		job_mapping = {'11': 3, '21': 3, '22': 3, '23': 3, '42': 0, '51': 2, '52': 2, '53': 2, '54': 2, '55': 2, '56': 5, '61': 1, '62': 5, '71': 5, '72': 2, '81': 2, '92': 1, '31-33': 4, '44-45': 0, '48-49': 3}
 		self.sector_agg = job_mapping[self.sector]
-		job.zone = None
+		self.zone = None
+		self.usim_record = job
 		
 
 class Block:
@@ -220,6 +246,75 @@ def clean_db(DbCon):
 	DbCon.commit()
 
 
+class Usim_Data:
+	def __init__(self, forecast_year, usim_output_dir):
+		self.block_hh_count = {}
+		self.hh_data = None
+		self.per_data = None
+		self.job_data = None
+		self.block_data = None
+
+		self.hh_dict = {}
+		self.per_dict = {}
+		self.job_dict = {}
+		self.block_dict = {}
+		
+		# verify filepaths
+		usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
+		if not os.path.exists(usim_output):
+			logger.critical("Error: input urbansim data file path not found")
+			sys.exit()
+			
+		# Connect to urbansim output and import data
+		self.households_data_lbl = '{0}/households'.format(forecast_year)
+		self.persons_data_lbl = '{0}/persons'.format(forecast_year)
+		self.jobs_data_lbl = '{0}/jobs'.format(forecast_year)
+		self.blocks_data_lbl = '{0}/blocks'.format(forecast_year)
+		
+		self.usim_data = pd.HDFStore(usim_output)
+		
+		self.hh_data = self.usim_data[self.households_data_lbl]
+		self.per_data = self.usim_data[self.persons_data_lbl]
+		self.job_data = self.usim_data[self.jobs_data_lbl]
+		self.block_data = self.usim_data[self.blocks_data_lbl]
+		
+	def Fill_From_Usim_Output(self, forecast_year, usim_output_dir):
+		
+		self.Get_Usim_Datastores()
+
+		# Iterate through households in the datastore and construct HH objects, as well as the household-block distribution pdf
+		logger.info('Reading households from Urbansim output...')
+		for id, data in hh_data.iterrows():
+			hh = Household(id, data)
+			hh_dict[hh.id] = hh		
+
+		# Iterate through persons in the datastore and construct PER objects
+		logger.info('Reading persons from Urbansim output...')
+		for id, data in per_data.iterrows():
+			p = Person(data)
+			
+			# check that person is in a valid household
+			if p.household in hh_dict:
+				hh_dict[p.household].person_list[p.id] = p  # put person into the appropriate household member dictionary
+
+		for h in hh_dict.values():
+			h.set_marital_status_for_members()
+		
+		# Iterate through blocks in the datastore and construct Block objects		
+		logger.info('Reading blocks from Urbansim output...')
+		for id, data in block_data.iterrows():
+			b = Block(id, data)
+			block_dict[id] = b
+			
+		logger.info('Reading jobs from Urbansim output...')
+		for id, data in job_data.iterrows():
+			j = Job(data)
+			job_dict[id] = j
+
+	def Close(self):
+		self.usim_data[self.persons_data_lbl] = self.per_data 
+		self.usim_data.close()
+
 def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, population_scale_factor):
 	
 	random.seed()
@@ -243,61 +338,50 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 	DbCon = sqlite3.connect(db_demand)
 	DbSupply = sqlite3.connect(db_supply)
 
-	# Read in block to location correspondence
+	# Geographic correspondence structures
 	block_to_loc = {}
+	loc_to_zone = {}
+	block_to_zone = {}
+	
+	# Read in block to location correspondence
 	blk = pd.read_csv(block_loc_file, dtype='str')
 	for id, data in blk.iterrows():
 		block_to_loc[str(data['InputID'])] = int(data['TargetID'])
 
 	# Read in location to zone correspondence from Supply
-	loc_to_zone = {}
 	for row in DbSupply.execute('Select location, zone from location'):
 		loc_to_zone[row[0]] = row[1]
-	block_to_zone = {}
+	
+	# construct block to zone correspondence
 	for b, l in block_to_loc.items():
 		block_to_zone[b] = loc_to_zone[l]
+
 
 	# ==================== MODIFY THE INPUT DEMAND POPULATION in DEMAND.SQLITE =======================================
 	clean_db(DbCon)
 
+	usim_data = Usim_Data(forecast_year, usim_output_dir)
+	
 	# Connect to urbansim output and import data
-	households_data = '{0}/households'.format(forecast_year)
-	persons_data = '{0}/persons'.format(forecast_year)
-	jobs_data = '{0}/jobs'.format(forecast_year)
-	blocks_data = '{0}/blocks'.format(forecast_year)
-	usim_data = pd.HDFStore(usim_output)
-	hh_data = usim_data[households_data]
-	hh_dict = {}
 	hh_unplaced = []
-	per_data = usim_data[persons_data]
-	per_dict = {}
-	job_data = usim_data[jobs_data]
-	job_dict = {}
-	block_data = usim_data[blocks_data]
-	block_dict = {}
 	block_hh_count = {}
 	block_pdf = SortedDict()
 
-	# initialize zone structure
+	# update block dictionary and initialize the zone structure
 	zone_data = {}
-	for id, data in block_data.iterrows():
-		b = Block(id, data)
+	for id, b in usim_data.block_dict.items():
 		b.zone = block_to_zone[id]
-		block_dict[id] = b
 		if b.zone not in zone_data:
 			zone_data[b.zone] = Zone(b.zone)
 
 	# Iterate through households in the datastore and construct HH objects, as well as the household-block distribution pdf
 	logger.info('Reading households from Urbansim output...')
 	num_valid_HH = 0.0
-	for id, data in hh_data.iterrows():
-		hh = Household(id, data)
-		
+	for id, hh in usim_data.hh_data.items():
 		# check for valid home location
 		if hh.block_id in block_to_loc:
 			hh.location = block_to_loc[hh.block_id]
 			hh.zone = block_to_zone[hh.block_id]
-			hh_dict[id] = hh
 			# update hh pdf precursors...
 			num_valid_HH += 1.0
 			if hh.block_id in block_hh_count:
@@ -323,19 +407,7 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 		hh.block_id = block_pdf[block_key]
 		hh.location = block_to_loc[hh.block_id]
 		hh.zone = block_to_zone[hh.block_id]
-		hh_dict[hh.id] = hh
 
-	# Iterate through persons in the datastore and construct PER objects
-	logger.info('Reading persons from Urbansim output...')
-	for id, data in per_data.iterrows():
-		p = Person(data)
-		
-		# check that person is in a valid household
-		if p.household in hh_dict:
-			hh_dict[p.household].person_list[p.id] = p  # put person into the appropriate household member dictionary
-
-	for h in hh_dict.values():
-		h.set_marital_status_for_members()
 
 	# Sample the households according to sample %
 	random.seed()
@@ -353,10 +425,8 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 
 	# ==================== MODIFY THE ZONES in SUPPLY.SQLITE =======================================
 	logger.info('Reading jobs from Urbansim output...')
-	for id, data in job_data.iterrows():
-		j = Job(data)
+	for id, j in usim_data.job_dict.items():
 		j.zone = block_to_zone[j.block_id]
-		job_dict[id] = j
 
 	for id, hh in hh_dict.items():
 		hzone = zone_data[hh.zone]
