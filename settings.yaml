@@ -14,10 +14,11 @@ travel_model_freq: 5
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
+travel_model: polaris
 activity_demand_model: polaris
 
 # docker or singularity
-container_manager: singularity
+container_manager: docker
 #singularity settings
 singularity_images:
   urbansim: block_model_v2_pb.sif
@@ -28,8 +29,8 @@ singularity_images:
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim:latest
+  beam: 
+  activitysim:
   activity_cemand_model:
   polaris:
 docker_stdout: False

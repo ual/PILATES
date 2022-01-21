@@ -45,7 +45,6 @@ def archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_leve
 	#vot_level = 2
 	generate_polaris_skims_for_usim(data_dir, db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
 
-
 def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):
 
 	skims = skim_reader.Skim_Results()
@@ -302,6 +301,8 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 	print ('Done.')
 
 def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings):
+	
+	
 	if not os.path.exists(db_demand):
 		logger.critical("Error: input polaris demand db not found at: " + db_demand)
 		sys.exit()
@@ -316,10 +317,12 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 		usim_base_fname = usim_settings['usim_formattable_input_file_name']
 		usim_base = usim_base_fname.format(region_id=region_id)
 		usim_output = "{0}/{1}".format(usim_output_dir, usim_base)
+		
+	logger.info(("Updating urbansim model, {0}, from polaris demand database...").format(usim_output))
 	
 	# load the polaris person table into a data frame - should be updated with work and school locations
 	dbcon = sqlite3.connect(db_demand)
-	per_df = pd.read_sql_query("SELECT * FROM person", dbcon)
+	per_df = pd.read_sql_query("SELECT * FROM person", dbcon, index_col='id')
 	
 	# populate the urbansim object to update
 	usim = Usim_Data(forecast_year, usim_output)

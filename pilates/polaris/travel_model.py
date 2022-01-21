@@ -106,19 +106,19 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 	if warm_start:
 		num_abm_runs = 1
 		scenario_init_file = polaris_settings.get('scenario_warm_start', None)
-		PR.modify_scenario(scenario_file, "warm_start_mode", 'true')
-		PR.modify_scenario(scenario_file, "time_dependent_routing", 'false')
-		PR.modify_scenario(scenario_file, "multimodal_routing", 'false')
-		PR.modify_scenario(scenario_file, "use_tnc_system", 'false')
-		PR.modify_scenario(scenario_file, "output_moe_for_assignment_interval", 'false')
-		PR.modify_scenario(scenario_file, "output_link_moe_for_simulation_interval" , 'false')
-		PR.modify_scenario(scenario_file, "output_link_moe_for_assignment_interval" , 'false')
-		PR.modify_scenario(scenario_file, "output_turn_movement_moe_for_assignment_interval" , 'false')
-		PR.modify_scenario(scenario_file, "output_turn_movement_moe_for_simulation_interval" , 'false')
-		PR.modify_scenario(scenario_file, "output_network_moe_for_simulation_interval" , 'false,')
-		PR.modify_scenario(scenario_file, "write_skim_tables" , 'false')
-		PR.modify_scenario(scenario_file, "write_vehicle_trajectory" , 'false')
-		PR.modify_scenario(scenario_file, "write_transit_trajectory" , 'false')
+		PR.modify_scenario(scenario_init_file, "warm_start_mode", 'true')
+		PR.modify_scenario(scenario_init_file, "time_dependent_routing", 'false')
+		PR.modify_scenario(scenario_init_file, "multimodal_routing", 'false')
+		PR.modify_scenario(scenario_init_file, "use_tnc_system", 'false')
+		PR.modify_scenario(scenario_init_file, "output_moe_for_assignment_interval", 'false')
+		PR.modify_scenario(scenario_init_file, "output_link_moe_for_simulation_interval" , 'false')
+		PR.modify_scenario(scenario_init_file, "output_link_moe_for_assignment_interval" , 'false')
+		PR.modify_scenario(scenario_init_file, "output_turn_movement_moe_for_assignment_interval" , 'false')
+		PR.modify_scenario(scenario_init_file, "output_turn_movement_moe_for_simulation_interval" , 'false')
+		PR.modify_scenario(scenario_init_file, "output_network_moe_for_simulation_interval" , 'false')
+		PR.modify_scenario(scenario_init_file, "write_skim_tables" , 'false')
+		PR.modify_scenario(scenario_init_file, "write_vehicle_trajectory" , 'false')
+		PR.modify_scenario(scenario_init_file, "write_transit_trajectory" , 'false')
 		if not scenario_init_file:
 			logger.info("Error: warm start mode specified, but the scenario_warm_start value was not set in settings file...")
 			sys.exit()
@@ -131,6 +131,8 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 		if loop == 0:
 			if forecast_year:
 				scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
+			else:
+				scenario_file = scenario_init_file
 			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
 			PR.modify_scenario(scenario_file, "percent_to_synthesize", population_scale_factor)
 			PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
@@ -159,15 +161,18 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 		output_dir = PR.get_latest_polaris_output(out_name, data_dir)
 			
 		if success:
-			fail_count = 0
-
 			PR.copyreplacefile(output_dir / demand_db_name, data_dir)
-			PR.copyreplacefile(output_dir / result_db_name, data_dir)
-			PR.copyreplacefile(output_dir / highway_skim_file_name, data_dir)
-			PR.copyreplacefile(data_dir / supply_db_name, output_dir)
 			PR.execute_sql_script(data_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
-			if loop == int(num_abm_runs)-1:
-				PR.execute_sql_script_with_attach(output_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", data_dir / supply_db_name)
+			# skip all of the file storage and analysis for warm start runs - only need the demand file
+			if not warm_start:
+				fail_count = 0		
+				# copy the network outputs back to main data directory
+				PR.copyreplacefile(output_dir / result_db_name, data_dir)
+				PR.copyreplacefile(output_dir / highway_skim_file_name, data_dir)
+				PR.copyreplacefile(data_dir / supply_db_name, output_dir)		
+				# only run the analysis script for the final iteration of the loop to save time
+				if loop == int(num_abm_runs)-1:
+					PR.execute_sql_script_with_attach(output_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", data_dir / supply_db_name)
 			
 			loop += 1
 		else:
@@ -195,4 +200,4 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 		postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, data_dir)
 	if not warm_start:
 		postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level)
-	postprocessor.update_usim_after_polaris(forecast_year, usim_output_dir, db_demand)
+	postprocessor.update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings)

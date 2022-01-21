@@ -20,7 +20,7 @@ results_dir : convergence_results  # = data_dir / json_data["results_dir"]
 scripts_dir :  /mnt/c/polaris_runs/PILATES-campo-cacc/pilates/polaris/conv_scripts # = Path(json_data["scripts_dir"])
 
 # -- SET THE MAIN AND DTA RUN SCENARIO FILES
-population_scale_factor : 0.25  # MUST match settings in the scenario files below
+population_scale_factor : 1.0  # MUST match settings in the scenario files below
 scenario_main_init : scenario_abm_init.json #= json_data["scenario_main_init"]
 scenario_main :  scenario_abm.json # = json_data["scenario_main"]
 scenario_warm_start : scenario_abm_init_2010.json

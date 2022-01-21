@@ -25,7 +25,7 @@ class Household:
 	def __init__(self, id, hh, from_usim=True):
 		self.id = id
 		if from_usim:
-			self.hhold = hh['serialno']
+			self.hhold = id #store the id also in the hhold/serial_no field until we get the ODB issues with sqlite id fixed... hh['serialno']
 			self.block_id = hh['block_id']
 			self.location = -1
 			self.zone = -1
@@ -76,7 +76,7 @@ class Household:
 class Person:
 	def __init__(self, id, per):
 		self.id = id
-		self.per_id = per['member_id']-1
+		self.per_id = id # per['member_id']-1
 		self.household = per['household_id']
 		self.age = per['age']
 		self.worker_class = per['worker']
@@ -96,17 +96,26 @@ class Person:
 		# create and initialze the school and work zones if they don't exist - otherwise read them. Note - called 'zone' in the urbansim data, but in polaris refers to the activity location id
 		if 'work_zone_id' in per:
 			self.work_zone_id = per['work_zone_id']
+			if pd.isnull(per['work_zone_id']):
+				self.work_zone_id = -1
 		else:
 			self.work_zone_id = -1
 		if 'school_zone_id' in per:
 			self.school_zone_id = per['school_zone_id']
+			if pd.isnull(per['school_zone_id']): # if value exists but is null in urbansim data - replace with -1 due to not null constraint in polaris sqlite db
+				self.school_zone_id = -1
 		else:
 			self.school_zone_id = -1
 		self.usim_record = per
 		
 	def push_to_db(self, dbCon):
-		query = 'insert into Person (person,household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?);'
-		dbCon.execute(query, [self.id, self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.work_zone_id, self.school_zone_id])
+		try:
+			if not self.school_zone_id:
+				self.school_zone_id = -1
+			query = 'insert into Person (person,household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?);'
+			dbCon.execute(query, [self.id, self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.work_zone_id, self.school_zone_id])
+		except sqlite3.IntegrityError:
+			print(self.usim_record)
 		
 
 class Job:
@@ -251,7 +260,9 @@ class Usim_Data:
 	def __init__(self, forecast_year, usim_output):
 		self.block_hh_count = {}
 		self.hh_data = None
+		self.hh_idx = None
 		self.per_data = None
+		self.per_idx = None
 		self.job_data = None
 		self.block_data = None
 
@@ -281,7 +292,9 @@ class Usim_Data:
 		self.usim_data = pd.HDFStore(usim_output)
 		
 		self.hh_data = self.usim_data[self.households_data_lbl]
+		self.hh_idx = self.hh_data.index
 		self.per_data = self.usim_data[self.persons_data_lbl]
+		self.per_idx = self.per_data.index
 		self.job_data = self.usim_data[self.jobs_data_lbl]
 		self.block_data = self.usim_data[self.blocks_data_lbl]
 		
@@ -291,14 +304,15 @@ class Usim_Data:
 
 		# Iterate through households in the datastore and construct HH objects, as well as the household-block distribution pdf
 		logger.info('Reading households from Urbansim output...')
-		for id, data in self.hh_data.iterrows():
-			hh = Household(id, data)
+		for idx, data in self.hh_data.iterrows():
+			#id = self.hh_idx[idx]
+			hh = Household(idx, data)
 			self.hh_dict[hh.id] = hh		
 
 		# Iterate through persons in the datastore and construct PER objects
 		logger.info('Reading persons from Urbansim output...')
-		for id, data in self.per_data.iterrows():
-			p = Person(id, data)
+		for idx, data in self.per_data.iterrows():
+			p = Person(idx, data)
 			
 			# check that person is in a valid household
 			if p.household in self.hh_dict:
@@ -321,6 +335,7 @@ class Usim_Data:
 	def Close(self):
 		self.usim_data[self.persons_data_lbl] = self.per_data 
 		self.usim_data.close()
+		logger.info("Closing urbansim hdf5 file...")
 
 def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, population_scale_factor, usim_settings):
 	

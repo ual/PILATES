@@ -525,6 +525,7 @@ def initialize_docker_client(settings):
     models = [land_use_model, activity_demand_model, travel_model]
     image_names = settings['docker_images']
     pull_latest = settings.get('pull_latest', False)
+    logger.info("Pulling from docker...")
     client = docker.from_env()
     if pull_latest:
         for model in models:
@@ -616,7 +617,11 @@ def run_replanning_loop(settings, forecast_year):
 if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
+    
+    logger.info("Initializing data...")
     clean_and_init_data()
+    
+    logger.info("Preparing runtime environment...")
 
     #########################################
     #  PREPARE PILATES RUNTIME ENVIRONMENT  #
@@ -712,7 +717,8 @@ if __name__ == '__main__':
             # use data directly from the last set of land use outputs.
             usim_post.create_next_iter_usim_data(settings, year)
 
-        if traffic_assignment_enabled:
+		# DO traffic assignment - but skip if using polaris as this is done along with activity_demand generation
+        if traffic_assignment_enabled and demand_model != 'polaris':
 
             # 3. RUN BEAM
             run_traffic_assignment(settings, year, client)
