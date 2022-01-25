@@ -6,26 +6,15 @@ import os
 import logging
 
 # Commented commands for only for debugging
-import yaml
-import argparse
-with open('settings.yaml') as file:
-    settings = yaml.load(file, Loader=yaml.FullLoader)
-
-h5fname =  'custom_mpo_48197301_model_data.h5' # 'custom_mpo_06197001_model_data.h5'  #
-year = 2010
+# import yaml
+# import argparse
+# with open('settings.yaml') as file:
+#     settings = yaml.load(file, Loader=yaml.FullLoader)
 
 
 logger = logging.getLogger(__name__)
 
 
-
-
-# update "cars" and "hh_cars" columns in urbansim h5 outputs
-# now this update is in-situ to minimize code changes needed
-
-warm_start = True
-
-    
 def atlas_update_h5_vehicle(settings, year, warm_start=False):
     # use atlas outputs in year provided and update "cars" & "hh_cars"
     # columns in urbansim h5 files
@@ -49,6 +38,7 @@ def atlas_update_h5_vehicle(settings, year, warm_start=False):
 
     # read original h5 files
     with pd.HDFStore(os.path.join(h5path, h5fname), mode='r+') as h5:
+
         # if in main loop, update "model_data_*.h5", which has three layers ({$year}/households/cars)
         if not warm_start:
             olddf = h5[str(year)]['households']['cars']
