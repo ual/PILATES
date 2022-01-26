@@ -186,7 +186,7 @@ def get_atlas_cmd(settings, freq, output_year, npe, nsample):
     basedir = settings.get('basedir','/')
     codedir = settings.get('codedir','/')
     formattable_atlas_cmd = settings['atlas_formattable_command']
-    atlas_cmd = formattable_atlas_cmd.format(freq, forecast_year, npe, nsample, basedir, codedir)
+    atlas_cmd = formattable_atlas_cmd.format(freq, output_year, npe, nsample, basedir, codedir)
     return atlas_cmd
 
 
