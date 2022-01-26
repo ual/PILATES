@@ -5,7 +5,7 @@
 ############################
 
 # scenario defs
-region: austin
+region: sfbay
 scenario: base
 start_year: 2010
 end_year: 2018
@@ -20,7 +20,7 @@ activity_demand_model: activitysim
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  beam: zaneedell/beam:0.8.6.04
+  beam: zaneedell/beam:0.8.6.5
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
 docker_stdout: False
