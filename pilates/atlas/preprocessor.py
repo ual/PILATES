@@ -5,13 +5,27 @@ from pandas import HDFStore
 import os
 import logging
 
-
 # import yaml
 # import argparse
 # with open('settings.yaml') as file:
 #     settings = yaml.load(file, Loader=yaml.FullLoader)
 
+
 logger = logging.getLogger(__name__)
+
+
+def _get_usim_datastore_fname(settings, io, year=None):
+    # reference: asim postprocessor
+    if io == 'output':
+        datastore_name = settings['usim_formattable_output_file_name'].format(
+            year=year)
+    elif io == 'input':
+        region = settings['region']
+        region_id = settings['region_to_region_id'][region]
+        usim_base_fname = settings['usim_formattable_input_file_name']
+        datastore_name = usim_base_fname.format(region_id=region_id)
+
+    return datastore_name
 
 
 def prepare_atlas_inputs(settings, year, warm_start=False):
@@ -19,12 +33,10 @@ def prepare_atlas_inputs(settings, year, warm_start=False):
     urbansim_output_path = settings['usim_local_data_folder']
     if warm_start:
         # if warm start, read custom_mpo h5
-        region = settings['region']
-        region_id = settings['region_to_region_id'][region]
-        urbansim_output_fname = 'custom_mpo_{}_model_data.h5'.format(region_id)
+        urbansim_output_fname = _get_usim_datastore_fname(settings, io = 'input')
     else:
         # if in main loop, read urbansim-generated h5 
-        urbansim_output_fname = 'model_data_{}.h5'.format(year)
+        urbansim_output_fname = _get_usim_datastore_fname(settings, io = 'output', year = year)
     urbansim_output = os.path.join(urbansim_output_path,urbansim_output_fname)
     
     # set where to put atlas csv inputs (processed from urbansim outputs)
@@ -61,6 +73,8 @@ def prepare_atlas_inputs(settings, year, warm_start=False):
             jobs = data['/jobs']
             jobs.to_csv('{}/jobs.csv'.format(atlas_input_path))
 
+            logger.info('Preparing ATLAS Year {} Input from Urbansim Output'.format(year))
+
         except: 
-            logger.error('Urbansim Year {} Output Was Not Loaded Correctly by ATLAS')
+            logger.error('Urbansim Year {} Output Was Not Loaded Correctly by ATLAS'.format(year))
 

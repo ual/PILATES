@@ -15,6 +15,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _get_usim_datastore_fname(settings, io, year=None):
+    # reference: asim postprocessor
+    if io == 'output':
+        datastore_name = settings['usim_formattable_output_file_name'].format(
+            year=year)
+    elif io == 'input':
+        region = settings['region']
+        region_id = settings['region_to_region_id'][region]
+        usim_base_fname = settings['usim_formattable_input_file_name']
+        datastore_name = usim_base_fname.format(region_id=region_id)
+
+    return datastore_name
+
+
+
 def atlas_update_h5_vehicle(settings, year, warm_start=False):
     # use atlas outputs in year provided and update "cars" & "hh_cars"
     # columns in urbansim h5 files
@@ -30,11 +45,9 @@ def atlas_update_h5_vehicle(settings, year, warm_start=False):
     # set which h5 file to update
     h5path = settings['usim_local_data_folder']
     if warm_start:
-        region = settings['region']
-        region_id = settings['region_to_region_id'][region]
-        h5fname = 'custom_mpo_{}_model_data.h5'.format(region_id)
+        h5fname = _get_usim_datastore_fname(settings, io = 'input')
     else:
-        h5fname = 'model_data_{}.h5'.format(year)
+        h5fname = _get_usim_datastore_fname(settings, io = 'output', year = year)
 
     # read original h5 files
     with pd.HDFStore(os.path.join(h5path, h5fname), mode='r+') as h5:
@@ -44,6 +57,7 @@ def atlas_update_h5_vehicle(settings, year, warm_start=False):
             olddf = h5[str(year)]['households']['cars']
             h5[str(year)]['households']['cars'] = df
             h5[str(year)]['households']['hh_cars'] = df_hh
+            del df, df_hh
             if olddf.shape != df.shape:
                 logger.error('household_id mismatch found when ATLAS updates h5 vehicle info')
         
@@ -52,10 +66,9 @@ def atlas_update_h5_vehicle(settings, year, warm_start=False):
             olddf = h5['households']['cars']
             h5['households']['cars'] = df
             h5['households']['hh_cars'] = df_hh
+            del df, df_hh
             if olddf.shape != df.shape:
                 logger.error('household_id mismatch found when ATLAS updates h5 vehicle info')
-
-
 
 
 
