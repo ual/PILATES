@@ -182,11 +182,11 @@ def get_atlas_docker_vols(settings):
     return atlas_docker_vols
 
 ## For Atlas container command
-def get_atlas_cmd(settings, freq, output_year):
+def get_atlas_cmd(settings, freq, output_year, npe, nsample):
     basedir = settings.get('basedir','/')
     codedir = settings.get('codedir','/')
     formattable_atlas_cmd = settings['atlas_formattable_command']
-    atlas_cmd = formattable_atlas_cmd.format(freq, forecast_year, basedir, codedir)
+    atlas_cmd = formattable_atlas_cmd.format(freq, forecast_year, npe, nsample, basedir, codedir)
     return atlas_cmd
 
 
@@ -317,9 +317,11 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
     image_names = settings['docker_images']
     vehicle_ownership_model = settings.get('vehicle_ownership_model',False)
     freq = settings.get('vehicle_ownership_freq', False)
+    npe = settings.get('atlas_num_processes', False)
+    nsample = settings.get('atlas_sample_size', False)
     atlas_image = image_names[vehicle_ownership_model]  ## ie atlas
     atlas_docker_vols = get_atlas_docker_vols(settings)
-    atlas_cmd = get_atlas_cmd(settings, freq, output_year)
+    atlas_cmd = get_atlas_cmd(settings, freq, output_year, npe, nsample)
     docker_stdout = settings.get('docker_stdout', False)
 
 
@@ -338,8 +340,8 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
     # 3. RUN ATLAS via docker container client
     print_str = (
         "Simulating vehicle ownership for {0} "
-        "with frequency {1}.".format(
-            output_year, freq ))
+        "with frequency {1}, npe {2} nsample {3}".format(
+            output_year, freq, npe, nsample))
     formatted_print(print_str)
     atlas = client.containers.run(
         atlas_image,

@@ -63,13 +63,10 @@ atlas_container_input_folder: /atlas_input
 atlas_container_output_folder: /atlas_output
 atlas_basedir: /
 atlas_codedir: /
-# atlas_outyear: 2017      # YW: comment out; main loop in run.py will pass "year" to run_atlas
-# atlas_freq:    1         # Yw: comment out; added a vehicle_ownership_freq at beginning
 atlas_sample_size: 0     # zero means no sampling, whole pop.
 atlas_num_processes: 94  # can't you just detect num of cpu?
-atlas_formattable_command: "--freq {0} --outyear {1} --basedir {2} --codedir {3}" 
-## command line options to main.R may need to be updated to handle additional params:
-## --size {4} --proc {5} 
+atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --basedir {4} --codedir {5}"
+
 
 
 # BEAM 
