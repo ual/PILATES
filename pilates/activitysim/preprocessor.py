@@ -434,7 +434,7 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                     mtx = _build_od_matrix(df_, 'origin', 'destination', 
                                             measure_map[measure], order, 
                                             fill_na = 0)
-                elif measure_map[measure] & (len(df_) > 0):
+                elif (measure_map[measure] is not None) & (len(df_) > 0):
                     # activitysim estimated its models using transit skims from Cube
                     # which store time values as scaled integers (e.g. x100), so their
                     # models also divide transit skim values by 100. Since our skims
