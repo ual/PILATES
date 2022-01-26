@@ -72,7 +72,7 @@ def atlas_update_h5_vehicle(settings, year, warm_start=False):
 
 
 
-def atlas_add_vehileTypeId(settings, year, warm_start=False):
+def atlas_add_vehileTypeId(settings, year):
     # add a "vehicleTypeId" column in atlas output vehicles_{$year}.csv,
     # which will be read by beam preprocessor
     # vehicleTypeId = conc "bodytype"-"vintage_category"-"pred_power"
