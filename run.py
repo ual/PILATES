@@ -699,7 +699,7 @@ if __name__ == '__main__':
                 warm_start_skims = True
 
             if demand_model == 'polaris':
-                pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=False)
+                pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=True)
             else:
                 generate_activity_plans(
                     settings, year, forecast_year, client,
@@ -718,11 +718,14 @@ if __name__ == '__main__':
             # use data directly from the last set of land use outputs.
             usim_post.create_next_iter_usim_data(settings, year)
 
-		# DO traffic assignment - but skip if using polaris as this is done along with activity_demand generation
-        if traffic_assignment_enabled and demand_model != 'polaris':
+        # DO traffic assignment - but skip if using polaris as this is done along with activity_demand generation
+        if traffic_assignment_enabled:
 
-            # 3. RUN BEAM
-            run_traffic_assignment(settings, year, client)
+            if travel_model == 'polaris':
+                pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=False)
+            else:
+                # 3. RUN BEAM
+                run_traffic_assignment(settings, year, client)
 
             # 4. REPLAN
             if replanning_enabled > 0:
