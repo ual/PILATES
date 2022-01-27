@@ -634,6 +634,7 @@ if __name__ == '__main__':
     start_year = settings['start_year']
     end_year = settings['end_year']
     demand_model = settings['activity_demand_model']
+	travel_model = settings.get('travel_model', False)
     formatted_print(
         'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = settings.get('travel_model_freq', 1)
