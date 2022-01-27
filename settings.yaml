@@ -64,7 +64,7 @@ atlas_container_output_folder: /atlas_output
 atlas_basedir: /
 atlas_codedir: /
 atlas_sample_size: 0     # zero means no sampling, whole pop.
-atlas_num_processes: 94  # can't you just detect num of cpu?
+atlas_num_processes: 9  # can't you just detect num of cpu?
 atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --basedir {4} --codedir {5}"
 
 
