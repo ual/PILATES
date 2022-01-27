@@ -474,5 +474,6 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 		z.Normalize()
 		z.Update_Zone_in_DB(DbSupply)
 
+	usim_data.Close()
 	DbSupply.commit()
 

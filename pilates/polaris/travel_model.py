@@ -10,6 +10,7 @@ import glob
 import fnmatch
 import polarisruntime as PR
 from pathlib import Path
+from threading import Thread
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,7 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 			PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 			PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'true')
 			PR.modify_scenario(scenario_file, "read_population_from_database", 'false')
-			PR.modify_scenario(scenario_file, "replan_workplaces", 'true')
+			PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
 		else:
 			if forecast_year:
 				scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)
@@ -149,7 +150,7 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 			PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 			PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'false')
 			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
-			PR.modify_scenario(scenario_file, "replan_workplaces", 'true')
+			PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
 
 
 		arguments = '{0} {1}'.format(scenario_file, str(num_threads))
@@ -172,7 +173,8 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 				PR.copyreplacefile(data_dir / supply_db_name, output_dir)		
 				# only run the analysis script for the final iteration of the loop to save time
 				if loop == int(num_abm_runs)-1:
-					PR.execute_sql_script_with_attach(output_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", data_dir / supply_db_name)
+					p1 = Thread(target=PR.execute_sql_script_with_attach, args=(output_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", data_dir / supply_db_name))
+					p1.start()
 			
 			loop += 1
 		else:
@@ -201,3 +203,5 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 	if not warm_start:
 		postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level)
 	postprocessor.update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings)
+	
+
