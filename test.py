@@ -13,6 +13,7 @@ from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
 from pilates.atlas import preprocessor  as atlas_pre   ##
 from pilates.atlas import postprocessor as atlas_post  ##
+import fun
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.INFO,
@@ -358,7 +359,7 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
     atlas_post.atlas_update_h5_vehicle(settings, output_year, warm_start = warm_start_atlas)
 
     # 5. ATLAS OUTPUT -> ADD A VEHICLETYPEID COL FOR BEAM 
-    atlas_post.atlas_add_vehileTypeId(settings, output_year)
+    # atlas_post.atlas_add_vehileTypeId(settings, output_year)
 
     # 6. CLEAN UP
     atlas.remove()
@@ -640,7 +641,7 @@ if __name__ == '__main__':
 
     # parse scenario settings
     start_year = 2010 # settings['start_year']
-    end_year = 2011 # settings['end_year']
+    end_year = 2012 # settings['end_year']
     formatted_print(
         'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = 1 # settings.get('travel_model_freq', 1)
@@ -678,8 +679,8 @@ if __name__ == '__main__':
                 if vehicle_ownership_model_enabled: 
                     run_atlas(settings, year, client, warm_start_atlas = True)
 
-                warm_start_activities(settings, year, client)
-                mandatory_activities_generated_this_year = True
+                # warm_start_activities(settings, year, client)
+                # mandatory_activities_generated_this_year = True
 
             forecast_year = year + travel_model_freq
             forecast_land_use(settings, year, forecast_year, client)
@@ -726,12 +727,13 @@ if __name__ == '__main__':
             if replanning_enabled:
                 initialize_asim_for_replanning(settings, forecast_year)
 
-        # else:
+        else:
 
             # # If not generating activities with a separate ABM (e.g.
             # # ActivitySim), then we need to create the next iteration of land
             # # use data directly from the last set of land use outputs.
             # usim_post.create_next_iter_usim_data(settings, year)
+            fun.create_usim_input_data_for_test(settings, year, forecast_year)
 
         if traffic_assignment_enabled:
 
@@ -743,3 +745,7 @@ if __name__ == '__main__':
                 run_replanning_loop(settings, forecast_year)
 
         logger.info("Finished")
+
+
+
+
