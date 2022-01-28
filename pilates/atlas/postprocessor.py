@@ -57,18 +57,18 @@ def atlas_update_h5_vehicle(settings, year, warm_start=False):
             olddf = h5[str(year)]['households']['cars']
             h5[str(year)]['households']['cars'] = df
             h5[str(year)]['households']['hh_cars'] = df_hh
-            del df, df_hh
             if olddf.shape != df.shape:
                 logger.error('household_id mismatch found when ATLAS updates h5 vehicle info')
+            del df, df_hh
         
         # if in warm start, update "custom_mpo_***.h5", which has two layers (households/cars)
         else:
             olddf = h5['households']['cars']
             h5['households']['cars'] = df
             h5['households']['hh_cars'] = df_hh
-            del df, df_hh
             if olddf.shape != df.shape:
                 logger.error('household_id mismatch found when ATLAS updates h5 vehicle info')
+            del df, df_hh
 
 
 
