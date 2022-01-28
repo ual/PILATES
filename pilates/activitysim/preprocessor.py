@@ -27,18 +27,18 @@ beam_skims_types = {'timePeriod': str,
                     'pathType': str,
                     'origin': str,
                     'destination': str,
-                    'TIME_minutes': float,
-                    'TOTIVT_IVT_minutes': float,
-                    'VTOLL_FAR': float,
-                    'DIST_meters': float,
-                    'WACC_minutes': float,
-                    'WAUX_minutes': float,
-                    'WEGR_minutes': float,
-                    'DTIM_minutes': float,
-                    'DDIST_meters': float,
-                    'KEYIVT_minutes': float,
-                    'FERRYIVT_minutes': float,
-                    'BOARDS': float,
+                    'TIME_minutes': np.float32,
+                    'TOTIVT_IVT_minutes': np.float32,
+                    'VTOLL_FAR': np.float32,
+                    'DIST_meters': np.float32,
+                    'WACC_minutes': np.float32,
+                    'WAUX_minutes': np.float32,
+                    'WEGR_minutes': np.float32,
+                    'DTIM_minutes': np.float32,
+                    'DDIST_meters': np.float32,
+                    'KEYIVT_minutes': np.float32,
+                    'FERRYIVT_minutes': np.float32,
+                    'BOARDS': np.float32,
                     'DEBUG_TEXT': str
                     }
 
@@ -434,7 +434,7 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                     mtx = _build_od_matrix(df_, 'origin', 'destination', 
                                             measure_map[measure], order, 
                                             fill_na = 0)
-                elif measure_map[measure]:
+                elif (measure_map[measure] is not None) & (len(df_) > 0):
                     # activitysim estimated its models using transit skims from Cube
                     # which store time values as scaled integers (e.g. x100), so their
                     # models also divide transit skim values by 100. Since our skims
