@@ -149,7 +149,7 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 				PR.modify_scenario(scenario_file, "write_skim_tables" , 'true')
 				PR.modify_scenario(scenario_file, "write_vehicle_trajectory" , 'true')
 				
-			PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
+			PR.modify_scenario(scenario_file, "demand_reduction_factor", population_scale_factor)
 			PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
 			PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
@@ -157,7 +157,7 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 			if forecast_year:
 				scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)
 			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0/int(loop))
-			PR.modify_scenario(scenario_file, "percent_to_synthesize", 0.0)
+			PR.modify_scenario(scenario_file, "percent_to_synthesize", 1.0)
 			PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
 			PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 			PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'false')
