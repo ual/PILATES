@@ -20,7 +20,7 @@ activity_demand_model: activitysim
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  beam: zaneedell/beam:0.8.6.5
+  beam: zaneedell/beam:0.8.6.6
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
 docker_stdout: False
@@ -76,7 +76,7 @@ polaris_skim_keys:
 
 
 # ACTIVITYSIM
-household_sample_size: 0  # zero means no sampling, whole pop.
+household_sample_size: 160000  # zero means no sampling, whole pop.
 chunk_size: 4000000000
 num_processes: 94
 asim_local_input_folder: pilates/activitysim/data/
