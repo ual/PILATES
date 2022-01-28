@@ -236,7 +236,7 @@ def geoid_to_zone_map(settings, year=None):
    """
     region = settings['region']
     zone_type = settings['skims_zone_type']
-    travel_model = settings['travel_model']
+    travel_model = settings['travel_model'] or 'beam'
     zone_id_col = 'zone_id'
 
     geoid_to_zone_fpath = \
