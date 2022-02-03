@@ -153,8 +153,8 @@ beam_asim_transit_measure_map:
   WAUX: WAUX_minutes
   WEGR: WEGR_minutes
   WACC: WACC_minutes
-  IWAIT: IWAIT_minutes
-  XWAIT: XWAIT_minutes
+  IWAIT: null
+  XWAIT: null
   BOARDS: BOARDS
   IVT: TOTIVT_IVT_minutes
 asim_output_tables:
