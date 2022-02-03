@@ -7,11 +7,11 @@
 # scenario defs
 region: sfbay
 scenario: base
-start_year: 2010  
-end_year: 2012
+start_year: 2010
+end_year: 2018
 land_use_freq: 1
 travel_model_freq: 1  
-vehicle_ownership_freq: 1 
+vehicle_ownership_freq: 1
 
 # simulation platforms (comment out to turn off)
 land_use_model: urbansim
@@ -23,16 +23,16 @@ vehicle_ownership_model: atlas
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
   atlas: tin6150/atlas:integrationU # ghcr.io/lbnl-science-it/atlas:integration
-  beam: dimaopen/beam:0.8.6.3
+  beam: zaneedell/beam:0.8.6.5
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
-##docker_stdout: False
-docker_stdout: True           ## change this to True to get regular container std out (esp useful for debug), something else control std err though.
+docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_zone_type: taz  # one of [taz, block_group, block]
-skims_fname: as-base-skims-sfbay-taz.csv.gz
+skims_zone_type: taz # one of [taz, block_group, block]
+skims_fname: as-base-skims-sfbay-taz.csv.gz # for SF Bay
+# skims_fname: as-base-skims-austin-bg.csv.gz
 
 # region_zone_type:
 #   austin: block_groups # one of [taz, block_groups, block]
@@ -64,22 +64,22 @@ atlas_container_output_folder: /atlas_output
 atlas_basedir: /
 atlas_codedir: /
 atlas_sample_size: 0     # zero means no sampling, whole pop.
-atlas_num_processes: 9  # can't you just detect num of cpu?
+atlas_num_processes: 9  # suggested <9 for hima
 atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --basedir {4} --codedir {5}"
 
 
 
 # BEAM 
-beam_config: gemini/activitysim-base-from-60k-input.conf
+beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
-beam_scenario_folder: gemini/activitysim-plans-base-2010-cut-60k
-beam_memory: "100g"
+beam_scenario_folder: urbansim/
+beam_memory: "400g"
 skim_zone_source_id_col: objectid
-replan_iters: 0
+replan_iters: 6
 replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
-final_asim_plans_folder:
+final_asim_plans_folder: pilates/activitysim/output/final_plans
 
 # POLARIS
 polaris_local_data_folder: pilates/polaris/data
@@ -153,8 +153,8 @@ beam_asim_transit_measure_map:
   WAUX: WAUX_minutes
   WEGR: WEGR_minutes
   WACC: WACC_minutes
-  IWAIT: null
-  XWAIT: null
+  IWAIT: IWAIT_minutes
+  XWAIT: XWAIT_minutes
   BOARDS: BOARDS
   IVT: TOTIVT_IVT_minutes
 asim_output_tables:
@@ -256,3 +256,4 @@ validation_metrics:
         levels:
           - 15
           - 45
+
