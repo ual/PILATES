@@ -444,7 +444,7 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                                             measure_map[measure], order) * 100
                     
                 else:
-                    mtx = np.zeros((num_taz, num_taz))
+                    mtx = np.ones((num_taz, num_taz))
                 skims[name] = mtx
     skims.close()
     del df, df_
