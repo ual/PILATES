@@ -50,31 +50,56 @@ def prepare_atlas_inputs(settings, year, warm_start=False):
     # read urbansim h5 outputs
     with pd.HDFStore(urbansim_output,mode='r') as data:
         if not warm_start:
-            data = data['/{}'.format(year)]
+            try:
+                # prepare households atlas input
+                households = data['/{}/households'.format(year)]
+                households.to_csv('{}/households.csv'.format(atlas_input_path))
 
-        try:
-            # prepare households atlas input
-            households = data['/households']
-            households.to_csv('{}/households.csv'.format(atlas_input_path))
+                # prepare blocks atlas input
+                blocks = data['/{}/blocks'.format(year)]
+                blocks.to_csv('{}/blocks.csv'.format(atlas_input_path))          
 
-            # prepare blocks atlas input
-            blocks = data['/blocks']
-            blocks.to_csv('{}/blocks.csv'.format(atlas_input_path))          
+                # prepare persons atlas input
+                persons = data['/{}/persons'.format(year)]
+                persons.to_csv('{}/persons.csv'.format(atlas_input_path))
 
-            # prepare persons atlas input
-            persons = data['/persons']
-            persons.to_csv('{}/persons.csv'.format(atlas_input_path))
+                # prepare residential unit atlas input
+                residential_units = data['/{}/residential_units'.format(year)]
+                residential_units.to_csv('{}/residential.csv'.format(atlas_input_path))
 
-            # prepare residential unit atlas input
-            residential_units = data['/residential_units']
-            residential_units.to_csv('{}/residential.csv'.format(atlas_input_path))
+                # prepare jobs atlas input
+                jobs = data['/{}/jobs'.format(year)]
+                jobs.to_csv('{}/jobs.csv'.format(atlas_input_path))
 
-            # prepare jobs atlas input
-            jobs = data['/jobs']
-            jobs.to_csv('{}/jobs.csv'.format(atlas_input_path))
+                logger.info('Preparing ATLAS Year {} Input from Urbansim Output'.format(year))
 
-            logger.info('Preparing ATLAS Year {} Input from Urbansim Output'.format(year))
+            except: 
+                logger.error('Urbansim Year {} Output Was Not Loaded Correctly by ATLAS'.format(year))
+        
+        else:
+            try:
+                # prepare households atlas input
+                households = data['/households']
+                households.to_csv('{}/households.csv'.format(atlas_input_path))
 
-        except: 
-            logger.error('Urbansim Year {} Output Was Not Loaded Correctly by ATLAS'.format(year))
+                # prepare blocks atlas input
+                blocks = data['/blocks']
+                blocks.to_csv('{}/blocks.csv'.format(atlas_input_path))          
+
+                # prepare persons atlas input
+                persons = data['/persons']
+                persons.to_csv('{}/persons.csv'.format(atlas_input_path))
+                
+                # prepare residential unit atlas input
+                residential_units = data['/residential_units']
+                residential_units.to_csv('{}/residential.csv'.format(atlas_input_path))
+
+                # prepare jobs atlas input
+                jobs = data['/jobs']
+                jobs.to_csv('{}/jobs.csv'.format(atlas_input_path))
+
+                logger.info('Preparing ATLAS Year {} Input from Urbansim Output'.format(year))
+                
+            except: 
+                logger.error('Urbansim Year {} Output Was Not Loaded Correctly by ATLAS'.format(year))
 
