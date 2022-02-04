@@ -22,3 +22,7 @@ sudo rm pilates/activitysim/output/*
 
 echo "Deleting interim activitysim inputs"
 sudo rm pilates/activitysim/data/*
+
+echo "Deleting interim urbansim data"
+sudo rm pilates/urbansim/data/input*
+sudo rm pilates/urbansim/data/model*
