@@ -1,3 +1,4 @@
+import shutil
 import yaml
 import docker
 import os
@@ -34,6 +35,22 @@ def find_latest_beam_iteration(beam_output_dir):
             if dir == "ITER":
                 iter_dirs += os.path.join(root, dir)
     print(iter_dirs)
+
+def setup_beam_skims(settings):
+    region = settings['region']
+    beam_input_dir = settings['beam_local_input_folder']
+    beam_output_dir = settings['beam_local_output_folder']
+    skims_fname = settings['skims_fname']
+
+    input_skims_location = os.path.join(beam_input_dir, region, skims_fname)
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+
+    logger.info("Copying input skims from {0} to {1}".format(
+        input_skims_location,
+        mutable_skims_location))
+
+    shutil.copyfile(input_skims_location, mutable_skims_location)
+
 
 def parse_args_and_settings(settings_file='settings.yaml'):
 
@@ -556,6 +573,9 @@ if __name__ == '__main__':
     elif static_skims:
         formatted_print('"STATIC SKIMS" MODE ENABLED')
         logger.info('Using the same set of skims for every iteration.')
+
+    if settings.get('travel_model') == 'beam':
+        setup_beam_skims(settings)
 
     # start docker client
     client = initialize_docker_client(settings)
