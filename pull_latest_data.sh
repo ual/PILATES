@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#Modified from github user MisaOgura
+#https://github.com/MisaOgura/checkout-and-pull-master/blob/master/checkout_and_pull.sh
+
 yellow=$(tput setaf 3)
 blue=$(tput setaf 4)
 reset=$(tput sgr0)
