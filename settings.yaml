@@ -30,6 +30,7 @@ pull_latest: False
 skims_zone_type: block_group # one of [taz, block_group, block]
 # skims_fname: as-base-skims-sfbay-taz.csv.gz # for SF Bay
 skims_fname: as-base-skims-austin-bg.csv.gz
+origin_skims_fname: as-origin-skims-austin-bg.csv.gz
 
 # region_zone_type:
 #   austin: block_groups # one of [taz, block_groups, block]

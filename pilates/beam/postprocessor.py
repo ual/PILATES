@@ -15,19 +15,28 @@ def find_latest_beam_iteration(beam_output_dir):
     return os.path.join(last_iters_dir, it_prefix + str(max_it_num)), max_it_num
 
 
-def find_produced_skims(beam_output_dir):
+def find_produced_od_skims(beam_output_dir):
     iteration_dir, it_num = find_latest_beam_iteration(beam_output_dir)
     if iteration_dir is None:
         return None
-    skims_path = os.path.join(iteration_dir, f"{it_num}.activitySimODSkims_current.csv.gz")
-    if os.path.exists(skims_path):
-        return skims_path
-    else:
+    od_skims_path = os.path.join(iteration_dir, f"{it_num}.activitySimODSkims_current.csv.gz")
+    if ~os.path.exists(od_skims_path):
+        od_skims_path = None
+    return od_skims_path
+
+
+def find_produced_origin_skims(beam_output_dir):
+    iteration_dir, it_num = find_latest_beam_iteration(beam_output_dir)
+    if iteration_dir is None:
         return None
+    ridehail_skims_path = os.path.join(iteration_dir, f"{it_num}.skimsRidehail.csv.gz")
+    if ~os.path.exists(ridehail_skims_path):
+        ridehail_skims_path = None
+    return ridehail_skims_path
 
 
-def merge_current_skims(all_skims_path, previous_skims_path, beam_output_dir):
-    current_skims_path = find_produced_skims(beam_output_dir)
+def merge_current_od_skims(all_skims_path, previous_skims_path, beam_output_dir):
+    current_skims_path = find_produced_od_skims(beam_output_dir)
     if (current_skims_path is None) | (previous_skims_path == current_skims_path):
         # this means beam has not produced the skims
         return previous_skims_path
@@ -48,3 +57,66 @@ def merge_current_skims(all_skims_path, previous_skims_path, beam_output_dir):
     all_skims = all_skims.reset_index()
     all_skims.to_csv(all_skims_path, index=False)
     return current_skims_path
+
+
+def hourToTimeBin(hour: int):
+    if hour < 3:
+        return 'EV'
+    elif hour < 6:
+        return 'EA'
+    elif hour < 10:
+        return 'AM'
+    elif hour < 15:
+        return 'MD'
+    elif hour < 19:
+        return 'PM'
+    else:
+        return 'EV'
+
+
+def aggregateInTimePeriod(df):
+    completedRequests = df['observations'] * df['unmatchedRequestsPercent'] / 100.
+    totalCompletedRequests = completedRequests.sum()
+    waitTime = (df['waitTime'] * completedRequests) / totalCompletedRequests / 60.
+    costPerMile = (df['costPerMile'] * completedRequests) / totalCompletedRequests
+    observations = df['observations'].sum()
+    unmatchedRequestPortion = 1. - observations / totalCompletedRequests
+    return {"waitTimeInMinutes": waitTime, "costPerMile": costPerMile,
+            "unmatchedRequestPortion": unmatchedRequestPortion, "observations": observations}
+
+
+def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_dir):
+    current_skims_path = find_produced_od_skims(beam_output_dir)
+    if (current_skims_path is None) | (previous_skims_path == current_skims_path):
+        # this means beam has not produced the skims
+        return previous_skims_path
+
+    rawInputSchema = {
+        "tazId": str,
+        "hour": int,
+        "reservationType": str,
+        "waitTime": float,
+        "costPerMile": float,
+        "unmatchedRequestsPercent": float,
+        "observations": int,
+        "iterations": int
+    }
+
+    aggregatedInput = {
+        "tazId": str,
+        "timePeriod": str,
+        "reservationType": str,
+        "waitTimeInMinutes": float,
+        "costPerMile": float,
+        "unmatchedRequestPortion": float,
+        "observations": int
+    }
+
+    index_columns = ['timePeriod', 'reservationType', 'tazId']
+
+    all_skims = pd.read_csv(all_skims_path, dtype=aggregatedInput, index_col=index_columns)
+    cur_skims = pd.read_csv(current_skims_path, dtype=rawInputSchema)
+    cur_skims['timePeriod'] = cur_skims['hour'].apply(hourToTimeBin)
+    cur_skims = cur_skims.groupby(index_columns).apply(aggregateInTimePeriod)
+    cur_skims.set_index(index_columns, inplace=True)
+
