@@ -446,7 +446,7 @@ def run_traffic_assignment(
             abs_beam_output)
         exit(1)
     path_to_origin_skims = os.path.join(abs_beam_output, origin_skims_fname)
-    current_od_skims = beam_post.merge_current_origin_skims(
+    beam_post.merge_current_origin_skims(
         path_to_origin_skims, previous_origin_skims, beam_local_output_folder)
 
     return

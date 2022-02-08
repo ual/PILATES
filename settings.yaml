@@ -122,6 +122,9 @@ hwy_paths:
   - HOV2TOLL
   - HOV3
   - HOV3TOLL
+ridehail_path_map:
+  RH_SOLO: Pooled
+  RH_POOLED: Solo
 beam_asim_hwy_measure_map:
   TIME: TIME_minutes
   DIST: DIST_miles
@@ -142,6 +145,9 @@ beam_asim_transit_measure_map:
   XWAIT: XWAIT_minutes
   BOARDS: BOARDS
   IVT: TOTIVT_IVT_minutes
+beam_asim_ridehail_measure_map:
+  WAIT: waitTimeInMinutes
+  REJECT: unmatchedRequestPortion
 asim_output_tables:
   prefix: final_
   tables:
