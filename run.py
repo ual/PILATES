@@ -41,11 +41,21 @@ def setup_beam_skims(settings):
     beam_input_dir = settings['beam_local_input_folder']
     beam_output_dir = settings['beam_local_output_folder']
     skims_fname = settings['skims_fname']
+    origin_skims_fname = settings['origin_skims_fname']
 
     input_skims_location = os.path.join(beam_input_dir, region, skims_fname)
     mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
 
     logger.info("Copying input skims from {0} to {1}".format(
+        input_skims_location,
+        mutable_skims_location))
+
+    shutil.copyfile(input_skims_location, mutable_skims_location)
+
+    input_skims_location = os.path.join(beam_input_dir, region, origin_skims_fname)
+    mutable_skims_location = os.path.join(beam_output_dir, origin_skims_fname)
+
+    logger.info("Copying input origin skims from {0} to {1}".format(
         input_skims_location,
         mutable_skims_location))
 
