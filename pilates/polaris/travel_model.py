@@ -105,7 +105,7 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 		PR.copyreplacefile(backup_dir / demand_db_name, data_dir)
 		
 		# load the urbansim population for the init run	
-		preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, population_scale_factor, usim_settings)
+		preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, 1.0, usim_settings)
 	
 
 	fail_count = 0
@@ -182,12 +182,7 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 				# copy the network outputs back to main data directory
 				PR.copyreplacefile(output_dir / result_db_name, data_dir)
 				PR.copyreplacefile(output_dir / highway_skim_file_name, data_dir)
-				PR.copyreplacefile(data_dir / supply_db_name, output_dir)		
-				# only run the analysis script for the final iteration of the loop to save time
-				if loop == int(num_abm_runs)-1:
-					p1 = Thread(target=PR.execute_sql_script_with_attach, args=(output_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", data_dir / supply_db_name))
-					p1.start()
-			
+				PR.copyreplacefile(data_dir / supply_db_name, output_dir)				
 			loop += 1
 		else:
 			fail_count += 1		
@@ -213,8 +208,10 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 	if warm_start:
 		postprocessor.update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings)
 	else: 
-		postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, data_dir)
+		archive_dir = postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, data_dir)
 		postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level)
-	
+		# only run the analysis script for the final iteration of the loop and process asynchronously to save time
+		p1 = Thread(target=PR.execute_sql_script_with_attach, args=(archive_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", archive_dir / supply_db_name))
+		p1.start()
 	
 
