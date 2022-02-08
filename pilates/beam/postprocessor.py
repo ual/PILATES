@@ -75,14 +75,19 @@ def hourToTimeBin(hour: int):
 
 
 def aggregateInTimePeriod(df):
-    completedRequests = df['observations'] * df['unmatchedRequestsPercent'] / 100.
-    totalCompletedRequests = completedRequests.sum()
-    waitTime = (df['waitTime'] * completedRequests) / totalCompletedRequests / 60.
-    costPerMile = (df['costPerMile'] * completedRequests) / totalCompletedRequests
-    observations = df['observations'].sum()
-    unmatchedRequestPortion = 1. - observations / totalCompletedRequests
-    return {"waitTimeInMinutes": waitTime, "costPerMile": costPerMile,
-            "unmatchedRequestPortion": unmatchedRequestPortion, "observations": observations}
+    completedRequests = df['observations'] * (1. - df['unmatchedRequestsPercent'] / 100.)
+    if completedRequests.sum() > 0:
+        totalCompletedRequests = completedRequests.sum()
+        waitTime = (df['waitTime'] * completedRequests).sum() / totalCompletedRequests / 60.
+        costPerMile = (df['costPerMile'] * completedRequests).sum() / totalCompletedRequests
+        observations = df['observations'].sum()
+        unmatchedRequestPortion = 1. - totalCompletedRequests / observations
+        return pd.Series({"waitTimeInMinutes": waitTime, "costPerMile": costPerMile,
+                "unmatchedRequestPortion": unmatchedRequestPortion, "observations": observations})
+    else:
+        observations = df['observations'].sum()
+        return pd.Series({"waitTimeInMinutes": 6.0, "costPerMile": 5.0,
+                          "unmatchedRequestPortion": 1.0, "observations": observations})
 
 
 def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_dir):
@@ -103,7 +108,7 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
     }
 
     aggregatedInput = {
-        "tazId": str,
+        "origin": str,
         "timePeriod": str,
         "reservationType": str,
         "waitTimeInMinutes": float,
@@ -112,11 +117,12 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
         "observations": int
     }
 
-    index_columns = ['timePeriod', 'reservationType', 'tazId']
+    index_columns = ['timePeriod', 'reservationType', 'origin']
 
     all_skims = pd.read_csv(all_skims_path, dtype=aggregatedInput, index_col=index_columns)
     cur_skims = pd.read_csv(current_skims_path, dtype=rawInputSchema)
     cur_skims['timePeriod'] = cur_skims['hour'].apply(hourToTimeBin)
-    cur_skims = cur_skims.groupby(index_columns).apply(aggregateInTimePeriod)
-    cur_skims.set_index(index_columns, inplace=True)
-
+    cur_skims = cur_skims.groupby(['timePeriod', 'reservationType', 'tazId']).apply(aggregateInTimePeriod)
+    all_skims = pd.concat([cur_skims, all_skims.loc[all_skims.index.difference(cur_skims.index, sort=False)]])
+    all_skims = all_skims.reset_index()
+    all_skims.to_csv(all_skims_path, index=False)
