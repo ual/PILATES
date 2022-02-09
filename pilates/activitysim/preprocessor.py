@@ -515,7 +515,7 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
 def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
     """ Generate transit OMX skims"""
 
-    logger.info("Creating transit skims.")
+    logger.info("Creating ridehail skims.")
     ridehail_path_map = settings['ridehail_path_map']
     periods = settings['periods']
     measure_map = settings['beam_asim_ridehail_measure_map']
