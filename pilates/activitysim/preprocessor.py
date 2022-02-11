@@ -105,7 +105,7 @@ def read_zone_geoms(settings, year,
     """
     store, table_prefix_year = read_datastore(settings, year)
     zone_type = settings['skims_zone_type']
-zone_key = '/{0}_zone_geoms'.format(zone_type)
+    zone_key = '/{0}_zone_geoms'.format(zone_type)
 
     if zone_key in store.keys():
         logger.info("Loading zone geometries from .h5 datastore!")
@@ -1005,7 +1005,7 @@ def enrollment_tables(settings, zones,
     zone_type = settings['skims_zone_type']
     path_to_schools_data = \
         "pilates/utils/data/{0}/{1}_{2}.csv".format(region, zone_type,enrollment_type)
-assert enrollment_type in ['schools', 'colleges'], "enrollemnt type one of ['schools', 'colleges']"
+    assert enrollment_type in ['schools', 'colleges'], "enrollemnt type one of ['schools', 'colleges']"
     
     if not os.path.exists(path_to_schools_data):
         if enrollment_type == 'schools':
