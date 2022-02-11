@@ -10,12 +10,7 @@ this file will be replaced by beam processed accessiblity metrics later.
 
 (2) modeaccessibility.csv includes indicators of avaiability of bus and rail stations, derived from the FHWA project. contact Qianmiao for more details. this file is only used for years <=2014. 
 
-(3)atlas_input folder contained extracted datatables from urbansim and other models by year, they are processed by preprocess.py (which is to be added)
+(3)atlas_input folder contained extracted datatables from urbansim and other models by year, they are processed by preprocess.py 
 
 (4) atlas_output folder contained atlas output, including vehicle level prediction and household level prediction. 
 
-
-chmod a+r  on all input files, as container context may otherwise not be able to read them.
-
-
-PS.  Currently there is a .gitignore in this dir so that input files does not get accidentally checked into git.
