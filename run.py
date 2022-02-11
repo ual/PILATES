@@ -1,3 +1,4 @@
+from re import L
 import yaml
 import docker
 import os
@@ -348,12 +349,10 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
         print(log)
 
     # 4. ATLAS OUTPUT -> UPDATE USIM OUTPUT CARS & HH_CARS
-    # Temporailly disabled for test run
-    # atlas_post.atlas_update_h5_vehicle(settings, output_year, warm_start = warm_start_atlas)
+    atlas_post.atlas_update_h5_vehicle(settings, output_year, warm_start = warm_start_atlas)
 
     # 5. ATLAS OUTPUT -> ADD A VEHICLETYPEID COL FOR BEAM 
-    # Temporailly disabled for test run
-    # atlas_post.atlas_add_vehileTypeId(settings, output_year)
+    atlas_post.atlas_add_vehileTypeId(settings, output_year)
 
     # 6. CLEAN UP
     atlas.remove()
@@ -362,7 +361,26 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
 
     return
 
-
+## Atlas: evolve household vehicle ownership
+# run_atlas_auto is a run_atlas upgraded version, which will run_atlas again if
+# outputs are not generated. This is mainly for preventing crash due to parellel  
+# computiing errors that can be resolved by a simple resubmission
+def run_atlas_auto(settings, output_year, client, warm_start_atlas):
+    
+    # run atlas
+    atlas_run_count = 1
+    run_atlas(settings, output_year, client, warm_start_atlas)
+    
+    # rerun atlas if outputs not found and run count <= 3
+    atlas_output_path = settings['atlas_host_output_folder']
+    fname = 'vehicles_{}.csv'.format(output_year)
+    while atlas_run_count < 3:
+        atlas_run_count = atlas_run_count + 1
+        if not os.path.exists(os.path.join(atlas_output_path, fname)):
+            logger.error('LAST ATLAS RUN FAILED -> RE-LAUNCHING ATLAS RUN #{} BELOW'.format(atlas_run_count))
+            run_atlas(settings, output_year, client, warm_start_atlas)
+    
+    return
 
 
 def generate_activity_plans(
@@ -673,7 +691,7 @@ if __name__ == '__main__':
 
                 # IF ATLAS ENABLED, UPDATE USIM INPUT H5
                 if vehicle_ownership_model_enabled: 
-                    run_atlas(settings, year, client, warm_start_atlas = True)
+                    run_atlas_auto(settings, year, client, warm_start_atlas = True)
 
                 warm_start_activities(settings, year, client)
                 mandatory_activities_generated_this_year = True
@@ -693,12 +711,12 @@ if __name__ == '__main__':
             # case, atlas need to update urbansim *inputs* before activitysim 
             # reads it in the next step. 
             if forecast_year == year:
-                run_atlas(settings, year, client, warm_start_atlas = True)
+                run_atlas_auto(settings, year, client, warm_start_atlas = True)
 
             # If urbansim has been called, ATLAS will read, run, and update
             # vehicle ownership info in urbansim *outputs* h5 datastore.
             else:
-                run_atlas(settings, forecast_year, client, warm_start_atlas = False)
+                run_atlas_auto(settings, forecast_year, client, warm_start_atlas = False)
 
 
         # 3. GENERATE ACTIVITIES

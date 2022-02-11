@@ -89,7 +89,7 @@ def prepare_atlas_inputs(settings, year, warm_start=False):
                 # prepare persons atlas input
                 persons = data['/persons']
                 persons.to_csv('{}/persons.csv'.format(atlas_input_path))
-                
+
                 # prepare residential unit atlas input
                 residential_units = data['/residential_units']
                 residential_units.to_csv('{}/residential.csv'.format(atlas_input_path))

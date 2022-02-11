@@ -22,12 +22,12 @@ vehicle_ownership_model: atlas
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  atlas: tin6150/atlas:integrationU # ghcr.io/lbnl-science-it/atlas:integration
+  atlas: ghcr.io/lbnl-science-it/atlas:v1.0.5
   beam: zaneedell/beam:0.8.6.5
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
 docker_stdout: False
-pull_latest: False
+pull_latest: True # False
 
 # skim settings
 skims_zone_type: taz # one of [taz, block_group, block]
@@ -93,8 +93,8 @@ polaris_skim_keys:
 
 # ACTIVITYSIM
 household_sample_size: 0  # zero means no sampling, whole pop.
-chunk_size: 4000000000
-num_processes: 94
+chunk_size: 12_000_000_000 # 4000000000
+num_processes: 70 # 94
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
 asim_validation_folder: pilates/activitysim/validation
