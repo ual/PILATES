@@ -39,7 +39,7 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
                         target_file_path, 'wb') as f_out:
                     f_out.writelines(f_in)
         else:
-            shutil.copy(input_file_path, target_file_path)
+            shutil.copytree(input_file_path, target_file_path)
 
     def merge_only_updated_households():
         asim_plans_path = os.path.join(asim_output_data_dir, 'final_plans.csv')
