@@ -29,7 +29,7 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
         iteration_folder_name = "year-{0}-iteration-{1}".format(year, replanning_iteration_number)
         iteration_folder_path = os.path.join(asim_output_data_dir, iteration_folder_name)
         if ~os.path.exists(iteration_folder_path):
-            os.makedirs(iteration_folder_path)
+            os.makedirs(iteration_folder_path, exist_ok=True)
         input_file_path = os.path.join(file_path, file_name)
         target_file_path = os.path.join(iteration_folder_path, file_name)
         if target_file_path.endswith('.csv'):
