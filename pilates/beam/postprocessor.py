@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 
+
 def find_latest_beam_iteration(beam_output_dir):
     iter_dirs = [os.path.join(root, dir) for root, dirs, files in os.walk(beam_output_dir) for dir in dirs if
                  dir == "ITERS"]
@@ -13,6 +14,14 @@ def find_latest_beam_iteration(beam_output_dir):
     it_prefix = "it."
     max_it_num = max(dir_name[len(it_prefix):] for dir_name in all_iteration_dir)
     return os.path.join(last_iters_dir, it_prefix + str(max_it_num)), max_it_num
+
+
+def rename_beam_output_directory(settings, year, replanning_iteration_number=0):
+    beam_output_dir = settings['beam_local_output_folder']
+    iteration_output_directory, _ = find_latest_beam_iteration(beam_output_dir)
+    new_iteration_output_directory = os.path.join(beam_output_dir,
+                                                  "year-{0}-iteration-{1}".format(year, replanning_iteration_number))
+    os.rename(iteration_output_directory, new_iteration_output_directory)
 
 
 def find_produced_skims(beam_output_dir):
