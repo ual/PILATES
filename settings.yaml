@@ -23,7 +23,7 @@ vehicle_ownership_model: atlas
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
   atlas: ghcr.io/lbnl-science-it/atlas:v1.0.5
-  beam: zaneedell/beam:0.8.6.5
+  beam: zaneedell/beam:0.8.6.7
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
 docker_stdout: False
@@ -74,7 +74,7 @@ beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/
-beam_memory: "400g"
+beam_memory: "600g"
 skim_zone_source_id_col: objectid
 replan_iters: 6
 replan_hh_samp_size: 0
@@ -153,8 +153,8 @@ beam_asim_transit_measure_map:
   WAUX: WAUX_minutes
   WEGR: WEGR_minutes
   WACC: WACC_minutes
-  IWAIT: null
-  XWAIT: null
+  IWAIT: IWAIT_minutes
+  XWAIT: XWAIT_minutes
   BOARDS: BOARDS
   IVT: TOTIVT_IVT_minutes
 asim_output_tables:
