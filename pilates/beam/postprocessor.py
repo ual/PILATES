@@ -1,5 +1,8 @@
 import pandas as pd
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 def find_latest_beam_iteration(beam_output_dir):
     iter_dirs = [os.path.join(root, dir) for root, dirs, files in os.walk(beam_output_dir) for dir in dirs if
@@ -39,6 +42,7 @@ def merge_current_od_skims(all_skims_path, previous_skims_path, beam_output_dir)
     current_skims_path = find_produced_od_skims(beam_output_dir)
     if (current_skims_path is None) | (previous_skims_path == current_skims_path):
         # this means beam has not produced the skims
+        logger.error("No skims found in directory {0}, defaulting to {1}".format(beam_output_dir, current_skims_path))
         return previous_skims_path
 
     schema = {
