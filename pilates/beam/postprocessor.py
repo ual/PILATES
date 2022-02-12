@@ -7,10 +7,12 @@ logger = logging.getLogger(__name__)
 def find_latest_beam_iteration(beam_output_dir):
     iter_dirs = [os.path.join(root, dir) for root, dirs, files in os.walk(beam_output_dir) for dir in dirs if
                  dir == "ITERS"]
+    logger.info("Looking in directories {0}".format(iter_dirs))
     if not iter_dirs:
         return None, None
     last_iters_dir = max(iter_dirs, key=os.path.getmtime)
     all_iteration_dir = [it for it in os.listdir(last_iters_dir)]
+    logger.info("Looking in directories {0}".format(all_iteration_dir))
     if not all_iteration_dir:
         return None, None
     it_prefix = "it."
