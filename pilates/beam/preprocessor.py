@@ -28,7 +28,7 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
     def copy_with_compression_asim_file_to_asim_archive(file_path, file_name, year, replanning_iteration_number):
         iteration_folder_name = "year-{0}-iteration-{1}".format(year, replanning_iteration_number)
         iteration_folder_path = os.path.join(asim_output_data_dir, iteration_folder_name)
-        if ~os.path.exists(iteration_folder_path):
+        if ~os.path.exists(os.path.abspath(iteration_folder_path)):
             os.makedirs(iteration_folder_path, exist_ok=True)
         input_file_path = os.path.join(file_path, file_name)
         target_file_path = os.path.join(iteration_folder_path, file_name)
@@ -38,7 +38,7 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
                 with open(input_file_path, 'rb') as f_in, gzip.open(
                         target_file_path, 'wb') as f_out:
                     f_out.writelines(f_in)
-        elif os.path.isdir(input_file_path):
+        elif os.path.isdir(os.path.abspath(input_file_path)):
             shutil.copytree(input_file_path, target_file_path)
         else:
             shutil.copy(input_file_path, target_file_path)
