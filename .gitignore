@@ -102,3 +102,8 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+test.py
+tmp.py
+
+# Tin's notes
+pilates_conda_env_setup4hima.txt
