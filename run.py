@@ -385,7 +385,10 @@ def run_atlas_auto(settings, output_year, client, warm_start_atlas):
     
     # run atlas
     atlas_run_count = 1
-    run_atlas(settings, output_year, client, warm_start_atlas)
+    try:
+        run_atlas(settings, output_year, client, warm_start_atlas)
+    except:
+        logger.error('ATLAS RUN #{} FAILED'.format(atlas_run_count))
     
     # rerun atlas if outputs not found and run count <= 3
     atlas_output_path = settings['atlas_host_output_folder']
@@ -394,7 +397,10 @@ def run_atlas_auto(settings, output_year, client, warm_start_atlas):
         atlas_run_count = atlas_run_count + 1
         if not os.path.exists(os.path.join(atlas_output_path, fname)):
             logger.error('LAST ATLAS RUN FAILED -> RE-LAUNCHING ATLAS RUN #{} BELOW'.format(atlas_run_count))
-            run_atlas(settings, output_year, client, warm_start_atlas)
+            try:
+                run_atlas(settings, output_year, client, warm_start_atlas)
+            except:
+                logger.error('ATLAS RUN #{} FAILED'.format(atlas_run_count))
     
     return
 
