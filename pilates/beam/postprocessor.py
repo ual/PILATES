@@ -25,8 +25,7 @@ def find_produced_od_skims(beam_output_dir):
     if iteration_dir is None:
         return None
     od_skims_path = os.path.join(iteration_dir, f"{it_num}.activitySimODSkims_current.csv.gz")
-    if ~os.path.exists(od_skims_path):
-        od_skims_path = None
+    logger.info("expecting skims at {0}".format(od_skims_path))
     return od_skims_path
 
 
@@ -34,9 +33,8 @@ def find_produced_origin_skims(beam_output_dir):
     iteration_dir, it_num = find_latest_beam_iteration(beam_output_dir)
     if iteration_dir is None:
         return None
-    ridehail_skims_path = os.path.join(iteration_dir, f"{it_num}.skimsRidehail.csv.gz")
-    if ~os.path.exists(ridehail_skims_path):
-        ridehail_skims_path = None
+    ridehail_skims_path = os.path.join(iteration_dir, f"{it_num}.skimsRidehail.csv.gz") 
+    logger.info("expecting skims at {0}".format(ridehail_skims_path))
     return ridehail_skims_path
 
 
@@ -97,7 +95,7 @@ def aggregateInTimePeriod(df):
 
 
 def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_dir):
-    current_skims_path = find_produced_od_skims(beam_output_dir)
+    current_skims_path = find_produced_origin_skims(beam_output_dir)
     if (current_skims_path is None) | (previous_skims_path == current_skims_path):
         # this means beam has not produced the skims
         return previous_skims_path

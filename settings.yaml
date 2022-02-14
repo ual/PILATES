@@ -5,7 +5,7 @@
 ############################
 
 # scenario defs
-region: austin
+region: sfbay
 scenario: base
 start_year: 2010
 end_year: 2018
@@ -13,24 +13,24 @@ land_use_freq: 1
 travel_model_freq: 1
 
 # simulation platforms (comment out to turn off)
-land_use_model: urbansim 
+land_use_model: 
 travel_model: beam
 activity_demand_model: activitysim
 
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  beam: zaneedell/beam:0.8.6.6
+  beam: zaneedell/beam:0.8.6.7
   activitysim: mxndrwgrdnr/activitysim:latest
   polaris:
 docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_zone_type: block_group # one of [taz, block_group, block]
-# skims_fname: as-base-skims-sfbay-taz.csv.gz # for SF Bay
-skims_fname: as-base-skims-austin-bg.csv.gz
-origin_skims_fname: as-origin-skims-austin-bg.csv.gz
+skims_zone_type: taz # one of [taz, block_group, block]
+skims_fname: as-base-skims-sfbay-taz.csv.gz # for SF Bay
+# skims_fname: as-base-skims-austin-bg.csv.gz
+origin_skims_fname: as-origin-skims-sfbay-taz.csv.gz
 
 # region_zone_type:
 #   austin: block_groups # one of [taz, block_groups, block]
@@ -55,11 +55,11 @@ usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 
 
 # BEAM 
-beam_config: austin-pilates-base.conf # OR austin-pilates-base.conf
+beam_config: sfbay-pilates-lessrh.conf # OR austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/
-beam_memory: "400g"
+beam_memory: "650g"
 skim_zone_source_id_col: objectid
 replan_iters: 4
 replan_hh_samp_size: 0
@@ -77,7 +77,7 @@ polaris_skim_keys:
 
 
 # ACTIVITYSIM
-household_sample_size: 0 # zero means no sampling, whole pop.
+household_sample_size: 2000 # zero means no sampling, whole pop.
 chunk_size: 4000000000
 num_processes: 94
 asim_local_input_folder: pilates/activitysim/data/
