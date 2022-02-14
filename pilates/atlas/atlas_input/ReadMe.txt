@@ -1,7 +1,6 @@
 
 
 At run time, input data for atlas expected to be found in this dir.
-If running in container, this dir is expected to be mounted from the host containing the data.
 
 Expected files:
 
@@ -10,7 +9,4 @@ this file will be replaced by beam processed accessiblity metrics later.
 
 (2) modeaccessibility.csv includes indicators of avaiability of bus and rail stations, derived from the FHWA project. contact Qianmiao for more details. this file is only used for years <=2014. 
 
-(3)atlas_input folder contained extracted datatables from urbansim and other models by year, they are processed by preprocess.py 
-
-(4) atlas_output folder contained atlas output, including vehicle level prediction and household level prediction. 
-
+In the time of running, atlas preprocessor.py will extract data from urbansim h5 datastore and write as csv files in subfolders (e.g., year2010/*), including households.csv, persons.csv, jobs.csv, residential.csv, and blocks.csv.
