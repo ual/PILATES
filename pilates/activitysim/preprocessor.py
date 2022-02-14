@@ -12,7 +12,7 @@ import requests
 from tqdm import tqdm
 import time
 import yaml
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 from multiprocessing import Pool
 
 from pilates.utils.geog import get_block_geoms,\
@@ -27,18 +27,18 @@ beam_skims_types = {'timePeriod': str,
                     'pathType': str,
                     'origin': str,
                     'destination': str,
-                    'TIME_minutes': float,
-                    'TOTIVT_IVT_minutes': float,
-                    'VTOLL_FAR': float,
-                    'DIST_meters': float,
-                    'WACC_minutes': float,
-                    'WAUX_minutes': float,
-                    'WEGR_minutes': float,
-                    'DTIM_minutes': float,
-                    'DDIST_meters': float,
-                    'KEYIVT_minutes': float,
-                    'FERRYIVT_minutes': float,
-                    'BOARDS': float,
+                    'TIME_minutes': np.float32,
+                    'TOTIVT_IVT_minutes': np.float32,
+                    'VTOLL_FAR': np.float32,
+                    'DIST_meters': np.float32,
+                    'WACC_minutes': np.float32,
+                    'WAUX_minutes': np.float32,
+                    'WEGR_minutes': np.float32,
+                    'DTIM_minutes': np.float32,
+                    'DDIST_meters': np.float32,
+                    'KEYIVT_minutes': np.float32,
+                    'FERRYIVT_minutes': np.float32,
+                    'BOARDS': np.float32,
                     'DEBUG_TEXT': str
                     }
 
@@ -82,9 +82,9 @@ def read_skims(settings, mode='a', data_dir=None):
     skims = omx.open_file(path, mode = mode)
     return skims
 
-def zone_id_to_taz(zones, asim_zone_id_col='TAZ', 
+def zone_id_to_taz(zones, asim_zone_id_col='TAZ',
                    default_zone_id_col='zone_id'):
-    
+
     if zones.index.name != asim_zone_id_col:
         if asim_zone_id_col in zones.columns:
             zones.set_index(asim_zone_id_col, inplace = True)
@@ -97,20 +97,20 @@ def zone_id_to_taz(zones, asim_zone_id_col='TAZ',
                 "Not sure what column in the zones table is the zone ID!")
     return zones
 
-def read_zone_geoms(settings, year, 
-                    asim_zone_id_col='TAZ', 
+def read_zone_geoms(settings, year,
+                    asim_zone_id_col='TAZ',
                     default_zone_id_col='zone_id'):
     """
     Returns a GeoPandas dataframe with the zones geometries. 
     """
     store, table_prefix_year = read_datastore(settings, year)
-    zone_key = '/zone_geoms'
     zone_type = settings['skims_zone_type']
-    
+    zone_key = '/{0}_zone_geoms'.format(zone_type)
+
     if zone_key in store.keys():
         logger.info("Loading zone geometries from .h5 datastore!")
         zones = store[zone_key]
-        
+
         if 'geometry' in zones.columns:
             zones['geometry'] = zones['geometry'].apply(wkt.loads)
             zones = gpd.GeoDataFrame(
@@ -118,18 +118,18 @@ def read_zone_geoms(settings, year,
         else:
             raise KeyError(
                 "Table 'zone_geoms' exists in the .h5 datastore but "
-                "no geometry column was found!") 
+                "no geometry column was found!")
     else:
         logger.info("Downloading zone geometries on the fly!")
         region = settings['region']
         if zone_type == 'taz':
-            zones = get_taz_geoms(region, zone_id_col_out=default_zone_id_col)
+            zones = get_taz_geoms(settings, zone_id_col_out=default_zone_id_col)
             zones.set_index(default_zone_id_col, inplace=True)
         else:
             mapping = geoid_to_zone_map(settings, year)
             zones = get_block_geoms(settings)
             assert is_string_dtype(zones['GEOID']), "GEOID dtype should be str"
-            zones[default_zone_id_col] = zones['GEOID'].replace(mapping) 
+            zones[default_zone_id_col] = zones['GEOID'].replace(mapping)
             zones.set_index(default_zone_id_col, inplace = True)
             assert zones.index.inferred_type == 'string', "zone_id dtype should be str"
 
@@ -150,7 +150,7 @@ def read_zone_geoms(settings, year,
     zones = zones.sort_index()
     zones.index = zones.index.astype(str)
     return zone_id_to_taz(zones, asim_zone_id_col, default_zone_id_col)
-                                
+
 ####################################
 #### RAW BEAM SKIMS TO SKIMS.OMX ###
 ####################################
@@ -173,20 +173,20 @@ def _load_raw_beam_skims(settings):
     skims_fname = settings.get('skims_fname', False)
     path_to_beam_skims = os.path.join(
         settings['beam_local_output_folder'], skims_fname)
-    
+
     try:
-        if '.csv' in path_to_beam_skims: 
+        if '.csv' in path_to_beam_skims:
             skims = read_skim(path_to_beam_skims)
         else: # path is a folder with multiple files
             all_files = glob.glob(path_to_beam_skims + "/*")
             agents = len(all_files)
-            pool = Pool(processes=agents) 
+            pool = Pool(processes=agents)
             result = pool.map(read_skim, all_files)
             skims = pd.concat(result, axis=0, ignore_index=True)
     except KeyError:
         raise KeyError(
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
-    return skims                          
+    return skims
 
 def _create_skim_object(settings, overwrite=True, output_dir=None):
     """ Creates OMX file to store skim matrices
@@ -236,20 +236,26 @@ def _raw_beam_skims_preprocess(settings, year, skims_df):
     origin_taz = skims_df.origin.unique()
     destination_taz = skims_df.origin.unique()
     assert len(origin_taz) == len(destination_taz)
-    
+
     order = zone_order(settings, year)
-    
-#     test_1 = set(origin_taz).issubset(set(order))
-#     test_2 = set(destination_taz).issubset(set(order))
+
+    test_1 = set(origin_taz).issubset(set(order))
+    test_2 = set(destination_taz).issubset(set(order))
     test_3 = len(set(order) - set(origin_taz))
     test_4 = len(set(order) - set(destination_taz))
-    assert test_3 == 0, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
-    assert test_4 == 0, 'There are {} missing destination zone ids in BEAM skims'.format(test_4)
-    
+    assert test_1, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
+    assert test_2, 'There are {} missing destination zone ids in BEAM skims'.format(test_4)
     # Preprocess skims:
     df_clean = skims_df.copy()
     df_clean['DIST_miles'] = df_clean['DIST_meters'] * (0.621371 / 1000)
     df_clean['DDIST_miles'] = df_clean['DDIST_meters'] * (0.621371 / 1000)
+    df_clean = df_clean.replace({np.inf : np.nan, 0: np.nan}) ## TEMPORARY FIX
+
+    inf = np.isinf(df_clean['DDIST_miles']).values.sum() > 0
+    zeros = (df_clean['DDIST_miles'] == 0).sum() > 0
+    if (inf) or (zeros):
+        raise ValueError('Origin-Destination distances contains inf or zero values.')
+
     return df_clean
 
 def _create_skims_by_mode(settings, skims_df):
@@ -266,7 +272,7 @@ def _create_skims_by_mode(settings, skims_df):
     2 pandas dataframe for auto and transit respectively. 
     """
     logger.info("Splitting BEAM skims by mode.")
-    
+
     #Settings
     hwy_paths = settings['hwy_paths']
     transit_paths = settings['transit_paths']
@@ -274,11 +280,11 @@ def _create_skims_by_mode(settings, skims_df):
     logger.info('Splitting out auto skims.')
     auto_df = skims_df[skims_df['pathType'].isin(hwy_paths)]
     assert len(auto_df) > 0 , 'No auto skims'
-    
+
     logger.info('Splitting out transit skims.')
     transit_df = skims_df[skims_df['pathType'].isin(transit_paths)]
     assert len(transit_df) > 0, 'No transit skims'
-    
+
     del skims_df
     return auto_df, transit_df
 
@@ -303,14 +309,14 @@ def _build_od_matrix(df, origin, destination, metric, order, fill_na=0):
     ---------
     - numpy square 0-D matrix 
     """
-    vals = df.pivot(index = origin, 
-                    columns = destination, 
+    vals = df.pivot(index = origin,
+                    columns = destination,
                     values = metric)
-    
+
     num_zones = len(order)
-    
+
     if (num_zones,num_zones) != vals.shape:
-        
+
         missing_rows = list(set(order) - set(vals.index)) #Missing origins
         missing_cols = list(set(order) - set(vals.columns)) #Missing destinations
         axis = 0
@@ -320,19 +326,19 @@ def _build_od_matrix(df, origin, destination, metric, order, fill_na=0):
 
         if len(missing_cols) == 0:
             missing_cols = vals.columns
-        
-        else: 
+
+        else:
             axis = 1
 
         array = np.empty((len(missing_rows), len(missing_cols)))
         array[:] = np.nan
         empty_df = pd.DataFrame(array, index = missing_rows, columns = missing_cols)
         vals = pd.concat((vals,empty_df), axis = axis)
-        
+
     assert vals.index.isin(order).all(), 'There are missing origins'
     assert vals.columns.isin(order).all(), 'There are missing destinations'
     assert (num_zones, num_zones) == vals.shape, 'Origin-Destination matrix is not square'
-    
+
     return vals.loc[order, order].fillna(fill_na).values
 
 def impute_distances(zones, origin, destination):
@@ -358,24 +364,24 @@ def impute_distances(zones, origin, destination):
     assert len(origin) == len(destination), 'parameters "origin" and "destination" should have the same lenght'
     origin = (origin + 1).astype(str)
     destination = (destination + 1).astype(str)
-    
+
     if isinstance(zones, pd.core.frame.DataFrame):
         zones.geometry = zones.geometry.astype(str).apply(wkt.loads)
         zones = gpd.GeoDataFrame(zones, geometry='geometry', crs='EPSG:4326')
 
     assert isinstance(zones, gpd.geodataframe.GeoDataFrame), "Zones needs to be a GeoPandas dataframe"
-    
+
     gdf = zones.copy()
-    
-    #Tranform gdf to CRS in meters 
+
+    #Tranform gdf to CRS in meters
     gdf = gdf.to_crs('EPSG:3857')
-    
+
     # Select origin and destination pairs 
     orig = gdf.loc[origin].reset_index(drop = True).geometry.centroid
     dest = gdf.loc[destination].reset_index(drop = True).geometry.centroid
-    
+
     return orig.distance(dest).replace({0:100}).values * (0.621371 / 1000)
-    
+
 def _distance_skims(settings, year, auto_df, order, data_dir=None):
     """
     Generates distance matrices for drive, walk and bike modes.
@@ -394,27 +400,27 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
     # for now walk and bike are the same as drive.
     dist_column = settings['beam_asim_hwy_measure_map']['DIST']
     dist_auto = auto_df.drop_duplicates(['origin', 'destination'], keep='last')
-    mx_dist = _build_od_matrix(dist_auto, 'origin', 'destination', 
+    mx_dist = _build_od_matrix(dist_auto, 'origin', 'destination',
                                dist_column, order, fill_na = np.nan)
     # Impute missing distances 
     missing = np.isnan(mx_dist)
-    if missing.any(): 
+    if missing.any():
         orig, dest = np.where(missing == True)
         logger.info("Imputing {} missing distance skims.".format(len(orig)))
         zones = read_zone_geoms(settings, year)
         imputed_dist = impute_distances(zones, orig, dest)
         mx_dist[orig, dest] = imputed_dist
     assert not np.isnan(mx_dist).any()
-    
+
     # Distance matrices
     skims['DIST'] = mx_dist
     skims['DISTBIKE'] = mx_dist
     skims['DISTWALK'] = mx_dist
     skims.close()
-                               
+
 def _transit_skims(settings, transit_df, order, data_dir=None):
     """ Generate transit OMX skims"""
-    
+
     logger.info("Creating transit skims.")
     transit_paths = settings['transit_paths']
     periods = settings['periods']
@@ -424,41 +430,41 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
     df = transit_df.copy()
 
     for path in transit_paths:
-        path_ = path.replace('EXP', 'LOC')  
+        path_ = path.replace('EXP', 'LOC')
         path_ = path_.replace('TRN', 'LOC')
         for period in periods:
             df_ = df[(df.pathType == path_) & (df.timePeriod == period)]
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if (measure == 'FAR') or (measure == 'BOARDS'):
-                    mtx = _build_od_matrix(df_, 'origin', 'destination', 
-                                            measure_map[measure], order, 
+                    mtx = _build_od_matrix(df_, 'origin', 'destination',
+                                            measure_map[measure], order,
                                             fill_na = 0)
-                elif measure_map[measure]:
+                elif measure_map[measure] in df_.columns:
                     # activitysim estimated its models using transit skims from Cube
                     # which store time values as scaled integers (e.g. x100), so their
                     # models also divide transit skim values by 100. Since our skims
                     # aren't coming out of Cube, we multiply by 100 to negate the division.
                     # This only applies for travel times.
-                    mtx = _build_od_matrix(df_, 'origin', 'destination', 
+                    mtx = _build_od_matrix(df_, 'origin', 'destination',
                                             measure_map[measure], order) * 100
-                    
+
                 else:
                     mtx = np.zeros((num_taz, num_taz))
                 skims[name] = mtx
     skims.close()
     del df, df_
-    
+
 def _auto_skims(settings, auto_df, order, data_dir=None):
     logger.info("Creating drive skims.")
-    
+
     # Open skims object
     periods = settings['periods']
     paths = settings['hwy_paths']
     measure_map = settings['beam_asim_hwy_measure_map']
     skims = read_skims(settings, mode='a', data_dir=data_dir)
     num_taz = len(order)
-    
+
     df = auto_df.copy()
     for period in periods:
         df_ = df[df['timePeriod'] == period]
@@ -466,22 +472,22 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if measure_map[measure]:
-                    mtx = _build_od_matrix(df_, 'origin', 'destination', 
-                                           measure_map[measure], order, 
+                    mtx = _build_od_matrix(df_, 'origin', 'destination',
+                                           measure_map[measure], order,
                                            fill_na = np.nan)
                     missing = np.isnan(mtx)
-          
+
                     if missing.any():
-                        distances = np.array(skims['DIST']) 
+                        distances = np.array(skims['DIST'])
                         orig, dest = np.where(missing == True)
                         missing_measure = distances[orig, dest]
-                           
+
                         if measure == 'DIST':
                             mtx[orig, dest] = missing_measure
                         elif measure == 'TIME':
-                            mtx[orig, dest] = missing_measure * (60/40) # Assumes average speed of 40 miles/hour 
-                        else: 
-                            mtx[orig, dest] = 0 ## Assumes no toll or payment 
+                            mtx[orig, dest] = missing_measure * (60/40) # Assumes average speed of 40 miles/hour
+                        else:
+                            mtx[orig, dest] = 0 ## Assumes no toll or payment
                 else:
                     mtx = np.zeros((num_taz, num_taz))
                 skims[name] = mtx
@@ -520,6 +526,7 @@ def create_skims_from_beam(settings, year,
     if new:
         order = zone_order(settings, year)
         skims_df = _load_raw_beam_skims(settings)
+        skims_df = skims_df.loc[skims_df.origin.isin(order) & skims_df.destination.isin(order),:]
         skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
         auto_df, transit_df = _create_skims_by_mode(settings, skims_df)
 
@@ -536,11 +543,11 @@ def create_skims_from_beam(settings, year,
         order = zone_order(settings, year)
         skim_validations(settings, year, order, data_dir=output_dir)
 
-def plot_skims(settings, zones, 
+def plot_skims(settings, zones,
                skims, order,
-               random_sample=6, 
-               cols=2, name='DIST', 
-               units='in miles'):   
+               random_sample=6,
+               cols=2, name='DIST',
+               units='in miles'):
     """
     Plot a map of skims for a random set zones to all other zones. For validation/debugging purposes. 
     
@@ -571,35 +578,35 @@ def plot_skims(settings, zones,
         for col in range(cols):
 
             zone_id = int(zone_ids[counter])
-            name_ = name + '_zone_id_' + str(zone_id) 
+            name_ = name + '_zone_id_' + str(zone_id)
             zone_measure = skims[zone_id - 1,:]
             empty = zone_measure.sum() == 0
             while empty:
                 zone_id = int(list(zones.sample(1).index)[0])
-                name_ = name + '_zone_id_' + str(zone_id) 
+                name_ = name + '_zone_id_' + str(zone_id)
                 zone_measure = skims[zone_id - 1,:]
                 empty = zone_measure.sum() == 0
             zones[name_] = zone_measure
             zones[name_] = zones[name_].replace({999:np.nan, 0:np.nan})
             counter += 1
             bg_id = order[zone_id - 1]
-            
+
             zones.plot(column = name_, legend = True, ax = axs[row][col])
             axs[row][col].set_title('{0} ({1}) from zone {2} \n block_group {3} '.format(name, units, zone_id, bg_id ))
-    
-    #Saving plots to files. 
+
+    #Saving plots to files.
     asim_validation = settings['asim_validation_folder']
     if not os.path.isdir(asim_validation):
         os.mkdir(asim_validation)
 
     save_path = os.path.join(asim_validation, 'skims_validation_' + name + '.pdf')
     fig.savefig(save_path)
-            
+
 def skim_validations(settings, year, order, data_dir=None):
     logger.info("Generating skims validation plots.")
     skims = read_skims(settings, mode='r', data_dir=data_dir)
-    zone =  read_zone_geoms(settings, year, 
-                            asim_zone_id_col='TAZ', 
+    zone =  read_zone_geoms(settings, year,
+                            asim_zone_id_col='TAZ',
                             default_zone_id_col='zone_id')
 
     # Skims matrices 
@@ -610,11 +617,11 @@ def skim_validations(settings, year, order, data_dir=None):
                  'WLK_LOC_WLK_WAIT__AM', 'WLK_LOC_WLK_WAUX__AM',
                  'WLK_LOC_WLK_WEGR__AM', 'WLK_LOC_WLK_XWAIT__AM',
                  'WLK_LOC_WLK_WACC__AM']
-    PuT_time = np.zeros((num_zones,num_zones)) 
+    PuT_time = np.zeros((num_zones,num_zones))
     for measure in loc_time_list:
         time = np.array(skims[measure])/100
-        PuT_time = PuT_time + time 
-    
+        PuT_time = PuT_time + time
+
     #Plots
     plot_skims(settings, zone, distances, order, 6,  2, 'DIST', 'in miles')
     plot_skims(settings, zone, sov_time, order, 6, 2, 'SOV_TIME', 'in minutes')
@@ -775,7 +782,7 @@ def _update_jobs_table(
     # assign zones
     jobs[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
         jobs['block_id']).values
-    
+
     jobs[asim_zone_id_col] = jobs[asim_zone_id_col].astype(str)
 
     # make sure jobs are only assigned to blocks with land area > 0
@@ -830,12 +837,12 @@ def _update_blocks_table(settings, year, blocks,
     # raw urbansim data that has yet to be touched by pilates)
     geoid_to_zone_mapping_updated = False
 
+    zone_type = settings['skims_zone_type']
+    zone_id_col = "{}_{}".format(zone_type, zone_id_col)
+
     if zone_id_col not in blocks.columns:
 
-        region = settings['region']
         mapping = geoid_to_zone_map(settings, year)
-        zone_type = settings['skims_zone_type']
-        travel_model = settings['travel_model']
 
         if zone_type == 'block':
             logger.info("Mapping block IDs")
@@ -848,15 +855,8 @@ def _update_blocks_table(settings, year, blocks,
 
         elif zone_type == 'taz':
             logger.info("Mapping block IDs to TAZ")
-            geoid_to_zone_fpath = \
-                "pilates/utils/data/{0}/{1}/geoid_to_zone.csv".format(
-                    region, travel_model)
-
-            block_taz = pd.read_csv(
-                geoid_to_zone_fpath, dtype={'GEOID': str, zone_id_col: str})
-            block_taz = block_taz.set_index('GEOID')[zone_id_col]
-            block_taz.index.name = 'block_id'
-            blocks = blocks.join(block_taz)
+            blocks[zone_id_col] = blocks.index.astype(str)
+            blocks[zone_id_col] = blocks[zone_id_col].replace(mapping)
 
         geoid_to_zone_mapping_updated = True
 
@@ -992,43 +992,45 @@ def _compute_area_type(zones):
         include_lowest=True).astype(str)
     return area_types
 
-def enrollment_tables(settings, zones, 
-                      enrollment_type='schools', 
+def enrollment_tables(settings, zones,
+                      enrollment_type='schools',
                       asim_zone_id_col='TAZ'):
-    
+
     region = settings['region']
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
     local_crs = settings['local_crs'][region]
-    
-    assert enrollment_type in ['schools', 'colleges'], "enrollment_type should be one of ['schools', 'colleges']"
-    
+
+    zone_type = settings['skims_zone_type']
     path_to_schools_data = \
-        "pilates/utils/data/{0}/{1}.csv".format(region, enrollment_type)
+        "pilates/utils/data/{0}/{1}_{2}.csv".format(region, zone_type,enrollment_type)
+    assert enrollment_type in ['schools', 'colleges'], "enrollemnt type one of ['schools', 'colleges']"
     
     if not os.path.exists(path_to_schools_data):
         if enrollment_type == 'schools':
             enrollment = _get_school_enrollment(state_fips, county_codes)
         elif enrollment_type == 'colleges':
             enrollment = _get_college_enrollment(state_fips, county_codes)
+        else:
+            raise KeyError("enrollemnt type one of ['schools', 'colleges']")
     else:
         logger.info("Reading school enrollment data from disk!")
         enrollment = pd.read_csv(path_to_schools_data, dtype={
             asim_zone_id_col: str})
-        
+
     if asim_zone_id_col not in enrollment.columns:
         enrollment_df = enrollment[['x', 'y']].copy()
         enrollment_df.index.name = 'school_id'
         enrollment[asim_zone_id_col] = get_zone_from_points(
             enrollment_df, zones, local_crs)
-        
+
         enrollment = enrollment.dropna(subset = [asim_zone_id_col])
         enrollment[asim_zone_id_col] = enrollment[asim_zone_id_col].astype(str)
         del enrollment_df
         logger.info("Saving {} enrollment data to disk!".format(enrollment_type))
         enrollment.to_csv(path_to_schools_data)
-        
+
     return enrollment
 
 def _create_land_use_table(
@@ -1037,19 +1039,19 @@ def _create_land_use_table(
 
     logger.info('Creating land use table.')
     zone_type = settings['skims_zone_type']
-                    
-    schools = enrollment_tables(settings, zones, 
-                                enrollment_type = 'schools', 
+
+    schools = enrollment_tables(settings, zones,
+                                enrollment_type = 'schools',
                                 asim_zone_id_col = asim_zone_id_col)
-    colleges = enrollment_tables(settings, zones, 
-                                enrollment_type = 'colleges', 
+    colleges = enrollment_tables(settings, zones,
+                                enrollment_type = 'colleges',
                                 asim_zone_id_col = asim_zone_id_col)
     assert zones.index.name == 'TAZ'
     assert zones.index.inferred_type == 'string', "zone_id dtype should be str"
     for table in [households, persons, jobs, blocks, schools, colleges]:
         assert pd.api.types.is_string_dtype(table[asim_zone_id_col]), \
         "zone_id dtype in should be str"
-    
+
     # create new column variables
     logger.info("Creating new columns in the land use table.")
     if zone_type != 'taz':
@@ -1154,7 +1156,8 @@ def create_asim_data_from_h5(
         settings, year, blocks, households, jobs, input_zone_id_col)
     if blocks_to_taz_mapping_updated:
         logger.info(
-            "Storing blocks table with TAZ IDs to disk in .h5 datastore!")
+            "Storing blocks table with {} zone IDs to disk in .h5 datastore!".format(zone_type))
+        input_zone_id_col = "{0}_zone_id".format(zone_type)
         blocks_cols += [input_zone_id_col]
         store[os.path.join(table_prefix_yr, 'blocks')] = blocks[blocks_cols]
     blocks.rename(

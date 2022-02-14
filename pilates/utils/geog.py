@@ -10,19 +10,35 @@ from pilates.utils.io import read_datastore
 
 logger = logging.getLogger(__name__)
 
-def get_taz_geoms(region, taz_id_col_in='taz1454', zone_id_col_out='zone_id'):
+def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id', 
+                  data_dir='./tmp/' ):
+    
+    region = settings['region']
+    zone_type = settings['skims_zone_type']
 
-    if region == 'sfbay':
-        url = (
-            'https://opendata.arcgis.com/datasets/'
-            '94e6e7107f0745b5b2aabd651340b739_0.geojson')
+    file_name =  '{0}_{1}.shp'.format(zone_type, region)
+    taz_geoms_fpath = os.path.join(data_dir, file_name)
+    
+    if os.path.exists(taz_geoms_fpath):
+        logger.info("Loading taz geoms from disk!")
+        gdf = gpd.read_file(taz_geoms_fpath)
+        
+    else:
+        logger.info("Downloading {} geoms".format(zone_type))
 
-    gdf = gpd.read_file(url, crs="EPSG:4326")
-    gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
+        if region == 'sfbay':
+            url = (
+                'https://opendata.arcgis.com/datasets/'
+                '94e6e7107f0745b5b2aabd651340b739_0.geojson')
+            
+        ## FIX ME: other regions taz should be here - only sfbay for now
+        gdf = gpd.read_file(url, crs="EPSG:4326")
+        gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
 
-    # zone_id col must be str
-    gdf[zone_id_col_out] = gdf[zone_id_col_out].astype(str)
-
+        # zone_id col must be str
+        gdf[zone_id_col_out] = gdf[zone_id_col_out].astype(str)
+        gdf.to_file(taz_geoms_fpath)
+    
     return gdf
 
 
@@ -36,7 +52,7 @@ def get_county_block_geoms(
             'tigerWMS_Census2010/MapServer/18/query?where=STATE%3D{0}+and+COUNTY%3D{1}'#2010 census
             '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
             '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CBLOCK%2CCENTLAT'
-            '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
+            '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=json')
 
     elif zone_type == 'block_group':
         base_url = (
@@ -45,7 +61,7 @@ def get_county_block_geoms(
             'tigerWMS_Census2010/MapServer/16/query?where=STATE%3D{0}+and+COUNTY%3D{1}'#2010 census
             '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
             '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CCENTLAT'
-            '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=pjson')
+            '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=json')
 
     blocks_remaining = True
     all_features = []
@@ -87,10 +103,15 @@ def get_block_geoms(settings, data_dir='./tmp/'):
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
+    
     zone_type = settings['skims_zone_type']
+    if zone_type == 'taz':
+        zone_type_v1 = 'block' #triger block geometries
+    else:
+        zone_type_v1 = zone_type
 
     all_block_geoms = []
-    file_name = zone_type + "_" + region + ".shp"
+    file_name = '{0}_{1}.shp'.format(zone_type_v1, region)
 
     if os.path.exists(os.path.join(data_dir, file_name)):
         logger.info("Loading block geoms from disk!")
@@ -106,13 +127,14 @@ def get_block_geoms(settings, data_dir='./tmp/'):
                     len(county_codes))):
             county_gdf = get_county_block_geoms(state_fips, county, zone_type)
             all_block_geoms.append(county_gdf)
-
+  
         blocks_gdf = gpd.GeoDataFrame(
             pd.concat(all_block_geoms, ignore_index=True), crs="EPSG:4326")
         
         # make sure geometries match with geometries in blocks table
-        geoids = list(geoid_to_zone_map(settings, year=None).keys())
-        blocks_gdf = blocks_gdf[blocks_gdf.GEOID.isin(geoids)]
+        if zone_type in ['block','block_group']:
+            geoids = list(geoid_to_zone_map(settings, year=None).keys())
+            blocks_gdf = blocks_gdf[blocks_gdf.GEOID.isin(geoids)]
 
         # save to disk
         logger.info(
@@ -183,7 +205,7 @@ def map_block_to_taz(
     local_crs = settings['local_crs'][region]
 
     if zones_gdf is None:
-        zones_gdf = get_taz_geoms(region, reference_taz_id_col, zone_id_col)
+        zones_gdf = get_taz_geoms(settings, reference_taz_id_col, zone_id_col)
     blocks_gdf = get_block_geoms(settings, data_dir)
     blocks_gdf.crs = 'EPSG:4326'
     blocks_to_taz = get_taz_from_block_geoms(
@@ -236,11 +258,11 @@ def geoid_to_zone_map(settings, year=None):
    """
     region = settings['region']
     zone_type = settings['skims_zone_type']
-    travel_model = settings['travel_model']
+    travel_model = settings.get('travel_model', 'beam')
     zone_id_col = 'zone_id'
 
     geoid_to_zone_fpath = \
-        "pilates/utils/data/{0}/{1}/geoid_to_zone.csv".format(region, travel_model)
+        "pilates/utils/data/{0}/{1}/{2}_geoid_to_zone.csv".format(region, travel_model,zone_type)
 
     if os.path.isfile(geoid_to_zone_fpath):
         logger.info("Reading GEOID to zone mapping.")
