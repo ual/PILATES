@@ -98,6 +98,7 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
     current_skims_path = find_produced_origin_skims(beam_output_dir)
     if (current_skims_path is None) | (previous_skims_path == current_skims_path):
         # this means beam has not produced the skims
+        logger.error("no skims produced from path {0}".format(current_skims_path))
         return previous_skims_path
 
     rawInputSchema = {
@@ -123,10 +124,14 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
 
     index_columns = ['timePeriod', 'reservationType', 'origin']
 
-    all_skims = pd.read_csv(all_skims_path, dtype=aggregatedInput, index_col=index_columns)
+    all_skims = pd.read_csv(all_skims_path, dtype=aggregatedInput)
+    all_skims.set_index(index_columns, drop=True, inplace=True)
     cur_skims = pd.read_csv(current_skims_path, dtype=rawInputSchema)
     cur_skims['timePeriod'] = cur_skims['hour'].apply(hourToTimeBin)
-    cur_skims = cur_skims.groupby(['timePeriod', 'reservationType', 'tazId']).apply(aggregateInTimePeriod)
+    cur_skims.rename(columns={'tazId':'origin'}, inplace=True)
+    cur_skims = cur_skims.groupby(['timePeriod', 'reservationType', 'origin']).apply(aggregateInTimePeriod)
     all_skims = pd.concat([cur_skims, all_skims.loc[all_skims.index.difference(cur_skims.index, sort=False)]])
-    all_skims = all_skims.reset_index()
-    all_skims.to_csv(all_skims_path, index=False)
+    if all_skims.index.duplicated().sum() > 0:
+        logger.warning("Duplicated values in index: {0}".format(all_skims.loc[all_skims.duplicated()]))
+        all_skims.drop_duplicates(inplace=True)
+    all_skims.to_csv(all_skims_path, index=True)
