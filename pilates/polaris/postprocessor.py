@@ -160,12 +160,16 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 							return 0.6
 
 		def calculate_gttime_factor(self, skim, wait_times):
+			
+			o_idx = skim.zone_id_to_index_map[self.oid]
+			d_idx = skim.zone_id_to_index_map[self.did]
+			
 			if self.total > 0:
 				self.tnc = self.tnc/self.total
 				self.noAV = self.noAV/self.total
 				self.l3 = self.l3/self.total
 				self.l5 = self.l5/self.total
-				wait = wait_times[self.oid]
+				wait = wait_times[self.oidx]
 			else:
 				self.tnc = 0.0
 				self.noAV = 1.0
@@ -173,8 +177,7 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 				self.l5 = 0.0
 				wait = wait_times[self.oid]
 
-			o_idx = skim.zone_id_to_index_map[self.oid]
-			d_idx = skim.zone_id_to_index_map[self.did]
+			
 
 			# determine if the OD pair is mostly highway or arterial
 			self.set_congestion_and_highway_flags(skim)

@@ -25,7 +25,7 @@ class Household:
 	def __init__(self, id, hh, from_usim=True):
 		self.id = id
 		if from_usim:
-			self.hhold = id #store the id also in the hhold/serial_no field until we get the ODB issues with sqlite id fixed... hh['serialno']
+			self.hhold = hh['serialno']
 			self.block_id = hh['block_id']
 			self.location = -1
 			self.zone = -1
@@ -76,7 +76,7 @@ class Household:
 class Person:
 	def __init__(self, id, per):
 		self.id = id
-		self.per_id = id # per['member_id']-1
+		self.per_id = per['member_id']-1
 		self.household = per['household_id']
 		self.age = per['age']
 		self.worker_class = per['worker']
@@ -260,9 +260,7 @@ class Usim_Data:
 	def __init__(self, forecast_year, usim_output):
 		self.block_hh_count = {}
 		self.hh_data = None
-		self.hh_idx = None
 		self.per_data = None
-		self.per_idx = None
 		self.job_data = None
 		self.block_data = None
 
@@ -305,7 +303,6 @@ class Usim_Data:
 		# Iterate through households in the datastore and construct HH objects, as well as the household-block distribution pdf
 		logger.info('Reading households from Urbansim output...')
 		for idx, data in self.hh_data.iterrows():
-			#id = self.hh_idx[idx]
 			hh = Household(idx, data)
 			self.hh_dict[hh.id] = hh		
 
