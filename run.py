@@ -41,11 +41,21 @@ def setup_beam_skims(settings):
     beam_input_dir = settings['beam_local_input_folder']
     beam_output_dir = settings['beam_local_output_folder']
     skims_fname = settings['skims_fname']
+    origin_skims_fname = settings['origin_skims_fname']
 
     input_skims_location = os.path.join(beam_input_dir, region, skims_fname)
     mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
 
     logger.info("Copying input skims from {0} to {1}".format(
+        input_skims_location,
+        mutable_skims_location))
+
+    shutil.copyfile(input_skims_location, mutable_skims_location)
+
+    input_skims_location = os.path.join(beam_input_dir, region, origin_skims_fname)
+    mutable_skims_location = os.path.join(beam_output_dir, origin_skims_fname)
+
+    logger.info("Copying input origin skims from {0} to {1}".format(
         input_skims_location,
         mutable_skims_location))
 
@@ -394,12 +404,14 @@ def run_traffic_assignment(
     activity_demand_model = settings.get('activity_demand_model', False)
     docker_stdout = settings['docker_stdout']
     skims_fname = settings['skims_fname']
+    origin_skims_fname = settings['origin_skims_fname']
     beam_memory = settings['beam_memory']
 
     # remember the last produced skims in order to detect that
     # beam didn't work properly during this run
-    previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
-    logger.info("Found skims from the previous beam run: %s", previous_skims)
+    previous_od_skims = beam_post.find_produced_od_skims(beam_local_output_folder)
+    previous_origin_skims = beam_post.find_produced_origin_skims(beam_local_output_folder)
+    logger.info("Found skims from the previous beam run: %s", previous_od_skims)
 
     # 2. COPY ACTIVITY DEMAND OUTPUTS --> TRAFFIC ASSIGNMENT INPUTS
     if settings['traffic_assignment_enabled']:
@@ -434,16 +446,19 @@ def run_traffic_assignment(
     )
 
     # 4. POSTPROCESS
-    path_to_skims = os.path.join(abs_beam_output, skims_fname)
+    path_to_od_skims = os.path.join(abs_beam_output, skims_fname)
     beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
-    current_skims = beam_post.merge_current_skims(
-        path_to_skims, previous_skims, beam_local_output_folder)
-    if current_skims == previous_skims:
+    current_od_skims = beam_post.merge_current_od_skims(
+        path_to_od_skims, previous_od_skims, beam_local_output_folder)
+    if current_od_skims == previous_od_skims:
         logger.error(
-            "BEAM hasn't produced the new skims for some reason. "
-            "Please check beamLog.out for errors in the directory %s",
-            abs_beam_output)
+            "BEAM hasn't produced the new skims at {0} for some reason. "
+            "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
+            )
         exit(1)
+    path_to_origin_skims = os.path.join(abs_beam_output, origin_skims_fname)
+    beam_post.merge_current_origin_skims(
+        path_to_origin_skims, previous_origin_skims, beam_scenario_output_folder)
 
     return
 
