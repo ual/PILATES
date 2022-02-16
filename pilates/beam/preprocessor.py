@@ -7,6 +7,17 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+def make_archive(source, destination):
+    """
+    From https://stackoverflow.com/questions/32640053/compressing-directory-using-shutil-make-archive-while-preserving-directory-str
+    """
+    base = os.path.basename(destination)
+    name = base.split('.')[0]
+    fmt = base.split('.')[1]
+    archive_from = os.path.dirname(source)
+    archive_to = os.path.basename(source.strip(os.sep))
+    shutil.make_archive(name, fmt, archive_from, archive_to)
+    shutil.move('%s.%s'%(name,fmt), destination)
 
 def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
     asim_output_data_dir = settings['asim_local_output_folder']
@@ -39,7 +50,7 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
                         target_file_path, 'wb') as f_out:
                     f_out.writelines(f_in)
         elif os.path.isdir(os.path.abspath(input_file_path)):
-            shutil.copytree(input_file_path, target_file_path)
+            make_archive(input_file_path, target_file_path + ".zip")
         else:
             shutil.copy(input_file_path, target_file_path)
 

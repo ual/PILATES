@@ -24,7 +24,7 @@ def find_latest_beam_iteration(beam_output_dir):
 def rename_beam_output_directory(settings, year, replanning_iteration_number=0):
     beam_output_dir = settings['beam_local_output_folder']
     iteration_output_directory, _ = find_latest_beam_iteration(beam_output_dir)
-    new_iteration_output_directory = os.path.join(beam_output_dir,
+    new_iteration_output_directory = os.path.join(beam_output_dir, settings['region'],
                                                   "year-{0}-iteration-{1}".format(year, replanning_iteration_number))
     os.rename(iteration_output_directory, new_iteration_output_directory)
 

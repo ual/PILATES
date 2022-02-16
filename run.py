@@ -447,7 +447,6 @@ def run_traffic_assignment(
 
     # 4. POSTPROCESS
     path_to_od_skims = os.path.join(abs_beam_output, skims_fname)
-    beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
     current_od_skims = beam_post.merge_current_od_skims(
         path_to_od_skims, previous_od_skims, beam_local_output_folder)
     if current_od_skims == previous_od_skims:
@@ -458,7 +457,8 @@ def run_traffic_assignment(
         exit(1)
     path_to_origin_skims = os.path.join(abs_beam_output, origin_skims_fname)
     beam_post.merge_current_origin_skims(
-        path_to_origin_skims, previous_origin_skims, beam_scenario_output_folder)
+        path_to_origin_skims, previous_origin_skims, beam_local_output_folder)
+    beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
 
     return
 

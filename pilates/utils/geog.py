@@ -99,7 +99,7 @@ def get_county_block_geoms(
 
 def get_block_geoms(settings, data_dir='./tmp/'):
 
-    region = settings['region']
+    region = settings['region'] or 'beam'
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
