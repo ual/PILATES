@@ -21,7 +21,7 @@ activity_demand_model: activitysim
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
   beam: zaneedell/beam:0.8.6.7
-  activitysim: mxndrwgrdnr/activitysim:latest
+  activitysim: zaneedell/activitysim:ridehailskims.0
   polaris:
 docker_stdout: False
 pull_latest: False
@@ -55,7 +55,7 @@ usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 
 
 # BEAM 
-beam_config: sfbay-pilates-lessrh.conf # OR austin-pilates-base.conf
+beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/
@@ -77,7 +77,7 @@ polaris_skim_keys:
 
 
 # ACTIVITYSIM
-household_sample_size: 2000 # zero means no sampling, whole pop.
+household_sample_size: 200000 # zero means no sampling, whole pop.
 chunk_size: 4000000000
 num_processes: 94
 asim_local_input_folder: pilates/activitysim/data/
