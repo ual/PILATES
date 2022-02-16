@@ -95,11 +95,13 @@ def aggregateInTimePeriod(df):
         observations = df['observations'].sum()
         unmatchedRequestPortion = 1. - totalCompletedRequests / observations
         return pd.Series({"waitTimeInMinutes": waitTime, "costPerMile": costPerMile,
-                          "unmatchedRequestPortion": unmatchedRequestPortion, "observations": observations})
+                          "unmatchedRequestPortion": unmatchedRequestPortion, "observations": observations,
+                          "completedRequests": totalCompletedRequests})
     else:
         observations = df['observations'].sum()
         return pd.Series({"waitTimeInMinutes": 6.0, "costPerMile": 5.0,
-                          "unmatchedRequestPortion": 1.0, "observations": observations})
+                          "unmatchedRequestPortion": 1.0, "observations": observations,
+                          "completedRequests": 0})
 
 
 def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_dir):
