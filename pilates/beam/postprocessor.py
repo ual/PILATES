@@ -144,10 +144,11 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
     cur_skims = cur_skims.groupby(['timePeriod', 'reservationType', 'origin']).apply(aggregateInTimePeriod)
     all_skims = pd.concat([cur_skims, all_skims.loc[all_skims.index.difference(cur_skims.index, sort=False)]])
     if all_skims.index.duplicated().sum() > 0:
-        logger.warning("Duplicated values in index: {0}".format(all_skims.loc[all_skims.duplicated()]))
+        logger.warning("Duplicated values in index: \n {0}".format(all_skims.loc[all_skims.duplicated()]))
         all_skims.drop_duplicates(inplace=True)
     all_skims.to_csv(all_skims_path, index=True)
     totals = cur_skims.groupby(['timePeriod', 'reservationType']).sum()
     totals['matchedPercent'] = totals['completedRequests'] / totals['observations']
     totals['meanWaitTimeInMinutes'] = totals['waitTimeInMinutes'] / totals['completedRequests']
-    logger.info("Ridehail matching summary: {0}".format(totals[['meanWaitTimeInMinutes', 'matchedPercent']]))
+    logger.info("Ridehail matching summary: \n {0}".format(totals[['meanWaitTimeInMinutes', 'matchedPercent']]))
+    logger.info("Total requests: \n {0}".format(totals['completedRequests'].sum()))
