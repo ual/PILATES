@@ -55,7 +55,7 @@ usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 
 
 # BEAM 
-beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
+beam_config: sfbay-pilates-lessrh.conf # OR austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/

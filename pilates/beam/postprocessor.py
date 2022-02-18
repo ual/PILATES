@@ -149,4 +149,4 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
     totals = cur_skims.groupby(['timePeriod', 'reservationType']).sum()
     totals['matchedPercent'] = totals['completedRequests'] / totals['observations']
     totals['meanWaitTimeInMinutes'] = totals['waitTimeInMinutes'] / totals['completedRequests']
-    logger.info("Ridehail matching summary: {0}".format(totals[['meanWaitTime', 'matchedPercent']]))
+    logger.info("Ridehail matching summary: {0}".format(totals[['meanWaitTimeInMinutes', 'matchedPercent']]))
