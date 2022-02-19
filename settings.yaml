@@ -28,7 +28,7 @@ pull_latest: False
 
 # skim settings
 skims_zone_type: block_group  # one of [taz, block_group, block]
-skims_fname: austin-skims-res-full-new.csv.gz
+skims_fname: austin-skims-res-full-new.csv.gz #file or folder name. 
 
 # region_zone_type:
 #   austin: block_groups # one of [taz, block_groups, block]
@@ -155,8 +155,8 @@ asim_from_usim_col_maps:
   households:
     persons: PERSONS  # asim preproc
     PERSONS: hhsize  # asim settings.yaml
-    cars: VEHICL  # asim preproc
-    VEHICL: auto_ownership  # asim annotate_households.csv
+    cars: auto_ownership  # asim preproc
+#     VEHICL: auto_ownership  # asim annotate_households.csv
     workers: num_workers  # asim settings.yaml
   persons:
     member_id: PNUM  # asim preproc
