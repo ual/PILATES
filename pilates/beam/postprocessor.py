@@ -147,8 +147,9 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
         logger.warning("Duplicated values in index: \n {0}".format(all_skims.loc[all_skims.duplicated()]))
         all_skims.drop_duplicates(inplace=True)
     all_skims.to_csv(all_skims_path, index=True)
+    cur_skims['totalWaitTimeInMinutes'] = cur_skims['waitTimeInMinutes'] * totals['completedRequests']
     totals = cur_skims.groupby(['timePeriod', 'reservationType']).sum()
     totals['matchedPercent'] = totals['completedRequests'] / totals['observations']
-    totals['meanWaitTimeInMinutes'] = totals['waitTimeInMinutes'] / totals['completedRequests']
+    totals['meanWaitTimeInMinutes'] = totals['totalWaitTimeInMinutes'] / totals['completedRequests']
     logger.info("Ridehail matching summary: \n {0}".format(totals[['meanWaitTimeInMinutes', 'matchedPercent']]))
     logger.info("Total requests: \n {0}".format(totals['completedRequests'].sum()))
