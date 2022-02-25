@@ -20,7 +20,7 @@ activity_demand_model: activitysim
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  beam: zaneedell/beam:0.8.6.7
+  beam: zaneedell/beam:0.8.6.9
   activitysim: zaneedell/activitysim:ridehailskims.0
   polaris:
 docker_stdout: False

@@ -1253,10 +1253,10 @@ def create_asim_data_from_h5(
     blocks_cols = blocks.columns.tolist()
     blocks_to_taz_mapping_updated, blocks = _update_blocks_table(
         settings, year, blocks, households, jobs, input_zone_id_col)
+    input_zone_id_col = "{0}_zone_id".format(zone_type)
     if blocks_to_taz_mapping_updated:
         logger.info(
             "Storing blocks table with {} zone IDs to disk in .h5 datastore!".format(zone_type))
-        input_zone_id_col = "{0}_zone_id".format(zone_type)
         blocks_cols += [input_zone_id_col]
         store[os.path.join(table_prefix_yr, 'blocks')] = blocks[blocks_cols]
     blocks.rename(
