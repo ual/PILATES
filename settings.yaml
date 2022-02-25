@@ -33,7 +33,7 @@ pull_latest: True # False
 skims_zone_type: taz # one of [taz, block_group, block]
 skims_fname: as-base-skims-sfbay-taz.csv.gz # for SF Bay
 # skims_fname: as-base-skims-austin-bg.csv.gz
-origin_skims_fname: as-origin-skims-sfbay-taz.csv.gz
+origin_skims_fname: as-origin-skims-sfbay-taz.csv.gz #file or folder name.
 
 # region_zone_type:
 #   austin: block_groups # one of [taz, block_groups, block]
@@ -95,7 +95,7 @@ polaris_skim_keys:
 # ACTIVITYSIM
 household_sample_size: 200000  # zero means no sampling, whole pop.
 chunk_size: 12_000_000_000 # 4000000000
-num_processes: 70 # 94
+num_processes: 90 # 94
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
 asim_validation_folder: pilates/activitysim/validation
@@ -179,8 +179,8 @@ asim_from_usim_col_maps:
   households:
     persons: PERSONS  # asim preproc
     PERSONS: hhsize  # asim settings.yaml
-    cars: VEHICL  # asim preproc
-    VEHICL: auto_ownership  # asim annotate_households.csv
+    cars: auto_ownership  # asim preproc
+#     VEHICL: auto_ownership  # asim annotate_households.csv
     workers: num_workers  # asim settings.yaml
   persons:
     member_id: PNUM  # asim preproc
