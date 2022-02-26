@@ -13,15 +13,15 @@ land_use_freq: 1
 travel_model_freq: 1
 
 # simulation platforms (comment out to turn off)
-land_use_model: 
+land_use_model:  
 travel_model: beam
 activity_demand_model: activitysim
 
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  beam: zaneedell/beam:0.8.6.7
-  activitysim: mxndrwgrdnr/activitysim:latest
+  beam: zaneedell/beam:0.8.6.9
+  activitysim: zaneedell/activitysim:ridehailskims.0
   polaris:
 docker_stdout: False
 pull_latest: False
@@ -55,13 +55,13 @@ usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 
 
 # BEAM 
-beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
+beam_config: sfbay-pilates-lessrh.conf # OR austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/
 beam_memory: "650g"
 skim_zone_source_id_col: objectid
-replan_iters: 4
+replan_iters: 2
 replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
 final_asim_plans_folder: pilates/activitysim/output/final_plans
