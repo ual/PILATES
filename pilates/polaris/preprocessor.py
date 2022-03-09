@@ -39,24 +39,36 @@ class Household:
 			hu_type_map = {'yes': 1, 'no': 3}
 			self.housing_unit_type = hu_type_map[hh['sf_detached']]				
 			self.person_list = {}
+			self.vehicle_list = {}
+			self.ecom = 0
+			self.dispose_veh = 0
 			self.usim_record = hh
+			self.data = hh
 		else:
-			self.hhold = hh['hhold']
 			self.block_id = None
-			self.location = hh['location']
 			self.zone = None
-			self.vehicles = hh['vehicles']
-			self.persons = hh['persons']
-			self.income = hh['income']
-			self.workers = hh['workers']
-			self.hhtype = hh['type']
-			self.housing_unit_type = hh['housing_unit_type']
 			self.person_list = {}
-			self.usim_record = False
+			self.vehicle_list ={}
+			self.location = hh['location']
+			
+			self.usim_record = None
+			# store the full record from the sqlite query as a data element, in case specification changes
+			self.data = hh
+
+			
 	
 	def push_to_db(self, dbCon):
-		query = 'insert into Household (household,hhold,location,persons,workers,vehicles,type,income,housing_unit_type, ecom, dispose_veh) values (?,?,?,?,?,?,?,?,?,0,0);'
-		dbCon.execute(query, [self.id, self.hhold, self.location, self.persons, self.workers, self.vehicles, self.hhtype, self.income, self.housing_unit_type])
+		try:
+			if self.usim_record is not None:
+				query = 'insert into Household (household,hhold,location,persons,workers,vehicles,type,income,housing_unit_type, ecom, dispose_veh) values (?,?,?,?,?,?,?,?,?,?,?);'
+				dbCon.execute(query, [self.id, self.hhold, self.location, self.persons, self.workers, self.vehicles, self.hhtype, self.income, self.housing_unit_type, self.ecom, self.dispose_veh])
+			else:
+				fields_list = ','.join(self.data.keys())
+				values_list = ','.join(['?']*len(self.data.keys()))
+				query ='insert into Household ({}) values ({});'.format(fields_list, values_list)
+				dbCon.execute(query, list(self.data.values()))
+		except sqlite3.IntegrityError:
+			print(self.data)
 		
 	def set_marital_status_for_members(self):
 		married = False
@@ -74,49 +86,84 @@ class Household:
 
 
 class Person:
-	def __init__(self, id, per):
+	def __init__(self, id, per, from_usim=True):
 		self.id = id
-		self.per_id = per['member_id']-1
-		self.household = per['household_id']
-		self.age = per['age']
-		self.worker_class = per['worker']
-		self.education = per['edu']
-		self.industry = 0
-		self.employment = per['worker']
-		self.gender = per['sex']
-		self.income = per['earning']
-		self.relate = per['relate']
-		self.marital_status = 5  # never married in Polaris enum
-		self.race = per['race_id']
-		enrollment_map = {0: 0, 1: 2}
-		self.school_enrollment = enrollment_map[per['student']]
-		self.school_grade_level = max(min(per['student']*(self. age-3), 15), 0)  # use age to guess at grade level for those enrolled in school
-		self.work_hours = per['hours']
-		self.telecommute_level = per['work_at_home']*4
-		# create and initialze the school and work zones if they don't exist - otherwise read them. Note - called 'zone' in the urbansim data, but in polaris refers to the activity location id
-		if 'work_zone_id' in per:
-			self.work_zone_id = per['work_zone_id']
-			if pd.isnull(per['work_zone_id']):
+		if from_usim:
+			self.per_id = per['member_id']-1
+			self.household = per['household_id']
+			self.age = per['age']
+			self.worker_class = per['worker']
+			self.education = per['edu']
+			self.industry = 0
+			self.employment = per['worker']
+			self.gender = per['sex']
+			self.income = per['earning']
+			self.relate = per['relate']
+			self.marital_status = 5  # never married in Polaris enum
+			self.race = per['race_id']
+			enrollment_map = {0: 0, 1: 2}
+			self.school_enrollment = enrollment_map[per['student']]
+			self.school_grade_level = max(min(per['student']*(self. age-3), 15), 0)  # use age to guess at grade level for those enrolled in school
+			self.work_hours = per['hours']
+			self.telecommute_level = per['work_at_home']*4
+			# create and initialze the school and work zones if they don't exist - otherwise read them. Note - called 'zone' in the urbansim data, but in polaris refers to the activity location id
+			if 'work_zone_id' in per:
+				self.work_zone_id = per['work_zone_id']
+				if pd.isnull(per['work_zone_id']):
+					self.work_zone_id = -1
+			else:
 				self.work_zone_id = -1
-		else:
-			self.work_zone_id = -1
-		if 'school_zone_id' in per:
-			self.school_zone_id = per['school_zone_id']
-			if pd.isnull(per['school_zone_id']): # if value exists but is null in urbansim data - replace with -1 due to not null constraint in polaris sqlite db
+			if 'school_zone_id' in per:
+				self.school_zone_id = per['school_zone_id']
+				if pd.isnull(per['school_zone_id']): # if value exists but is null in urbansim data - replace with -1 due to not null constraint in polaris sqlite db
+					self.school_zone_id = -1
+			else:
 				self.school_zone_id = -1
+			self.transit_pass = 0
+			self.usim_record = per
 		else:
-			self.school_zone_id = -1
-		self.usim_record = per
+			self.household = per['household']
+			self.data = per
+			self.usim_record = None
+			
+	def push_to_db(self, dbCon):
+		if self.usim_record is not None:
+			try:
+				if not self.school_zone_id:
+					self.school_zone_id = -1
+				query = 'insert into Person (person,household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
+				dbCon.execute(query, [self.id, self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.transit_pass, self.work_zone_id, self.school_zone_id])
+			except sqlite3.IntegrityError:
+				print('SQLITE3 integrity error: ')
+				print(self.usim_record)
+		else:
+			try:
+				fields_list = ','.join(self.data.keys())
+				values_list = ','.join(['?']*len(self.data.keys()))
+				query ='insert into Person ({}) values ({});'.format(fields_list, values_list)
+				dbCon.execute(query, list(self.data.values()))
+			except sqlite3.IntegrityError:
+				print('SQLITE3 integrity error: ')
+				print(self.data)
+	
+	
+class Vehicle:
+	def __init__(self, veh):	
+		self.id = veh['vehicle_id']
+		self.household = veh['hhold']
+		self.data = veh
+
 		
 	def push_to_db(self, dbCon):
 		try:
-			if not self.school_zone_id:
-				self.school_zone_id = -1
-			query = 'insert into Person (person,household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?);'
-			dbCon.execute(query, [self.id, self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.work_zone_id, self.school_zone_id])
+			fields_list = ','.join(self.data.keys())
+			values_list = ','.join(['?']*len(self.data.keys()))
+			query ='insert into Vehicle ({}) values ({});'.format(fields_list, values_list)
+			dbCon.execute(query, list(self.data.values()))
 		except sqlite3.IntegrityError:
-			print(self.usim_record)
-		
+			print('SQLITE3 integrity error: ')
+			print(self.veh)
+	
 
 class Job:
 	def __init__(self, job):
@@ -192,17 +239,22 @@ class Zone:
 		DbCon.execute(Q, [self.households,  self.persons,  self.employment_total,  self.employment_retail,  self.employment_government,  self.employment_manufacturing,  self.employment_services,  self.employment_industrial,  self.employment_other,  self.percent_white,  self.percent_black,  self.hh_inc_avg, self.id])
 		
 
-def clean_db(DbCon):
+def clean_db(DbCon, clear_agents=True):
 	logger.info("Clean up the input database for writing...")
+
 	DbCon.execute('pragma foreign_keys=off;')
+	
+	if clear_agents:
+		DbCon.execute('delete from Household;')
+		DbCon.execute('delete from Person;')
+		DbCon.execute('delete from Vehicle;')
+	
 	DbCon.execute('delete from Activity;')
 	DbCon.execute('delete from EV_Charging;')
-	DbCon.execute('delete from Household;')
 	DbCon.execute('delete from Path;')
 	DbCon.execute('delete from Path_Multimodal;')
 	DbCon.execute('delete from Path_Multimodal_links;')
-	DbCon.execute('delete from Path_links;')
-	DbCon.execute('delete from Person;')
+	DbCon.execute('delete from Path_links;')	
 	DbCon.execute('delete from Person_Gaps;')
 	DbCon.execute('delete from Plan;')
 	DbCon.execute('delete from TNC_Trip;')
@@ -210,7 +262,7 @@ def clean_db(DbCon):
 	DbCon.execute('delete from Transit_Vehicle_links;')
 	DbCon.execute('delete from Traveler;')
 	DbCon.execute('delete from Trip where person is not null;')
-	DbCon.execute('delete from Vehicle;')
+	
 	DbCon.execute('drop table if exists act_wait_count;')
 	DbCon.execute('drop table if exists activity_Start_Distribution;')
 	DbCon.execute('drop table if exists activity_distribution;')
@@ -334,6 +386,39 @@ class Usim_Data:
 		self.usim_data.close()
 		logger.info("Closing urbansim hdf5 file...")
 
+
+class Polaris_Data:
+	def __init__(self, demand_db):
+		self.hh_dict = {}
+		self.per_dict = {}
+		self.veh_dict = {}
+		self.Fill_From_Polaris_Data(demand_db)
+		
+	def Fill_From_Polaris_Data(self, demand_db):
+		demand_db.row_factory = sqlite3.Row
+		cur = demand_db.cursor()
+	
+		for row in cur.execute('Select * from Household').fetchall():
+			data = dict(row)
+			id = data['household']
+			hh = Household(id, data, False)
+			self.hh_dict[hh.id] = hh
+		for row in cur.execute('Select * from Person').fetchall():
+			data = dict(row)
+			id = data['person']
+			p = Person(id, data, False)
+			if p.household in self.hh_dict:
+				self.hh_dict[p.household].person_list[p.id] = p  # put person into the appropriate household member dictionary
+		for row in cur.execute('Select * from Vehicle').fetchall():
+			data = dict(row)
+			v = Vehicle(data)
+			if v.data['hhold'] in self.hh_dict:
+				self.hh_dict[v.household].vehicle_list[v.id] = v
+				
+		# clear the source demand db after reading
+		clean_db(demand_db)
+
+
 def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, population_scale_factor, usim_settings):
 	
 	logger.info('Starting polaris preprocessor for forecast year {0}'.format(forecast_year))
@@ -341,8 +426,11 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 	random.seed()
 	
 	# verify filepaths
+	delete_agents = True # flag to indicate whether all hh, person, vehicles should be deleted and reimported from UrbanSim (True) or only updated from UrbanSim (False)
+	
 	if forecast_year:
 		usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
+		delete_agents = False
 	else:
 		# no forecast year so read the input urbansim model from settings
 		region = usim_settings['region']
@@ -387,7 +475,10 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 
 
 	# ==================== MODIFY THE INPUT DEMAND POPULATION in DEMAND.SQLITE =======================================
-	clean_db(DbCon)
+	clean_db(DbCon, delete_agents)
+	
+	# Read the current demand database to find existing households/persons (will be empty if delete_agents=True)
+	polaris_data = Polaris_Data(DbCon)
 
 	logger.info('Reading urbansim data from {0}'.format(usim_output))
 	usim_data = Usim_Data(forecast_year, usim_output)
@@ -444,13 +535,23 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 	hh_dict_sampled = []
 	for h in usim_data.hh_dict.values():
 		if random.random() < population_scale_factor:
-			hh_dict_sampled.append(h)
+			# if this was an existing household in the polaris model, just update the fields that Usim modifies
+			if h.id in polaris_data.hh_dict.keys():
+				hh = polaris_data.hh_dict[h.id]
+				hh.location = h.location
+				hh.zone = h.zone
+				hh_dict_sampled.append(hh)
+			# otherwise, create the whole household
+			else:
+				hh_dict_sampled.append(h)
 
 	logger.info('Pushing households and persons to POLARIS DB...')
 	for h in hh_dict_sampled:
 		h.push_to_db(DbCon)
 		for p in h.person_list.values():
 			p.push_to_db(DbCon)
+		for v in h.vehicle_list.values():
+			v.push_to_db(DbCon)
 	DbCon.commit()
 
 	# ==================== MODIFY THE ZONES in SUPPLY.SQLITE =======================================

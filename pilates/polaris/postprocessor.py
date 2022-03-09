@@ -169,13 +169,13 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 				self.noAV = self.noAV/self.total
 				self.l3 = self.l3/self.total
 				self.l5 = self.l5/self.total
-				wait = wait_times[self.oidx]
+				wait = wait_times[o_idx]
 			else:
 				self.tnc = 0.0
 				self.noAV = 1.0
 				self.l3 = 0.0
 				self.l5 = 0.0
-				wait = wait_times[self.oid]
+				wait = wait_times[self.o_idx]
 
 			
 
@@ -326,7 +326,7 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 	
 	# load the polaris person table into a data frame - should be updated with work and school locations
 	dbcon = sqlite3.connect(db_demand)
-	per_df = pd.read_sql_query("SELECT * FROM person", dbcon, index_col='id')
+	per_df = pd.read_sql_query("SELECT * FROM person", dbcon, index_col='person')
 	
 	# populate the urbansim object to update
 	usim = Usim_Data(forecast_year, usim_output)

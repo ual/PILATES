@@ -137,6 +137,8 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 				PR.modify_scenario(scenario_file, "write_skim_tables" , 'false')
 				PR.modify_scenario(scenario_file, "write_vehicle_trajectory" , 'false')
 				PR.modify_scenario(scenario_file, "write_transit_trajectory" , 'false')
+				PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
+				PR.modify_scenario(scenario_file, "traffic_scale_factor", 1.0)
 			else:
 				PR.modify_scenario(scenario_file, "percent_to_synthesize", population_scale_factor)
 				PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'false')
@@ -147,10 +149,10 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 				PR.modify_scenario(scenario_file, "output_link_moe_for_assignment_interval" , 'true')
 				PR.modify_scenario(scenario_file, "output_turn_movement_moe_for_assignment_interval" , 'true')
 				PR.modify_scenario(scenario_file, "write_skim_tables" , 'true')
-				PR.modify_scenario(scenario_file, "write_vehicle_trajectory" , 'true')
+				PR.modify_scenario(scenario_file, "write_vehicle_trajectory" , 'true')			
+				PR.modify_scenario(scenario_file, "demand_reduction_factor", population_scale_factor)
+				PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 				
-			PR.modify_scenario(scenario_file, "demand_reduction_factor", population_scale_factor)
-			PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
 			PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
 		else:
@@ -207,6 +209,8 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 		
 	if warm_start:
 		postprocessor.update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings)
+		# store the updated full population demand database for the next warm start round
+		PR.copyreplacefile(data_dir / demand_db_name, backup_dir )
 	else: 
 		archive_dir = postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, data_dir)
 		postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level)
