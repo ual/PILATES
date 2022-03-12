@@ -7,8 +7,8 @@
 # scenario defs
 region: sfbay
 scenario: base
-start_year: 2010
-end_year: 2018
+start_year: 2018
+end_year: 2022
 land_use_freq: 1
 travel_model_freq: 1
 vehicle_ownership_freq: 1
@@ -23,7 +23,7 @@ vehicle_ownership_model: atlas
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
   atlas: ghcr.io/lbnl-science-it/atlas:v1.0.5
-  beam: zaneedell/beam:0.8.6.9
+  beam: zaneedell/beam:0.8.6.10
   activitysim: zaneedell/activitysim:ridehailskims.0
   polaris:
 docker_stdout: False
@@ -71,13 +71,13 @@ atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --b
 
 
 # BEAM 
-beam_config: sfbay-pilates-lessrh.conf # OR austin-pilates-base.conf
+beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/
 beam_memory: "650g"
 skim_zone_source_id_col: objectid
-replan_iters: 2
+replan_iters: 5
 replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
 final_asim_plans_folder: pilates/activitysim/output/final_plans
@@ -93,7 +93,7 @@ polaris_skim_keys:
 
 
 # ACTIVITYSIM
-household_sample_size: 200000  # zero means no sampling, whole pop.
+household_sample_size: 274783  # zero means no sampling, whole pop.
 chunk_size: 12_000_000_000 # 4000000000
 num_processes: 90 # 94
 asim_local_input_folder: pilates/activitysim/data/
@@ -163,7 +163,7 @@ beam_asim_transit_measure_map:
   IVT: TOTIVT_IVT_minutes
 beam_asim_ridehail_measure_map:
   WAIT: waitTimeInMinutes
-  REJECT: unmatchedRequestPortion
+  REJECTIONPROB: unmatchedRequestPortion
 asim_output_tables:
   prefix: final_
   tables:
