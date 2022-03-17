@@ -23,7 +23,7 @@ vehicle_ownership_model: atlas
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
   atlas: ghcr.io/lbnl-science-it/atlas:v1.0.5
-  beam: zaneedell/beam:0.8.6.9
+  beam: zaneedell/beam:0.8.6.10
   activitysim: zaneedell/activitysim:ridehailskims.0
   polaris:
 docker_stdout: False
@@ -34,6 +34,8 @@ skims_zone_type: taz # one of [taz, block_group, block]
 skims_fname: as-base-skims-sfbay-taz.csv.gz # for SF Bay
 # skims_fname: as-base-skims-austin-bg.csv.gz
 origin_skims_fname: as-origin-skims-sfbay-taz.csv.gz #file or folder name.
+beam_router_directory: r5-simple-no-local
+beam_geoms_fname: clipped_tazs.csv
 
 # region_zone_type:
 #   austin: block_groups # one of [taz, block_groups, block]
@@ -163,7 +165,7 @@ beam_asim_transit_measure_map:
   IVT: TOTIVT_IVT_minutes
 beam_asim_ridehail_measure_map:
   WAIT: waitTimeInMinutes
-  REJECT: unmatchedRequestPortion
+  REJECTIONPROB: unmatchedRequestPortion
 asim_output_tables:
   prefix: final_
   tables:

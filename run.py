@@ -45,9 +45,14 @@ def setup_beam_skims(settings):
     beam_output_dir = settings['beam_local_output_folder']
     skims_fname = settings['skims_fname']
     origin_skims_fname = settings['origin_skims_fname']
+    beam_geoms_fname = settings['beam_geoms_fname']
+    beam_router_directory = settings['beam_router_directory']
+    asim_geoms_location = os.path.join(settings['asim_local_input_folder'], beam_geoms_fname)
 
     input_skims_location = os.path.join(beam_input_dir, region, skims_fname)
     mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+
+    beam_geoms_location = os.path.join(beam_input_dir, region, beam_router_directory, beam_geoms_fname)
 
     logger.info("Copying input skims from {0} to {1}".format(
         input_skims_location,
@@ -63,6 +68,12 @@ def setup_beam_skims(settings):
         mutable_skims_location))
 
     shutil.copyfile(input_skims_location, mutable_skims_location)
+
+    logger.info("Copying beam zone geoms from {0} to {1}".format(
+        beam_geoms_location,
+        asim_geoms_location))
+
+    shutil.copyfile(beam_geoms_location, asim_geoms_location)
 
 
 def parse_args_and_settings(settings_file='settings.yaml'):
