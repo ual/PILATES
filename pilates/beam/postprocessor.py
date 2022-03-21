@@ -152,4 +152,5 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
     totals['matchedPercent'] = totals['completedRequests'] / totals['observations']
     totals['meanWaitTimeInMinutes'] = totals['totalWaitTimeInMinutes'] / totals['completedRequests']
     logger.info("Ridehail matching summary: \n {0}".format(totals[['meanWaitTimeInMinutes', 'matchedPercent']]))
-    logger.info("Total requests: \n {0}".format(totals['completedRequests'].sum()))
+    logger.info("Total requests: \n {0}".format(totals['observations'].sum()))
+    logger.info("Total completed requests: \n {0}".format(totals['completedRequests'].sum()))
