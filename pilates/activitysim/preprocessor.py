@@ -260,7 +260,7 @@ def _raw_beam_skims_preprocess(settings, year, skims_df):
     """
     # Validations:
     origin_taz = skims_df.origin.unique()
-    destination_taz = skims_df.origin.unique()
+    destination_taz = skims_df.destination.unique()
     assert len(origin_taz) == len(destination_taz)
 
     order = zone_order(settings, year)
