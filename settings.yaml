@@ -28,8 +28,8 @@ docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_zone_type: taz  # one of [taz, block_group, block]
 skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+skims_zone_type: taz  # one of [taz, block_group, block]
 
 #########################################################################################################
 
@@ -151,8 +151,8 @@ asim_from_usim_col_maps:
   households:
     persons: PERSONS  # asim preproc
     PERSONS: hhsize  # asim settings.yaml
-    cars: VEHICL  # asim preproc
-    VEHICL: auto_ownership  # asim annotate_households.csv
+    cars: auto_ownership  # asim preproc
+#     VEHICL: auto_ownership  # asim annotate_households.csv
     workers: num_workers  # asim settings.yaml
   persons:
     member_id: PNUM  # asim preproc
