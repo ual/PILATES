@@ -106,7 +106,11 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 		
 		# load the urbansim population for the init run	
 		preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, 1.0, usim_settings)
-	
+		
+		# update the vehicles table with new costs
+		if forecast_year:
+			veh_script = "vehicle_operating_cost_" + str(forecast_year) + ".sql"
+			PR.execute_sql_script(data_dir / demand_db_name, data_dir / veh_script)
 
 	fail_count = 0
 	loop = 0
@@ -118,7 +122,9 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 				scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
 			else:
 				scenario_file = scenario_init_file
+				
 			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
+			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
 			
 			# set warm_start specific settings (that are also modified by loop...)
 			if warm_start:
@@ -153,8 +159,10 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 				PR.modify_scenario(scenario_file, "demand_reduction_factor", population_scale_factor)
 				PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
 				
-			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
-			PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
+			if warm_start and not forecast_year:
+				PR.modify_scenario(scenario_file, "replan_workplaces", 'true')
+			else:
+				PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
 		else:
 			if forecast_year:
 				scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)

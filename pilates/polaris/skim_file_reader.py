@@ -17,7 +17,8 @@ def Main(skims, highway_skim_file='', transit_skim_file='', write_bin=False, wri
 
 	do_highway = GetHighwaySkims(highway_skim_file, skims)
 	
-	skims.print_header_info()
+	if not skims.silent:
+		skims.print_header_info()
 	
 	do_transit = GetTransitSkims(transit_skim_file, do_highway, skims)
 	
@@ -254,7 +255,8 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 	# if zone tag is there, read in numzones, then the zone id-index pairs
 	else:
 		tzones = struct.unpack("i",infile.read(4))[0]
-		print( "Number of zones = " + str(tzones))
+		if not skims.silent:
+			print( "Number of zones = " + str(tzones))
 		for i in range(tzones):
 			id, index = struct.unpack("ii",infile.read(8))
 			if validate_against_highway:
@@ -274,10 +276,12 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 		
 	# read intervals
 	if version2:
-		print( "version 1 is true")
+		if not skims.silent:
+			print( "version 1 is true")
 		Check_Tag(infile,"BINT",True)
 		num_intervals = struct.unpack("i",infile.read(4))[0]
-		print (num_intervals, '************************************************')
+		if not skims.silent:
+			print (num_intervals, '************************************************')
 		for i in range(num_intervals):
 			skims.transit_intervals.append(struct.unpack("i",infile.read(4))[0])
 		Check_Tag(infile,"EINT",True)
@@ -285,7 +289,7 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 	tsize = tzones*tzones
 	skims.num_tzones=tzones
 	
-	print( "Reading information for " + str(tzones) + " zones. Version 1=" + str(version1) + "....")
+	if not skims.silent: print( "Reading information for " + str(tzones) + " zones. Version 1=" + str(version1) + "....")
 
 	# for each interval, check tags and read in matrix
 	for i in range(num_intervals):
@@ -332,7 +336,7 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 				else: skims.transit_fare[mode][skims.transit_intervals[i]] = data.reshape(tzones,tzones)
 			if version1: Check_Tag(infile, "EMAT",True)
 	
-	print( "Done.")
+	if not skims.silent: print( "Done.")
 	return True
 	
 def ReduceTransitSkims(skim, zone_list):
@@ -427,7 +431,7 @@ def WriteTransitSkimsV1(transit_skim_file, skims):
 	if len(skims.zone_id_to_index_map) > 0:
 		outfile.write(struct.pack("<4s","BZON"))
 		outfile.write(struct.pack("i",skims.num_tzones))
-		print( "Transit zones = " + str(skims.num_tzones))
+		if not skims.silent: print( "Transit zones = " + str(skims.num_tzones))
 		for kvp in skims.zone_id_to_index_map.items():
 			outfile.write(struct.pack("ii",kvp[0], kvp[1]))
 		outfile.write(struct.pack("<4s","EZON"))
@@ -561,7 +565,7 @@ def ConvertTransitToV1(transit_skim_file, skims,zone_id_to_index):
 	tsize = tzones*tzones
 	skims.num_tzones=tzones
 	
-	print( "Reading information for " + str(tzones) + " zones....")
+	if not skims.silent: print( "Reading information for " + str(tzones) + " zones....")
 
 	data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 	if data.size < tsize: print( "Error: transit ttime matrix not read properly")
@@ -583,7 +587,7 @@ def ConvertTransitToV1(transit_skim_file, skims,zone_id_to_index):
 	if data.size < tsize: print( "Error: transit_fare matrix not read properly")
 	else: skims.transit_fare = data.reshape(tzones,tzones)
 	
-	print( "Done.")
+	if not skims.silent: print( "Done.")
 	return True
 
 def WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list=None, dest_list=None, limit_modes_list=None, limit_values_list=None):
@@ -909,7 +913,7 @@ def ReadHighwaySkims_CSV(highway_ttime_files, intervals, zone_id_to_index, skims
 	for id in ignored_zones: print( str(id))
 
 class Skim_Results:
-	def __init__(self):
+	def __init__(self, silent=False):
 		self.version = 0
 		self.auto_ttime_skims = {}
 		self.auto_cost_skims = {}
@@ -928,6 +932,7 @@ class Skim_Results:
 		self.bus_only=False
 		self.intervals=[]
 		self.transit_intervals=[]
+		self.silent = silent
 		for mode in self.transit_modes:
 			self.transit_ttime[mode]={}
 			self.transit_walk_access_time[mode] = {}
@@ -948,6 +953,8 @@ class Skim_Results:
 			else: idx += 1
 		return len(self.transit_intervals) - 1	
 	def print_header_info(self):
+		if self.silent:
+			return			
 		print( "Zone info (id, index):")
 		for kvp in self.zone_id_to_index_map.items():
 			print( kvp[0], kvp[1])

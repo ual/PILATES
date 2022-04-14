@@ -25,7 +25,7 @@ def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
 	# copy output folder to archive folder
 	tgt = os.path.join(archive, os.path.basename(output_dir))
 	shutil.copytree(output_dir, tgt)
-	return tgt
+	return Path(tgt)
 
 def archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level):
 	logger.info('Archiving UrbanSim skims')
@@ -48,7 +48,7 @@ def archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_leve
 
 def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):
 
-	skims = skim_reader.Skim_Results()
+	skims = skim_reader.Skim_Results(silent=True)
 	skim_reader.Main(skims,auto_skim_path, transit_skim_path)
 
 	#******************************************************************************************************************************************************************
@@ -326,14 +326,34 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 	
 	# load the polaris person table into a data frame - should be updated with work and school locations
 	dbcon = sqlite3.connect(db_demand)
-	per_df = pd.read_sql_query("SELECT * FROM person", dbcon, index_col='person')
+	
+	# get the person table
+	per_df = pd.read_sql_query("SELECT * FROM person", dbcon, index_col=['person'])
+	per_df = per_df.reset_index()
+	
+	# change member id to one-indexed for consistency with urbansim
+	per_df['id'] = per_df['id'] + 1
+
+	# create common multi-index using household and member id 
+	per_df = per_df.set_index(['household','id'],drop=False)
 	
 	# populate the urbansim object to update
 	usim = Usim_Data(forecast_year, usim_output)
 	p = usim.per_data
+	
+
+	# create a temp index
+	p_idx_name = p.index.name
+	if not p_idx_name:
+		p_idx_name = 'person_id'
+		p.index.name = p_idx_name
+	p = p.reset_index()
+	p = p.set_index(['household_id','member_id'],drop=False)
+	
 	p['work_zone_id'] = per_df['work_location_id'].reindex(p.index)
 	p['school_zone_id'] = per_df['school_location_id'].reindex(p.index)
-	
+	p = p.set_index(p_idx_name)
+		
 	# update the person data table in the usim object
 	usim.per_data = p
 	

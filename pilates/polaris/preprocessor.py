@@ -42,6 +42,12 @@ class Household:
 			self.vehicle_list = {}
 			self.ecom = 0
 			self.dispose_veh = 0
+			if 'time_in_home' in hh:
+				self.time_in_home = per['time_in_home']
+				if pd.isnull(per['time_in_home']):
+					self.time_in_home = -1
+			else:
+				self.time_in_home = -1
 			self.usim_record = hh
 			self.data = hh
 		else:
@@ -60,13 +66,13 @@ class Household:
 	def push_to_db(self, dbCon):
 		try:
 			if self.usim_record is not None:
-				query = 'insert into Household (household,hhold,location,persons,workers,vehicles,type,income,housing_unit_type, ecom, dispose_veh) values (?,?,?,?,?,?,?,?,?,?,?);'
-				dbCon.execute(query, [self.id, self.hhold, self.location, self.persons, self.workers, self.vehicles, self.hhtype, self.income, self.housing_unit_type, self.ecom, self.dispose_veh])
+				query = 'insert into Household (household,hhold,location,persons,workers,vehicles,type,income,housing_unit_type, ecom, dispose_veh, time_in_home) values (?,?,?,?,?,?,?,?,?,?,?,?);'
+				dbCon.execute(query, [self.id, self.hhold, self.location, self.persons, self.workers, self.vehicles, self.hhtype, self.income, self.housing_unit_type, self.ecom, self.dispose_veh, self.time_in_home])
 			else:
 				fields_list = ','.join(self.data.keys())
 				values_list = ','.join(['?']*len(self.data.keys()))
-				query ='insert into Household ({}) values ({});'.format(fields_list, values_list)
-				dbCon.execute(query, list(self.data.values()))
+				query ='insert into Household (household, {}) values (?, {});'.format(fields_list, values_list)
+				dbCon.execute(query, [self.id, *list(self.data.values())])
 		except sqlite3.IntegrityError:
 			print(self.data)
 		
@@ -119,6 +125,12 @@ class Person:
 					self.school_zone_id = -1
 			else:
 				self.school_zone_id = -1
+			if 'time_in_job' in per:
+				self.time_in_job = per['time_in_job']
+				if pd.isnull(per['time_in_job']):
+					self.time_in_job = -1
+			else:
+				self.time_in_job = -1
 			self.transit_pass = 0
 			self.usim_record = per
 		else:
@@ -131,8 +143,9 @@ class Person:
 			try:
 				if not self.school_zone_id:
 					self.school_zone_id = -1
-				query = 'insert into Person (person,household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
-				dbCon.execute(query, [self.id, self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.transit_pass, self.work_zone_id, self.school_zone_id])
+				#query = 'insert into Person (person,household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
+				query = 'insert into Person (household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id, time_in_job) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
+				dbCon.execute(query, [self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.transit_pass, self.work_zone_id, self.school_zone_id])
 			except sqlite3.IntegrityError:
 				print('SQLITE3 integrity error: ')
 				print(self.usim_record)
