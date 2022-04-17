@@ -1,4 +1,4 @@
-<img src="icon.png" width="300">
+<p align="center"><img src="logo_multi.png" width="700"></p>
 
 **P**latform for \
 **I**ntegrated \
@@ -19,7 +19,7 @@ The PILATES Python library is comprised primarily of the following:
 
 ## 1. Setting up your environment
 1. Make sure docker is running on your machine and that you've either pre-downloaded the required container images (specified in `settings.yaml`) or that you've signed into a valid docker account with dockerhub access.
-2. Change other relevant parameters in `settings.yaml` (probably only [L2-10](https://github.com/ual/PILATES/blob/v2/settings.yaml#L2-L10))
+2. Change other relevant parameters in `settings.yaml` (probably only [L7-31](https://github.com/ual/PILATES/blob/v2/settings.yaml#L7-L30))
    - UrbanSim settings of note:
       - `region_to_region_id` must have an entry that corresponds to the name of the input HDF5 datastore (see below)
    - ActivtySim settings of note:
@@ -28,9 +28,9 @@ The PILATES Python library is comprised primarily of the following:
 4. Make sure your Python environment has `docker-py`, and `pyyaml` installed.
 
 ## 2. I/O
-PILATES needs to have two files in the local application directories in order to run:
-1. **pilates/urbansim/data/custom_mpo_XXXX_model_data.h5** - an UrbanSim-formatted HDF5 datastore where `XXXX` is an MPO ID that must correspond to one of the region IDs specified in the UrbanSim settings ([L25](https://github.com/ual/PILATES/blob/master/settings.yaml#L25)) 
-2. **pilates/beam/beam_outputs/XXXX.csv.gz** - the input skims file, where `XXXX` is the name of the skims file specified in the settings ([L14](https://github.com/ual/PILATES/blob/master/settings.yaml#L14)). 
+PILATES only needs two local data files in order to run: 1) an archive of land use and population tables corresponding to base year data for the specified region; and 2) a table of base-year travel skims in the format of the specified travel model. Currently, these two files are organized as follows:
+1. **pilates/urbansim/data/custom_mpo_\<xxxxxxxx\>_model_data.h5** - an UrbanSim-formatted HDF5 datastore where `<xxxxxxxx>` is an 8-digit region ID corresponding to one of the IDs in the settings [L40](https://github.com/ual/PILATES/blob/master/settings.yaml#L40).
+2. **pilates/\<travel model\>/\<travel model data dir\>/\<skims filename\>** - the input skims file, where `<skims filename>` is the name of the skims file specified in settings [L30](https://github.com/ual/PILATES/blob/master/settings.yaml#L31). Currently `polaris` and `beam` are the only supported travel models/skim formats.
 
 With those two files in those two places, PILATES should handle the rest. 
 
@@ -38,23 +38,30 @@ NOTE: currently all input data is overwritten in place throughout the course of 
 
 ## 3. Executing the full workflow
 ```
-usage: run.py [-v] [-p]
+usage: ipython [-v] [-p] [-h HOUSEHOLD_SAMPLE_SIZE] [-s] [-w]
 
 optional arguments:
-  -v, --verbose         print docker stdout to the terminal
+  -v, --verbose         print docker stdout
   -p, --pull_latest     pull latest docker images before running
+  -h HOUSEHOLD_SAMPLE_SIZE, --household_sample_size HOUSEHOLD_SAMPLE_SIZE
+                        household sample size
+  -s, --static_skims    bypass traffic assignment altogether (i.e. use base year skims for every run)
+  -w, --warm_start_skims
+                        generate full activity plans for the base year only. useful for generating warm start skims.
 ```
 
-## 4. ActivitySim BEAM integration
+## Miscellany
+
+### ActivitySim BEAM integration
 In order to have BEAM to run correctly one needs to set the following settings:
 
-1. **path_to_skims**: `pilates/beam/beam_output/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz` The full skim file that contains all Origin Destinations pairs with ActivitySim path types.
-2. **beam_config**: `sfbay/gemini/activitysim-base-from-60k-input.conf` Path to beam config. This path must be relative to `beam_local_input_folder`. The BEAM docker container is provided with this config as an input.
-3. **beam_plans**: `sfbay/gemini/activitysim-plans-base-2010-cut-60k/plans.csv.gz` File with BEAM plans that is going to be replace with the ActiveSim output.
+1. **skims_fname**: `gemini/10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz` The full skim file that contains all Origin Destinations pairs with ActivitySim path types.
+2. **beam_config**: `gemini/activitysim-base-from-60k-input.conf` Path to beam config. This path must be relative to `beam_local_input_folder` and `region`. The BEAM docker container is provided with this config as an input.
+3. **beam_scenario_folder**: `gemini/activitysim-plans-base-2010-cut-60k` Folder with BEAM scenario where ActivitySim output goes. Files from this folder are a scenario input for BEAM.
 4. **beam_local_input_folder**: `pilates/beam/production/` Path to BEAM input folder. This folder is going to be mapped to the BEAM container input folder.
 5. **beam_local_output_folder**: `pilates/beam/beam_output/` The BEAM output is going to be saved here. In order to have a clean run this directory should be empty before start.
 
-### BEAM Config: saves ASIM skims, enables BEAM to reuse the previous BEAM output plans, linkstats.
+#### BEAM Config: saves ASIM skims, enables BEAM to reuse the previous BEAM output plans, linkstats.
 
 BEAM config should be set in the way so that BEAM saves ActivitySim skims, linkstats and loads people plans and linkstats from the previous runs.
 
@@ -91,7 +98,7 @@ beam.input.simulationPrefix = ${beam.agentsim.simulationName}
 beam.agentsim.agents.plans.merge.fraction = 0.2
 ```
 
-### Executing the simulation
+#### Executing the simulation
 ```shell
 nohup python run.py -v
 ```
