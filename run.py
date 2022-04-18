@@ -48,13 +48,15 @@ logging.basicConfig(
 
 def clean_and_init_data():
     usim_path = os.path.abspath('pilates/urbansim/data')
-    clean_data(usim_path, '*.h5')
-    clean_data(usim_path, '*.txt')
-    init_data(usim_path, '*.h5')
+	if os.path.isdir(Path(usim_path) / 'backup'):
+		clean_data(usim_path, '*.h5')
+		clean_data(usim_path, '*.txt')
+		init_data(usim_path, '*.h5')
 
     polaris_path = os.path.abspath('pilates/polaris/data')
-    clean_data(polaris_path, '*.hdf5')
-    init_data(polaris_path, '*.hdf5')
+	if os.path.isdir(Path(polaris_path) / 'backup'):
+		clean_data(polaris_path, '*.hdf5')
+		init_data(polaris_path, '*.hdf5')
 
 def clean_data(path, wildcard):
     search_path = Path(path) / wildcard
@@ -234,12 +236,16 @@ def get_usim_cmd(settings, year, forecast_year):
     return usim_cmd
 
 
-def warm_start_activities(settings, year, client):
+def warm_start_activities(settings, year, client, demand_model=None):
     """
     Run ActivitySim to update UrbanSim inputs with long-term
     choices it needs: workplace location, school location, and
     auto ownership.
     """
+    if demand_model == 'polaris':
+        pilates.polaris.travel_model.run_polaris(None, settings, warm_start=True)
+    
+
 
     # 1. PARSE SETTINGS
     activity_demand_model = settings['activity_demand_model']
@@ -301,6 +307,16 @@ def warm_start_activities(settings, year, client):
     return
 
 
+def forecast_land_use(settings, year, forecast_year, client, container_manager):
+    if container_manager == "docker":
+        forecast_land_use_docker(settings, year, forecast_year, client)
+    elif container_manager == "singularity":
+        forecast_land_use_singularity(settings, year, forecast_year)
+    else:
+        logger.critical("Container Manager not specified")
+        exit(1)
+
+
 def forecast_land_use_docker(settings, year, forecast_year, client):
     logger.info("Running land use with docker")
 
@@ -343,6 +359,7 @@ def forecast_land_use_docker(settings, year, forecast_year, client):
 
     return
 
+
 def forecast_land_use_singularity(settings, year, forecast_year):
     logger.info("Running land use with singulrity")
 
@@ -371,10 +388,11 @@ def generate_activity_plans(
         settings, year, forecast_year, client,
         resume_after=None,
         warm_start=False,
-        overwrite_skims=True):
+        overwrite_skims=True,
+        demand_model=None):
     """
     Parameters
-    ----------
+            
     year : int
         Start year for the simulation iteration.
     forecast_year : int
@@ -383,6 +401,10 @@ def generate_activity_plans(
         generating warm start activities based on the base year input data in
         order to generate "warm start" skims.
     """
+    
+    
+    if demand_model == 'polaris':
+        pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=True)
 
     # 1. PARSE SETTINGS
     activity_demand_model = settings['activity_demand_model']
@@ -454,12 +476,15 @@ def generate_activity_plans(
 
 
 def run_traffic_assignment(
-        settings, year, client, replanning_iteration_number=0):
+        settings, year, forecast_year, client, replanning_iteration_number=0, tavel_model=None):
     """
     This step will run the traffic simulation platform and
     generate new skims with updated congested travel times.
     """
 
+    if travel_model == 'polaris':
+		pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=False)
+				
     # 1. PARSE SETTINGS
     beam_config = settings['beam_config']
     region = settings['region']
@@ -667,6 +692,8 @@ if __name__ == '__main__':
     # start docker client
     if container_manager == 'docker':
         client = initialize_docker_client(settings)
+    else:
+        client = None
 
     #################################
     #  RUN THE SIMULATION WORKFLOW  #
@@ -679,23 +706,13 @@ if __name__ == '__main__':
 
             # 1a. IF START YEAR, WARM START MANDATORY ACTIVITIES
             if year == start_year:
-                if demand_model != 'polaris':
-                    warm_start_activities(settings, year, client)
-                    mandatory_activities_generated_this_year = True
-                else:
-                    pilates.polaris.travel_model.run_polaris(None, settings, warm_start=True)
-
-            
+                warm_start_activities(settings, year, client, demand_model)
+                mandatory_activities_generated_this_year = True
+        
             forecast_year = year + travel_model_freq
             logger.info("Year {0}, Forecast Year {1}".format(year, forecast_year))
             
-            if container_manager == "docker":
-                forecast_land_use_docker(settings, year, forecast_year, client)
-            elif container_manager == "singularity":
-                forecast_land_use_singularity(settings, year, forecast_year)
-            else:
-                logger.critical("Container Manager not specified")
-                exit(1)
+            forecast_land_use(settings, year, forecast_year, client, container_manager)
 
         else:
             forecast_year = year
@@ -712,12 +729,9 @@ if __name__ == '__main__':
             if forecast_year == year:
                 warm_start_skims = True
 
-            if demand_model == 'polaris':
-                pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=True)
-            else:
-                generate_activity_plans(
-                    settings, year, forecast_year, client,
-                    warm_start=warm_start_skims)
+            generate_activity_plans(
+				settings, year, forecast_year, client,
+				warm_start=warm_start_skims, demand_model)
 
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the
@@ -735,11 +749,8 @@ if __name__ == '__main__':
         # DO traffic assignment - but skip if using polaris as this is done along with activity_demand generation
         if traffic_assignment_enabled:
 
-            if travel_model == 'polaris':
-                pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=False)
-            else:
-                # 3. RUN BEAM
-                run_traffic_assignment(settings, year, client)
+            # 3. RUN TRAFFIC ASSIGNMENT
+            run_traffic_assignment(settings, year, forecast_year, client, travel_model)
 
             # 4. REPLAN
             if replanning_enabled > 0:

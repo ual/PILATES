@@ -29,8 +29,8 @@ singularity_images:
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb:latest
-  beam: 
-  activitysim:
+  beam: dimaopen/beam:0.8.6.3
+  activitysim: mxndrwgrdnr/activitysim:latest
   activity_cemand_model:
   polaris:
   atlas:
