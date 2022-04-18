@@ -23,6 +23,8 @@ scripts_dir :  /mnt/c/PILATES/pilates/polaris/conv_scripts # = Path(json_data["s
 population_scale_factor : 0.25  # MUST match settings in the scenario files below
 scenario_main_init : scenario_abm_init.json #= json_data["scenario_main_init"]
 scenario_main :  scenario_abm.json # = json_data["scenario_main"]
+vehicle_file_basename : vehicle_distribution_campo
+fleet_vehicle_file_basename : vehicle_distribution_campo_fleet
 
 
 # -- ENTER THE NUMBER OF MAIN RUNS AND DTA RUNS PER MAIN RUN

@@ -74,6 +74,8 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 	polaris_exe = polaris_settings.get('polaris_exe')
 	scenario_init_file = polaris_settings.get('scenario_main_init', None)
 	scenario_main_file = polaris_settings.get('scenario_main')
+	vehicle_file_base = polaris_settings.get('vehicle_file_basename', None)
+	vehicle_file_fleet_base = polaris_settings.get('fleet_vehicle_file_basename', None)
 	num_threads = polaris_settings.get('num_threads')
 	num_abm_runs = polaris_settings.get('num_abm_runs')
 	block_loc_file_name = polaris_settings.get('block_loc_file_name')
@@ -117,22 +119,23 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 			
 	while loop < int(num_abm_runs):
 		scenario_file = ''
+		
+		# set vehicle distribution file name based on forecast year
+		veh_file_name = '"' + vehicle_file_base + '_{0}.txt"'.format(forecast_year)
+		fleet_veh_file_name = '"' + vehicle_file_fleet_base + '_{0}.txt"'.format(forecast_year)
+		if not forecast_year:
+			veh_file_name = '"' + vehicle_file_base + '.txt"'.format(forecast_year)
+			fleet_veh_file_name = '"' + vehicle_file_fleet_base + 'txt"'.format(forecast_year)	
+			
 		if loop == 0:
-			veh_file_name = "\"vehicle_distribution_campo_{0}.txt\"".format(forecast_year)
-			fleet_veh_file_name = "\"vehicle_distribution_campo_fleet_{0}.txt\"".format(forecast_year)
 			if forecast_year:
 				scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
 			else:
-				scenario_file = scenario_init_file
-				veh_file_name = "vehicle_distribution_campo_2010.txt".format(forecast_year)
-				fleet_veh_file_name = "vehicle_distribution_campo_fleet_2010.txt".format(forecast_year)
+				scenario_file = scenario_init_file			
 				
 			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
 			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
-			
-			PR.modify_scenario(scenario_file, "vehicle_distribution_file_name", veh_file_name)
-			PR.modify_scenario(scenario_file, "fleet_vehicle_distribution_file_name", fleet_veh_file_name)
-			
+						
 			# set warm_start specific settings (that are also modified by loop...)
 			if warm_start:
 				PR.modify_scenario(scenario_file, "percent_to_synthesize", 1.0)
@@ -181,7 +184,9 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
 			PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
 
-
+		PR.modify_scenario(scenario_file, "vehicle_distribution_file_name", veh_file_name)
+		PR.modify_scenario(scenario_file, "fleet_vehicle_distribution_file_name", fleet_veh_file_name)
+			
 		arguments = '{0} {1}'.format(scenario_file, str(num_threads))
 		logger.info(f'Executing \'{str(polaris_exe)} {arguments}\'')
 
