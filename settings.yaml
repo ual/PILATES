@@ -8,7 +8,7 @@
 region: austin
 scenario: base
 start_year: 2010
-end_year: 2035
+end_year: 2040
 land_use_freq: 1
 travel_model_freq: 5
 

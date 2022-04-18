@@ -118,13 +118,20 @@ def run_polaris(forecast_year, usim_settings, warm_start=False):
 	while loop < int(num_abm_runs):
 		scenario_file = ''
 		if loop == 0:
+			veh_file_name = "\"vehicle_distribution_campo_{0}.txt\"".format(forecast_year)
+			fleet_veh_file_name = "\"vehicle_distribution_campo_fleet_{0}.txt\"".format(forecast_year)
 			if forecast_year:
 				scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
 			else:
 				scenario_file = scenario_init_file
+				veh_file_name = "vehicle_distribution_campo_2010.txt".format(forecast_year)
+				fleet_veh_file_name = "vehicle_distribution_campo_fleet_2010.txt".format(forecast_year)
 				
 			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
 			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
+			
+			PR.modify_scenario(scenario_file, "vehicle_distribution_file_name", veh_file_name)
+			PR.modify_scenario(scenario_file, "fleet_vehicle_distribution_file_name", fleet_veh_file_name)
 			
 			# set warm_start specific settings (that are also modified by loop...)
 			if warm_start:
