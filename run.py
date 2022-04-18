@@ -48,15 +48,15 @@ logging.basicConfig(
 
 def clean_and_init_data():
     usim_path = os.path.abspath('pilates/urbansim/data')
-	if os.path.isdir(Path(usim_path) / 'backup'):
-		clean_data(usim_path, '*.h5')
-		clean_data(usim_path, '*.txt')
-		init_data(usim_path, '*.h5')
+    if os.path.isdir(Path(usim_path) / 'backup'):
+        clean_data(usim_path, '*.h5')
+        clean_data(usim_path, '*.txt')
+        init_data(usim_path, '*.h5')
 
     polaris_path = os.path.abspath('pilates/polaris/data')
-	if os.path.isdir(Path(polaris_path) / 'backup'):
-		clean_data(polaris_path, '*.hdf5')
-		init_data(polaris_path, '*.hdf5')
+    if os.path.isdir(Path(polaris_path) / 'backup'):
+        clean_data(polaris_path, '*.hdf5')
+        init_data(polaris_path, '*.hdf5')
 
 def clean_data(path, wildcard):
     search_path = Path(path) / wildcard
@@ -476,15 +476,15 @@ def generate_activity_plans(
 
 
 def run_traffic_assignment(
-        settings, year, forecast_year, client, replanning_iteration_number=0, tavel_model=None):
+        settings, year, forecast_year, client, replanning_iteration_number=0, travel_model=None):
     """
     This step will run the traffic simulation platform and
     generate new skims with updated congested travel times.
     """
 
     if travel_model == 'polaris':
-		pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=False)
-				
+        pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=False)
+
     # 1. PARSE SETTINGS
     beam_config = settings['beam_config']
     region = settings['region']
@@ -730,8 +730,7 @@ if __name__ == '__main__':
                 warm_start_skims = True
 
             generate_activity_plans(
-				settings, year, forecast_year, client,
-				warm_start=warm_start_skims, demand_model)
+				settings, year, forecast_year, client, warm_start=warm_start_skims, demand_model=demand_model)
 
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the
