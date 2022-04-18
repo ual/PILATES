@@ -99,9 +99,7 @@ def run_travel_model(name, forecast_year):
 
 def parse_args_and_settings(settings_file='settings.yaml'):
 
-    # read settings from config file
-    with open(settings_file) as file:
-        settings = yaml.load(file, Loader=yaml.FullLoader)
+
 
     # parse command-line args
     parser = argparse.ArgumentParser(add_help=False)
@@ -122,7 +120,17 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     parser.add_argument(
         '-f', '--figures', action='store_true',
         help='outputs validation figures')
+    parser.add_argument(
+        '-c', '--config', action='store',
+        help='config file name')
     args = parser.parse_args()
+    
+    if args.config:
+        settings_file = args.config
+
+    # read settings from config file
+    with open(settings_file) as file:
+        settings = yaml.load(file, Loader=yaml.FullLoader)
 
     # command-line only settings:
     settings.update({
