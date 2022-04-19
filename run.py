@@ -244,7 +244,7 @@ def warm_start_activities(settings, year, client, demand_model=None):
     """
     if demand_model == 'polaris':
         pilates.polaris.travel_model.run_polaris(None, settings, warm_start=True)
-    
+        return
 
 
     # 1. PARSE SETTINGS
@@ -405,6 +405,7 @@ def generate_activity_plans(
     
     if demand_model == 'polaris':
         pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=True)
+        return
 
     # 1. PARSE SETTINGS
     activity_demand_model = settings['activity_demand_model']
@@ -484,6 +485,7 @@ def run_traffic_assignment(
 
     if travel_model == 'polaris':
         pilates.polaris.travel_model.run_polaris(forecast_year, settings, warm_start=False)
+        return
 
     # 1. PARSE SETTINGS
     beam_config = settings['beam_config']
