@@ -15,6 +15,7 @@ from pilates.beam import postprocessor as beam_post
 logging.basicConfig(
     stream=sys.stdout, level=logging.INFO,
     format='%(asctime)s %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 def formatted_print(string, width=50, fill_char='#'):
@@ -60,6 +61,11 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     parser.add_argument(
         '-f', '--figures', action='store_true',
         help='outputs validation figures')
+    parser.add_argument(
+        '-d', '--disable_model', action='store',
+        help=(
+            '"l" for land use, "a" for activity demand, '
+            '"t" for traffic assignment. Can specify multiple (e.g. "at")'))
     args = parser.parse_args()
 
     # command-line only settings:
@@ -77,15 +83,22 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     if args.household_sample_size:
         settings.update({
             'household_sample_size': args.household_sample_size})
+    disabled_models = '' if args.disable_model is None else args.disable_model
 
     # turn models on or off
     land_use_enabled = ((
         settings.get('land_use_model', False)) and (
-        not settings.get('warm_start_skims')))
-    activity_demand_enabled = settings.get('activity_demand_model', False)
+        not settings.get('warm_start_skims')) and (
+        "l" not in disabled_models))
+
+    activity_demand_enabled = ((
+        settings.get('activity_demand_model', False)) and (
+        "a" not in disabled_models))
+
     traffic_assignment_enabled = ((
         settings.get('travel_model', False)) and (
-        not settings['static_skims']))
+        not settings['static_skims']) and (
+        "t" not in disabled_models))
     replanning_enabled = settings.get('replan_iters', 0) > 0
     settings.update({
         'land_use_enabled': land_use_enabled,
@@ -527,8 +540,6 @@ def run_replanning_loop(settings, forecast_year):
 
 if __name__ == '__main__':
 
-    logger = logging.getLogger(__name__)
-
     #########################################
     #  PREPARE PILATES RUNTIME ENVIRONMENT  #
     #########################################
@@ -549,6 +560,13 @@ if __name__ == '__main__':
     traffic_assignment_enabled = settings['traffic_assignment_enabled']
     replanning_enabled = settings['replanning_enabled']
 
+    if not land_use_enabled:
+        print("LAND USE MODEL DISABLED")
+    if not activity_demand_enabled:
+        print("ACTIVITY DEMAND MODEL DISABLED")
+    if not traffic_assignment_enabled:
+        print("TRAFFIC ASSIGNMENT MODEL DISABLED")
+
     if warm_start_skims:
         formatted_print('"WARM START SKIMS" MODE ENABLED')
         logger.info('Generating activity plans for the base year only.')
@@ -563,7 +581,6 @@ if __name__ == '__main__':
     #  RUN THE SIMULATION WORKFLOW  #
     #################################
     for year in range(start_year, end_year, travel_model_freq):
-        mandatory_activities_generated_this_year = False
 
         # 1. FORECAST LAND USE
         if land_use_enabled:
@@ -571,9 +588,8 @@ if __name__ == '__main__':
             # 1a. IF START YEAR, WARM START MANDATORY ACTIVITIES
             if year == start_year:
                 warm_start_activities(settings, year, client)
-                mandatory_activities_generated_this_year = True
 
-            forecast_year = year + travel_model_freq
+            forecast_year = min(year + travel_model_freq, end_year)
             forecast_land_use(settings, year, forecast_year, client)
 
         else:
