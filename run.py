@@ -507,7 +507,7 @@ def run_traffic_assignment(
     # remember the last produced skims in order to detect that
     # beam didn't work properly during this run
     previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
-    logger.info("Found skims from the previous beam run: %s", previous_skims)
+    logger.info("fdf the previous beam run: %s", previous_skims)
 
     # 2. COPY ACTIVITY DEMAND OUTPUTS --> TRAFFIC ASSIGNMENT INPUTS
     if settings['traffic_assignment_enabled']:
@@ -657,7 +657,7 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     
     logger.info("Initializing data...")
-    clean_and_init_data()
+    #clean_and_init_data()
     
     logger.info("Preparing runtime environment...")
 
@@ -751,7 +751,7 @@ if __name__ == '__main__':
         if traffic_assignment_enabled:
 
             # 3. RUN TRAFFIC ASSIGNMENT
-            run_traffic_assignment(settings, year, forecast_year, client, travel_model)
+            run_traffic_assignment(settings, year, forecast_year, client, travel_model=travel_model)
 
             # 4. REPLAN
             if replanning_enabled > 0:
