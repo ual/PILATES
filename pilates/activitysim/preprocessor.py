@@ -188,6 +188,7 @@ def _load_raw_beam_skims(settings):
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
     return skims                          
 
+
 def _create_skim_object(settings, overwrite=True, output_dir=None):
     """ Creates OMX file to store skim matrices
     Parameters: 

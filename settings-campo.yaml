@@ -5,12 +5,12 @@
 ############################
 
 # scenario defs
-region: sfbay
+region: austin
 scenario: base
 start_year: 2010
-end_year: 2018
+end_year: 2040
 land_use_freq: 1
-travel_model_freq: 10
+travel_model_freq: 5
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
@@ -29,8 +29,8 @@ singularity_images:
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb:latest
-  beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim:latest
+  beam: 
+  activitysim:
   activity_cemand_model:
   polaris:
   atlas:
@@ -38,8 +38,11 @@ docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
+skims_fname: campo_skims.hdf5
+skim_format: polaris
 skims_zone_type: taz  # one of [taz, block_group, block]
+region_zone_type:
+  austin: taz # one of [taz, block_groups, block]                                              
 
 #########################################################################################################
 

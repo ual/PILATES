@@ -1,0 +1,31 @@
+#########################################################################################################
+
+############################
+#     POLARIS SETTINGS     #
+############################
+
+data_dir : /mnt/c/polaris_runs/PILATES-campo-cacc/austin
+backup_dir : /mnt/c/polaris_runs/PILATES-campo-cacc/backup/austin
+db_name : campo
+out_name : campo_abm
+polaris_exe :  /mnt/c/polaris_development/polaris-wsl/build/release/bin/Integrated_Model
+num_threads : 16
+block_loc_file_name : campo_block_to_loc.csv
+auto_skim_file : highway_skim_file.bin
+transit_skim_file : transit_skim_file.bin
+vot_level : 1
+
+# convergence settings
+results_dir : convergence_results  # = data_dir / json_data["results_dir"]
+scripts_dir :  /mnt/c/polaris_runs/PILATES-campo-cacc/pilates/polaris/conv_scripts # = Path(json_data["scripts_dir"])
+
+# -- SET THE MAIN AND DTA RUN SCENARIO FILES
+population_scale_factor : 0.01  # MUST match settings in the scenario files below
+scenario_main_init : scenario_abm_init.json #= json_data["scenario_main_init"]
+scenario_main :  scenario_abm.json # = json_data["scenario_main"]
+vehicle_file_basename : vehicle_distribution_campo
+fleet_vehicle_file_basename : vehicle_distribution_campo_fleet
+
+
+# -- ENTER THE NUMBER OF MAIN RUNS AND DTA RUNS PER MAIN RUN
+num_abm_runs : 1  # = json_data["num_abm_runs"]
