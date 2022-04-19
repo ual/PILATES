@@ -5,7 +5,7 @@
 ############################
 
 # scenario defs
-region: sfbay
+region: austin
 scenario: base
 start_year: 2010
 end_year: 2018
@@ -28,8 +28,8 @@ docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_fname: 10.activitySimODSkims.UrbanSim.TAZ.Full.csv.gz
-skims_zone_type: taz  # one of [taz, block_group, block]
+skims_fname: austin-skims-res-full-new.csv.gz
+skims_zone_type: block_group  # one of [taz, block_group, block]
 
 #########################################################################################################
 
