@@ -108,7 +108,9 @@ def read_zone_geoms(settings, year,
     zone_key = '/{0}_zone_geoms'.format(zone_type)
     
     if zone_key in store.keys():
-        logger.info("Loading zone geometries from .h5 datastore!")
+        logger.info(
+            "Loading {0} zone geometries from .h5 datastore!".format(
+                zone_type))
         zones = store[zone_key]
         
         if 'geometry' in zones.columns:
@@ -187,6 +189,7 @@ def _load_raw_beam_skims(settings):
         raise KeyError(
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
     return skims                          
+
 
 def _create_skim_object(settings, overwrite=True, output_dir=None):
     """ Creates OMX file to store skim matrices
