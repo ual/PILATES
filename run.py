@@ -28,7 +28,7 @@ from pilates.urbansim import postprocessor as usim_post
 from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
 from pilates.utils.io import read_datastore
-# from pilates.polaris.travel_model import run_polaris
+from pilates.polaris.travel_model import run_polaris
 
 
 logging.basicConfig(
@@ -408,6 +408,7 @@ def generate_activity_plans(
     
     if activity_demand_model == 'polaris':
         run_polaris(forecast_year, settings, warm_start=True)
+        usim_post.create_next_iter_usim_data(settings, year, forecast_year)
 
     elif activity_demand_model == 'activitysim':
 
@@ -680,7 +681,7 @@ if __name__ == '__main__':
         'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = settings.get('travel_model_freq', 1)
     warm_start_skims = settings['warm_start_skims']
-    warm_start_activities = settings['warm_start_activities']
+    warm_start = settings['warm_start_activities']
     static_skims = settings['static_skims']
     land_use_enabled = settings['land_use_enabled']
     activity_demand_enabled = settings['activity_demand_enabled']
@@ -717,7 +718,7 @@ if __name__ == '__main__':
         if land_use_enabled:
 
             # 1a. IF START YEAR, WARM START MANDATORY ACTIVITIES
-            if (year == start_year) and (warm_start_activities):
+            if (year == start_year) and (warm_start):
                 warm_start_activities(settings, year, client)
 
             # 1b. RUN LAND USE SIMULATION
@@ -740,7 +741,7 @@ if __name__ == '__main__':
                 warm_start_skims = True
 
             generate_activity_plans(
-				settings, year, forecast_year, client, warm_start=warm_start_skims)
+                settings, year, forecast_year, client, warm_start=warm_start_skims)
 
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the
@@ -760,7 +761,7 @@ if __name__ == '__main__':
         if traffic_assignment_enabled:
 
             # 3. RUN TRAFFIC ASSIGNMENT
-            run_traffic_assignment(settings, year, forecast_year, client, travel_model=travel_model)
+            run_traffic_assignment(settings, year, forecast_year, client)
 
             # 4. REPLAN
             if replanning_enabled > 0:
