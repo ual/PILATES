@@ -660,10 +660,7 @@ def run_replanning_loop(settings, forecast_year):
 if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
-    
-    logger.info("Initializing data...")
-    clean_and_init_data()
-    
+       
     logger.info("Preparing runtime environment...")
 
     #########################################
@@ -688,6 +685,12 @@ if __name__ == '__main__':
     traffic_assignment_enabled = settings['traffic_assignment_enabled']
     replanning_enabled = settings['replanning_enabled']
     container_manager = settings['container_manager']
+    #restart_from_polaris - use to restart a crashed run at a new 'start_year' without doing initialization
+    restart_from_polaris = settings['restart_from_polaris']
+    if restart_from_polaris: warm_start = False
+    
+    logger.info("Initializing data...")
+    if not restart_from_polaris: clean_and_init_data()
 
     if not land_use_enabled:
         print("LAND USE MODEL DISABLED")
@@ -723,7 +726,10 @@ if __name__ == '__main__':
 
             # 1b. RUN LAND USE SIMULATION
             forecast_year = min(year + travel_model_freq, end_year)
-            forecast_land_use(settings, year, forecast_year, client, container_manager)
+            if not restart_from_polaris:
+                forecast_land_use(settings, year, forecast_year, client, container_manager)
+            else:
+                restart_from_polaris = False
 
         else:
             forecast_year = year
