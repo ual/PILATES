@@ -87,8 +87,16 @@ def atlas_add_vehileTypeId(settings, output_year):
     # read original atlas output "vehicles_*.csv" as dataframe
     df = pd.read_csv(os.path.join(atlas_output_path, fname))
 
-    # add "vehicleTypeId" column in dataframe
-    df['vehicleTypeId']=df[['bodytype', 'vintage_category', 'pred_power']].agg('-'.join, axis=1)
+    # estimate model year based on vintage_category
+    df.loc[df['vintage_category']=='12+ years','model_year'] = int(output_year - 13)
+    df.loc[df['vintage_category']=='6~11 years','model_year'] = int(output_year - 8)
+    df.loc[df['vintage_category']=='0~5 years','model_year'] = int(output_year - 3)
+    df['model_year'] = df['model_year'].astype(int)
+
+    # add "vehicleTypeId" column in dataframe for BEAM
+    # for prior-2015-model vehicles, vehicleTypeId is *_*_2015
+    df['vehicleTypeId']=df[['bodytype', 'pred_power', 'model_year']].astype(str).agg('_'.join, axis=1)
+    df.loc[df['model_year']<2015, 'vehicleTypeId'] = df.loc[df['model_year']<2015, ['bodytype', 'pred_power']].astype(str).agg('_'.join, axis=1) + '_2015'
 
     # write to a new file vehicles2_*.csv 
     # because original file cannot be overwritten (root-owned)
