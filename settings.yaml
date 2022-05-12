@@ -22,7 +22,7 @@ vehicle_ownership_model: atlas
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
-  atlas: ghcr.io/lbnl-science-it/atlas:v1.0.5
+  atlas: ghcr.io/lbnl-science-it/atlas:v1.0.6
   beam: zaneedell/beam:0.8.6.10
   activitysim: zaneedell/activitysim:ridehailskims.0
   polaris:
