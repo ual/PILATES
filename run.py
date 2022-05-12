@@ -44,14 +44,36 @@ def setup_beam_skims(settings):
     beam_input_dir = settings['beam_local_input_folder']
     beam_output_dir = settings['beam_local_output_folder']
     skims_fname = settings['skims_fname']
+    origin_skims_fname = settings['origin_skims_fname']
+    beam_geoms_fname = settings['beam_geoms_fname']
+    beam_router_directory = settings['beam_router_directory']
+    asim_geoms_location = os.path.join(settings['asim_local_input_folder'], beam_geoms_fname)
+
     input_skims_location = os.path.join(beam_input_dir, region, skims_fname)
     mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+
+    beam_geoms_location = os.path.join(beam_input_dir, region, beam_router_directory, beam_geoms_fname)
 
     logger.info("Copying input skims from {0} to {1}".format(
         input_skims_location,
         mutable_skims_location))
 
     shutil.copyfile(input_skims_location, mutable_skims_location)
+
+    input_skims_location = os.path.join(beam_input_dir, region, origin_skims_fname)
+    mutable_skims_location = os.path.join(beam_output_dir, origin_skims_fname)
+
+    logger.info("Copying input origin skims from {0} to {1}".format(
+        input_skims_location,
+        mutable_skims_location))
+
+    shutil.copyfile(input_skims_location, mutable_skims_location)
+
+    logger.info("Copying beam zone geoms from {0} to {1}".format(
+        beam_geoms_location,
+        asim_geoms_location))
+
+    shutil.copyfile(beam_geoms_location, asim_geoms_location)
 
 
 def parse_args_and_settings(settings_file='settings.yaml'):
@@ -113,7 +135,7 @@ def parse_args_and_settings(settings_file='settings.yaml'):
         'activity_demand_enabled': activity_demand_enabled,
         'traffic_assignment_enabled': traffic_assignment_enabled,
         'replanning_enabled': replanning_enabled})
-    
+
 
     # raise errors/warnings for conflicting settings
     if (settings['household_sample_size'] > 0) and land_use_enabled:
@@ -182,15 +204,15 @@ def get_usim_cmd(settings, year, forecast_year):
 
 
 
-## Atlas vehicle ownership model volume mount defintion, equivalent to 
-## docker run -v atlas_host_input_folder:atlas_container_input_folder 
+## Atlas vehicle ownership model volume mount defintion, equivalent to
+## docker run -v atlas_host_input_folder:atlas_container_input_folder
 def get_atlas_docker_vols(settings):
     atlas_host_input_folder        = os.path.abspath(settings['atlas_host_input_folder'])
     atlas_host_output_folder       = os.path.abspath(settings['atlas_host_output_folder'])
     atlas_container_input_folder   = os.path.abspath(settings['atlas_container_input_folder'])
     atlas_container_output_folder  = os.path.abspath(settings['atlas_container_output_folder'])
     atlas_docker_vols = {
-        atlas_host_input_folder: {                    ## source location, aka "local"  
+        atlas_host_input_folder: {                    ## source location, aka "local"
             'bind': atlas_container_input_folder,     ## destination loc, aka "remote", "client"
             'mode': 'rw'},
         atlas_host_output_folder: {
@@ -367,7 +389,7 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
     # 4. ATLAS OUTPUT -> UPDATE USIM OUTPUT CARS & HH_CARS
     atlas_post.atlas_update_h5_vehicle(settings, output_year, warm_start = warm_start_atlas)
 
-    # 5. ATLAS OUTPUT -> ADD A VEHICLETYPEID COL FOR BEAM 
+    # 5. ATLAS OUTPUT -> ADD A VEHICLETYPEID COL FOR BEAM
     atlas_post.atlas_add_vehileTypeId(settings, output_year)
 
     # 6. CLEAN UP
@@ -379,17 +401,17 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
 
 ## Atlas: evolve household vehicle ownership
 # run_atlas_auto is a run_atlas upgraded version, which will run_atlas again if
-# outputs are not generated. This is mainly for preventing crash due to parellel  
+# outputs are not generated. This is mainly for preventing crash due to parellel
 # computiing errors that can be resolved by a simple resubmission
 def run_atlas_auto(settings, output_year, client, warm_start_atlas):
-    
+
     # run atlas
     atlas_run_count = 1
     try:
         run_atlas(settings, output_year, client, warm_start_atlas)
     except:
         logger.error('ATLAS RUN #{} FAILED'.format(atlas_run_count))
-    
+
     # rerun atlas if outputs not found and run count <= 3
     atlas_output_path = settings['atlas_host_output_folder']
     fname = 'vehicles_{}.csv'.format(output_year)
@@ -401,7 +423,7 @@ def run_atlas_auto(settings, output_year, client, warm_start_atlas):
                 run_atlas(settings, output_year, client, warm_start_atlas)
             except:
                 logger.error('ATLAS RUN #{} FAILED'.format(atlas_run_count))
-    
+
     return
 
 
@@ -514,12 +536,14 @@ def run_traffic_assignment(
     activity_demand_model = settings.get('activity_demand_model', False)
     docker_stdout = settings['docker_stdout']
     skims_fname = settings['skims_fname']
+    origin_skims_fname = settings['origin_skims_fname']
     beam_memory = settings['beam_memory']
 
     # remember the last produced skims in order to detect that
     # beam didn't work properly during this run
-    previous_skims = beam_post.find_produced_skims(beam_local_output_folder)
-    logger.info("Found skims from the previous beam run: %s", previous_skims)
+    previous_od_skims = beam_post.find_produced_od_skims(beam_local_output_folder)
+    previous_origin_skims = beam_post.find_produced_origin_skims(beam_local_output_folder)
+    logger.info("Found skims from the previous beam run: %s", previous_od_skims)
 
     # 2. COPY ACTIVITY DEMAND OUTPUTS --> TRAFFIC ASSIGNMENT INPUTS
     if settings['traffic_assignment_enabled']:
@@ -554,15 +578,19 @@ def run_traffic_assignment(
     )
 
     # 4. POSTPROCESS
-    path_to_skims = os.path.join(abs_beam_output, skims_fname)
-    current_skims = beam_post.merge_current_skims(
-        path_to_skims, previous_skims, beam_local_output_folder)
-    if current_skims == previous_skims:
+    path_to_od_skims = os.path.join(abs_beam_output, skims_fname)
+    current_od_skims = beam_post.merge_current_od_skims(
+        path_to_od_skims, previous_od_skims, beam_local_output_folder)
+    if current_od_skims == previous_od_skims:
         logger.error(
-            "BEAM hasn't produced the new skims for some reason. "
-            "Please check beamLog.out for errors in the directory %s",
-            abs_beam_output)
+            "BEAM hasn't produced the new skims at {0} for some reason. "
+            "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
+            )
         exit(1)
+    path_to_origin_skims = os.path.join(abs_beam_output, origin_skims_fname)
+    beam_post.merge_current_origin_skims(
+        path_to_origin_skims, previous_origin_skims, beam_local_output_folder)
+    beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
 
     return
 
@@ -716,7 +744,7 @@ if __name__ == '__main__':
             if year == start_year:
 
                 # IF ATLAS ENABLED, UPDATE USIM INPUT H5
-                if vehicle_ownership_model_enabled: 
+                if vehicle_ownership_model_enabled:
                     run_atlas_auto(settings, year, client, warm_start_atlas = True)
 
                 warm_start_activities(settings, year, client)
@@ -726,7 +754,7 @@ if __name__ == '__main__':
             forecast_land_use(settings, year, forecast_year, client)
 
         else:
-            forecast_year = year
+            forecast_year = start_year
 
 
         # 2. RUN ATLAS (HOUSEHOLD VEHICLE OWNERSHIP)
@@ -734,8 +762,8 @@ if __name__ == '__main__':
 
             # If the forecast year is the same as the base year of this
             # iteration, then land use forecasting has not been run. In this
-            # case, atlas need to update urbansim *inputs* before activitysim 
-            # reads it in the next step. 
+            # case, atlas need to update urbansim *inputs* before activitysim
+            # reads it in the next step.
             if forecast_year == year:
                 run_atlas_auto(settings, year, client, warm_start_atlas = True)
 

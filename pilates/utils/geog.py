@@ -30,6 +30,10 @@ def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
             url = (
                 'https://opendata.arcgis.com/datasets/'
                 '94e6e7107f0745b5b2aabd651340b739_0.geojson')
+
+        elif region == 'austin':
+            url = (
+                'https://beam-outputs.s3.amazonaws.com/pilates-outputs/geometries/block_groups_austin.geojson')
             
         ## FIX ME: other regions taz should be here - only sfbay for now
         gdf = gpd.read_file(url, crs="EPSG:4326")
@@ -99,7 +103,7 @@ def get_county_block_geoms(
 
 def get_block_geoms(settings, data_dir='./tmp/'):
 
-    region = settings['region']
+    region = settings['region'] or 'beam'
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']

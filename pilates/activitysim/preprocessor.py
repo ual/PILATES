@@ -42,6 +42,15 @@ beam_skims_types = {'timePeriod': str,
                     'DEBUG_TEXT': str
                     }
 
+beam_origin_skims_types = {"origin": str,
+                           "timePeriod": str,
+                           "reservationType": str,
+                           "waitTimeInMinutes": np.float32,
+                           "costPerMile": np.float32,
+                           "unmatchedRequestPortion": np.float32,
+                           "observations": int
+                           }
+
 #########################
 #### Common functions ###
 #########################
@@ -188,6 +197,23 @@ def _load_raw_beam_skims(settings):
             "Couldn't find input skims at {0}".format(path_to_beam_skims))
     return skims
 
+def _load_raw_beam_origin_skims(settings):
+    """ Read BEAM skims (csv format) from local storage.
+    Parameters:
+    ------------
+    - settings:
+
+    Return:
+    --------
+    - pandas DataFrame.
+    """
+
+    origin_skims_fname = settings.get('origin_skims_fname', False)
+    path_to_beam_skims = os.path.join(
+        settings['beam_local_output_folder'], origin_skims_fname)
+    skims = pd.read_csv(path_to_beam_skims, dtype=beam_origin_skims_types)
+    return skims
+
 def _create_skim_object(settings, overwrite=True, output_dir=None):
     """ Creates OMX file to store skim matrices
     Parameters: 
@@ -234,7 +260,7 @@ def _raw_beam_skims_preprocess(settings, year, skims_df):
     """
     # Validations:
     origin_taz = skims_df.origin.unique()
-    destination_taz = skims_df.origin.unique()
+    destination_taz = skims_df.destination.unique()
     assert len(origin_taz) == len(destination_taz)
 
     order = zone_order(settings, year)
@@ -257,6 +283,32 @@ def _raw_beam_skims_preprocess(settings, year, skims_df):
         raise ValueError('Origin-Destination distances contains inf or zero values.')
 
     return df_clean
+
+def _raw_beam_origin_skims_preprocess(settings, year, origin_skims_df):
+    """
+    Validates and preprocess raw beam skims.
+
+    parameter
+    ----------
+    - settings:
+    - year:
+    - skims_df: pandas Dataframe. Raw beam skims dataframe
+
+    return
+    --------
+    Pandas dataFrame. Skims
+    """
+    # Validations:
+    origin_taz = origin_skims_df.origin.unique()
+
+    order = zone_order(settings, year)
+
+    #     test_1 = set(origin_taz).issubset(set(order))
+    #     test_2 = set(destination_taz).issubset(set(order))
+    test_3 = len(set(order) - set(origin_taz))
+    assert test_3 == 0, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
+    return origin_skims_df.loc[origin_skims_df['origin'].isin(order)].set_index(['timePeriod',
+                                                                                 'reservationType', 'origin'])
 
 def _create_skims_by_mode(settings, skims_df):
     """
@@ -287,6 +339,16 @@ def _create_skims_by_mode(settings, skims_df):
 
     del skims_df
     return auto_df, transit_df
+
+def _build_square_matrix(series, num_taz, source="origin", fill_na=0):
+    out = np.tile(series.fillna(fill_na).values, (num_taz, 1))
+    if source == "origin":
+        return out.transpose()
+    elif source == "destination":
+        return out
+    else:
+        logger.error("1-d skims must be associated with either 'origin' or 'destination'")
+
 
 def _build_od_matrix(df, origin, destination, metric, order, fill_na=0):
     """ Tranform skims from pandas dataframe to numpy square matrix (O-D matrix format) 
@@ -455,6 +517,40 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
     skims.close()
     del df, df_
 
+
+def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
+    """ Generate transit OMX skims"""
+
+    logger.info("Creating ridehail skims.")
+    ridehail_path_map = settings['ridehail_path_map']
+    periods = settings['periods']
+    measure_map = settings['beam_asim_ridehail_measure_map']
+    skims = read_skims(settings, mode='a', data_dir=data_dir)
+    num_taz = len(order)
+    df = ridehail_df.copy()
+
+    for path, skimPath in ridehail_path_map.items():
+        for period in periods:
+            df_ = df.loc[(period, skimPath), :].loc[order, :]
+            for measure, skimMeasure in measure_map.items():
+                name = '{0}_{1}__{2}'.format(path, measure, period)
+                if measure == 'REJECTIONPROB':
+                    mtx = _build_square_matrix(df_[skimMeasure], num_taz, 'origin', 0.0)
+                elif measure_map[measure] in df_.columns:
+                    # activitysim estimated its models using transit skims from Cube
+                    # which store time values as scaled integers (e.g. x100), so their
+                    # models also divide transit skim values by 100. Since our skims
+                    # aren't coming out of Cube, we multiply by 100 to negate the division.
+                    # This only applies for travel times.
+                    # EDIT: I don't think this is true for wait time
+                    mtx = _build_square_matrix(df_[skimMeasure], num_taz, 'origin', 0.0)
+
+                else:
+                    mtx = np.zeros((num_taz, num_taz))
+                skims[name] = mtx
+    skims.close()
+    del df, df_
+
 def _auto_skims(settings, auto_df, order, data_dir=None):
     logger.info("Creating drive skims.")
 
@@ -529,11 +625,14 @@ def create_skims_from_beam(settings, year,
         skims_df = skims_df.loc[skims_df.origin.isin(order) & skims_df.destination.isin(order),:]
         skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
         auto_df, transit_df = _create_skims_by_mode(settings, skims_df)
+        ridehail_df = _load_raw_beam_origin_skims(settings)
+        ridehail_df = _raw_beam_origin_skims_preprocess(settings, year, ridehail_df)
 
         # Create skims
         _distance_skims(settings, year, auto_df, order, data_dir=output_dir)
         _auto_skims(settings, auto_df, order, data_dir=output_dir)
         _transit_skims(settings, transit_df, order, data_dir=output_dir)
+        _ridehail_skims(settings, ridehail_df, order, data_dir=output_dir)
 
         # Create offset
         _create_offset(settings, order, data_dir=output_dir)
@@ -1154,10 +1253,10 @@ def create_asim_data_from_h5(
     blocks_cols = blocks.columns.tolist()
     blocks_to_taz_mapping_updated, blocks = _update_blocks_table(
         settings, year, blocks, households, jobs, input_zone_id_col)
+    input_zone_id_col = "{0}_zone_id".format(zone_type)
     if blocks_to_taz_mapping_updated:
         logger.info(
             "Storing blocks table with {} zone IDs to disk in .h5 datastore!".format(zone_type))
-        input_zone_id_col = "{0}_zone_id".format(zone_type)
         blocks_cols += [input_zone_id_col]
         store[os.path.join(table_prefix_yr, 'blocks')] = blocks[blocks_cols]
     blocks.rename(
