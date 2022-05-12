@@ -87,10 +87,7 @@ def atlas_add_vehileTypeId(settings, output_year):
     # read original atlas output "vehicles_*.csv" as dataframe
     df = pd.read_csv(os.path.join(atlas_output_path, fname))
 
-    # estimate model year based on vintage_category
-    df.loc[df['vintage_category']=='12+ years','model_year'] = int(output_year - 13)
-    df.loc[df['vintage_category']=='6~11 years','model_year'] = int(output_year - 8)
-    df.loc[df['vintage_category']=='0~5 years','model_year'] = int(output_year - 3)
+    # atlas:v1.0.6 can generate continuous model_year
     df['model_year'] = df['model_year'].astype(int)
 
     # add "vehicleTypeId" column in dataframe for BEAM
