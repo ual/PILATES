@@ -228,7 +228,7 @@ def get_usim_cmd(settings, year, forecast_year):
     return usim_cmd
 
 
-def warm_start_activities(settings, year, client):
+def _warm_start_activities(settings, year, client):
     """
     Run activity demand models to update UrbanSim inputs with long-term
     choices it needs: workplace location, school location, and
@@ -718,7 +718,7 @@ if __name__ == '__main__':
 
             # 1a. IF START YEAR, WARM START MANDATORY ACTIVITIES
             if (year == start_year) and (warm_start_activities):
-                warm_start_activities(settings, year, client)
+                _warm_start_activities(settings, year, client)
 
             # 1b. RUN LAND USE SIMULATION
             forecast_year = min(year + travel_model_freq, end_year)

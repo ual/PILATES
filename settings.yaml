@@ -5,7 +5,7 @@
 ############################
 
 # scenario defs
-region: austin
+region: sfbay
 scenario: base
 start_year: 2010
 end_year: 2020
@@ -28,17 +28,17 @@ singularity_images:
 
 # docker settings
 docker_images:
-  urbansim: mxndrwgrdnr/block_model_v2_pb:latest
+  urbansim: jdcaicedo/urbansim_demos:latest
   beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim:latest
+  activitysim: jdcaicedo/activitysim:latest
   polaris: tbd
   atlas:
 docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_fname: austin-skims-res-full-new.csv.gz
-skims_zone_type: block_group  # one of [taz, block_group, block]
+skims_fname: as-base-skims-sfbay-taz.csv.gz
+skims_zone_type: taz  # one of [taz, block_group, block]
 
 #########################################################################################################
 
@@ -55,7 +55,7 @@ usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
 usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
-warm_start_activities: False
+warm_start_activities: True
 
 
 # BEAM 
