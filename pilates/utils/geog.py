@@ -319,3 +319,36 @@ def geoid_to_zone_map(settings, year=None):
         geoid_to_zone.to_csv(geoid_to_zone_fpath)
 
     return mapping
+
+def get_transit_stations_blocks(settings):
+    settings_copy = settings.copy()
+    settings_copy['skims_zone_type'] = 'block'
+    region = settings_copy['region']
+    
+    mass_transit_blocks_fname = 'pilates/utils/data/{}/mass_transit_blocks.csv'.format(region)
+    exist  = os.path.exists(mass_transit_blocks_fname)
+    
+    if exist: 
+        df = pd.read_csv(mass_transit_blocks_fname)
+        blocks_id = list(df['GEOID'])
+    
+    else: 
+        #Spatial match of stations buffers and blocls 
+        stations = get_mass_transit_stations(settings_copy)
+        blocks = get_block_geoms(settings_copy)
+        blocks.set_index('GEOID', inplace = True)
+    
+        assert stations.crs == blocks.crs, "CRS is not the same"
+        stations_meters = stations.to_crs('EPSG:7131')
+        blocks_meters = blocks.to_crs('EPSG:7131')
+
+        #Draw the buffers
+        stations_buffer = stations_meters.geometry.buffer(800)
+        # mass_transit_blocks = b_meters.sjoin(s_meters, how ='left', predicate = 'intersects')
+        mass_transit_blocks = gpd.clip(blocks_meters.geometry, stations_buffer, keep_geom_type = True)
+        mass_transit_blocks = mass_transit_blocks.reset_index().drop(columns ='geometry')
+        mass_transit_blocks.to_csv(mass_transit_blocks_fname, index = False)
+        blocks_id = list(mass_transit_blocks['GEOID'])
+    
+    
+    return blocks_id

@@ -1,0 +1,38 @@
+Average Travel Time by Income:
+  high: 15.363410545598141
+  low: 14.32672414582993
+  middle: 15.346510732148651
+Average Travel Time by Mode:
+  Bike: 11.756691516674975
+  Drive Alone: 16.042194090997125
+  Public Transit: 16.830606559279914
+  Shared Ride: 14.157174724112972
+  TNC - Pooled: 12.67616447420937
+  TNC - Ride Alone: 9.932954097811665
+  Walk: 13.380853378448293
+Average Travel Time by Purpose:
+  commute: 15.788206259755931
+  non_commute: 13.832891417784573
+Average Trip Length:
+  Bike: 2.351338303335113
+  Drive Alone: 8.446845467449512
+  Public Transit: 4.633363672699817
+  Shared Ride: 6.4499336742049955
+  TNC - Pooled: 6.962563979577848
+  TNC - Ride Alone: 4.0027252371229105
+  Walk: 0.6690426689228572
+Household Vehicle Ownership: 1.5903255335147386
+Mode Shares:
+  Bike: 0.015282812545855201
+  Drive Alone: 0.39940110184330996
+  Public Transit: 0.1257558531970086
+  Shared Ride: 0.28401531845466327
+  TNC - Pooled: 0.012506938091173217
+  TNC - Ride Alone: 0.04109217145134447
+  Walk: 0.12194580441664529
+Seat Utilization: 1.3123046425808609
+Total VMT: 102505906.3228394
+Transit Ridership: 2956710
+VMT per Capita: 14.922728207097393
+name: Current_in-vehicle_times
+policy: transit_operations

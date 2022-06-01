@@ -228,7 +228,7 @@ def get_usim_cmd(settings, year, forecast_year):
     return usim_cmd
 
 
-def warm_start_activities(settings, year, client):
+def _warm_start_activities(settings, year, client):
     """
     Run activity demand models to update UrbanSim inputs with long-term
     choices it needs: workplace location, school location, and
@@ -259,10 +259,10 @@ def warm_start_activities(settings, year, client):
         # 2. CREATE DATA FROM BASE YEAR SKIMS AND URBANSIM INPUTS
 
         # skims
-        logger.info("Creating {0} skims from {1}".format(
-            activity_demand_model,
-            travel_model).upper())
-        asim_pre.create_skims_from_beam(settings, year)
+#         logger.info("Creating {0} skims from {1}".format(
+#             activity_demand_model,
+#             travel_model).upper())
+#         asim_pre.create_skims_from_beam(settings, year)
 
         # data tables
         logger.info("Creating {0} input data from {1} outputs".format(
@@ -274,17 +274,19 @@ def warm_start_activities(settings, year, client):
         logger.info("Running {0} in warm start mode".format(
             activity_demand_model).upper())
         ws_asim_cmd = base_asim_cmd + ' -w'  # warm start flag
+        
+        print(asim_workdir)
 
-        asim = client.containers.run(
-            activity_demand_image,
-            working_dir=asim_workdir,
-            volumes=asim_docker_vols,
-            command=ws_asim_cmd,
-            stdout=docker_stdout,
-            stderr=True,
-            detach=True)
-        for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
-            print(log)
+#         asim = client.containers.run(
+#             activity_demand_image,
+#             working_dir=asim_workdir,
+#             volumes=asim_docker_vols,
+#             command=ws_asim_cmd,
+#             stdout=docker_stdout,
+#             stderr=True,
+#             detach=True)
+#         for log in asim.logs(stream=True, stderr=True, stdout=docker_stdout):
+#             print(log)
 
         # 4. UPDATE URBANSIM BASE YEAR INPUT DATA
         logger.info((
@@ -718,7 +720,7 @@ if __name__ == '__main__':
 
             # 1a. IF START YEAR, WARM START MANDATORY ACTIVITIES
             if (year == start_year) and (warm_start_activities):
-                warm_start_activities(settings, year, client)
+                _warm_start_activities(settings, year, client)
 
             # 1b. RUN LAND USE SIMULATION
             forecast_year = min(year + travel_model_freq, end_year)
@@ -738,9 +740,9 @@ if __name__ == '__main__':
             # if the "warm_start_skims" setting was not set to True at runtime
             if forecast_year == year:
                 warm_start_skims = True
-
+                
             generate_activity_plans(
-				settings, year, forecast_year, client, warm_start=warm_start_skims)
+                settings, year, forecast_year, client, warm_start=warm_start_skims)
 
             # 5. INITIALIZE ASIM LITE IF BEAM REPLANNING ENABLED
             # have to re-run asim all the way through on sample to shrink the

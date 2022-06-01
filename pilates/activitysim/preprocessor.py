@@ -688,7 +688,7 @@ def _get_part_time_enrollment(state_fips):
 def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
 
     # assign zones
-    persons[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
+    persons[asim_zone_id_col] = blocks['taz_zone_id'].reindex(
         households['block_id'].reindex(persons['household_id']).values).values
     persons[asim_zone_id_col] = persons[asim_zone_id_col].astype(str)
 
@@ -752,7 +752,7 @@ def _update_persons_table(persons, households, blocks, asim_zone_id_col='TAZ'):
 
 def _update_households_table(households, blocks, asim_zone_id_col='TAZ'):
     # assign zones
-    households[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
+    households[asim_zone_id_col] = blocks['taz_zone_id'].reindex(
         households['block_id']).values
     households[asim_zone_id_col] = households[asim_zone_id_col].astype(str)
 
@@ -783,7 +783,7 @@ def _update_jobs_table(
         asim_zone_id_col='TAZ'):
 
     # assign zones
-    jobs[asim_zone_id_col] = blocks[asim_zone_id_col].reindex(
+    jobs[asim_zone_id_col] = blocks['taz_zone_id'].reindex(
         jobs['block_id']).values
     
     jobs[asim_zone_id_col] = jobs[asim_zone_id_col].astype(str)
@@ -1052,9 +1052,9 @@ def _create_land_use_table(
                                 asim_zone_id_col = asim_zone_id_col)
     assert zones.index.name == 'TAZ'
     assert zones.index.inferred_type == 'string', "zone_id dtype should be str"
-    for table in [households, persons, jobs, blocks, schools, colleges]:
-        assert pd.api.types.is_string_dtype(table[asim_zone_id_col]), \
-        "zone_id dtype in should be str"
+#     for table in [households, persons, jobs, blocks, schools, colleges]:
+#         assert pd.api.types.is_string_dtype(table[asim_zone_id_col]), \
+#         "zone_id dtype in should be str"
     
     # create new column variables
     logger.info("Creating new columns in the land use table.")
@@ -1085,7 +1085,7 @@ def _create_land_use_table(
     zones['AGREMPN'] = jobs.loc[jobs['sector_id'].isin(['11']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
     zones['MWTEMPN'] = jobs.loc[jobs['sector_id'].isin(['42', '31-33', '32', '48-49']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
     zones['OTHEMPN'] = jobs.loc[~jobs['sector_id'].isin(['44-45', '52', '54', '61', '62', '71', '11', '42', '31-33', '32', '48-49']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
-    zones['TOTACRE'] = blocks[['TOTACRE', asim_zone_id_col]].groupby(asim_zone_id_col)['TOTACRE'].sum().reindex(zones.index).fillna(0)
+    zones['TOTACRE'] = blocks[['TOTACRE', 'taz_zone_id']].groupby('taz_zone_id')['TOTACRE'].sum().reindex(zones.index).fillna(0)
     zones['HSENROLL'] = schools[['enrollment', asim_zone_id_col]].groupby(asim_zone_id_col)['enrollment'].sum().reindex(zones.index).fillna(0)
     zones['TOPOLOGY'] = 1 # FIXME
     zones['employment_density'] = zones.TOTEMP / zones.TOTACRE
@@ -1113,7 +1113,19 @@ def _create_land_use_table(
     zones['area_type'] = _compute_area_type(zones)
     zones['TERMINAL'] = 0  # FIXME
     zones['COUNTY'] = 1  # FIXME
-
+    
+    # CARB code:
+    #30th and 50th most job densiest zones marker
+    dense_30 = zones['employment_density'].sort_values(ascending = False).head(30).index
+    dense_50 = zones['employment_density'].sort_values(ascending = False).head(50).index
+    zones['dense_30'] = zones.index.isin(dense_30)
+    zones['dense_50'] = zones.index.isin(dense_50)
+    
+    congestion_pricing_zones = [1,3,5,12,13,15,18,20,23,2,4,10,11,14,16,17,19,21,22,
+                                108,109,110,37,35,33,28,25,24,29,6,30,8,46,75,36,32,
+                                27,26,31,7,9,78,80,107,76,79,81,106,105]
+    
+    zones['cordon'] = zones.index.isin(congestion_pricing_zones)
     return zones
 
 
@@ -1147,6 +1159,8 @@ def create_asim_data_from_h5(
 
     store, table_prefix_yr = read_datastore(
         settings, year, warm_start=warm_start)
+    
+    print(os.path.join(table_prefix_yr, 'blocks'))
 
     logger.info("Loading UrbanSim data from .h5")
     households = store[os.path.join(table_prefix_yr, 'households')]

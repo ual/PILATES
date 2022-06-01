@@ -1,0 +1,180 @@
+policies:
+#     transit_fare:
+#         scenarios: 
+#             free_transit: 0.0
+#             current_fare: 1.0
+#             25%_increase: 1.25
+#         replace: False
+#         regex: '[A-Z]{3}\s-\sFare'
+#         chage_type: product # one of ['product', 'summation']
+#     transit_frequency:
+#         scenarios: 
+#             125%_Increased: 1.25
+#             Current_waiting_times: 1.0
+#             25%_Reduction: 0.75
+#         replace: False
+#         regex: 'wait'
+#         chage_type: product # one of ['product', 'summation']
+#     transit_operations:
+#         scenarios: 
+#             Current_in-vehicle_times: 1.0
+#             5%_Reduction: 0.95
+#             10%_Reduction: 0.90
+#         replace: False
+#         regex: '_[A-Z]{3}\s-\sIn-vehicle\stime'
+#         chage_type: product # one of ['product', 'summation'] 
+#     shared_tnc_price:
+#         scenarios: 
+#             25%_Reduction: 0.75 
+#             Current_Fare: 1.0
+#             50%_Increase: 1.50
+#         replace: False
+#         chage_type: product # one of ['product', 'summation']
+#         variables:
+#             - TNC_shared_baseFare
+#             - TNC_shared_costPerMile
+#             - TNC_shared_costPerMinute
+#             - TNC_shared_costMinimum
+#     shared_tnc_waiting_times:
+#         scenarios: 
+#             25%_Reduction: 0.75 
+#             Current_Fare: 1.0
+#             25%_Increase: 1.25
+#         replace: False
+#         chage_type: product # one of ['product', 'summation']
+#         variables: 
+#              - TNC_shared_waitTime_mean
+    tolls:
+        scenarios: 
+            Current_Toll_Price: 0
+            $1_Increase: 100
+            $3_Increase: 300
+        replace: False
+        regex: Bridge toll
+        chage_type: summation # one of ['product', 'summation']
+    VMT_fees:
+        scenarios: 
+#             Current_Toll_Price: 0
+#             2_cents: 2
+            5_cents: 5
+        replace: False
+        chage_type: summation
+        variables:
+            - 'costPerMile' 
+    hov_lanes:
+        scenarios: 
+            25%_Increase: 1.25
+            Current_Price: 1
+            25%_Reduction: 0.75
+        replace: False
+        chage_type: product
+        regex: "Value toll"
+    tod_employment:
+        scenarios: 
+            current_density: 1.0
+            10%_increase: 1.1
+            20%_increase: 1.2
+        replace: False
+    tod_residential:
+        scenarios: 
+            current_density: 1.0
+            10%_increase: 1.1
+            20%_increase: 1.2
+        replace: False
+    telecommte:
+        scearios:
+            conservative: 0
+            aggresive: 0
+            core: 0
+    car_free_zones:
+        scearios:
+            conservative: 0
+            aggresive: 0
+            core: 0
+    congestion_pricing_park_and_ride:
+        scearios:
+            conservative: 0
+            aggresive: 0
+            core: 0
+    
+#### Resutls mapping 
+carb_mode_mapping:
+    DRIVEALONEFREE: Drive Alone
+    DRIVEALONEPAY: Drive Alone
+    SHARED2FREE: Shared Ride
+    SHARED3FREE: Shared Ride
+    SHARED2PAY: Shared Ride
+    SHARED3PAY: Shared Ride
+    WALK: Walk
+    BIKE: Bike
+    WALK_HVY: Public Transit
+    WALK_LOC: Public Transit
+    WALK_EXP: Public Transit
+    WALK_COM: Public Transit
+    WALK_LRF: Public Transit
+    DRIVE_HVY: Public Transit
+    DRIVE_LOC: Public Transit
+    DRIVE_EXP: Public Transit
+    DRIVE_COM: Public Transit
+    DRIVE_LRF: Public Transit
+    TNC_SINGLE: TNC - Ride Alone
+    TNC_SHARED: TNC - Pooled
+    TAXI: TNC - Ride Alone
+    
+mode_index_mapping:
+    DRIVEALONEFREE: 0
+    DRIVEALONEPAY: 1
+    SHARED2FREE: 2
+    SHARED3FREE: 3
+    SHARED2PAY: 4
+    SHARED3PAY: 5
+    WALK: 6
+    BIKE: 7
+    WALK_HVY: 8
+    WALK_LOC: 9
+    WALK_EXP: 10
+    WALK_COM: 11
+    WALK_LRF: 12
+    DRIVE_HVY: 13
+    DRIVE_LOC: 14
+    DRIVE_EXP: 15
+    DRIVE_COM: 16
+    DRIVE_LRF: 17
+    TNC_SINGLE: 0 #Time simular to Drive Alone Free
+    TNC_SHARED: 0 #Time simular to Drive Alone Free
+    TAXI: 0 #Time simular to Drive Alone Free
+    
+driving_access_mode_index_mapping:
+    DRIVEALONEFREE: 5
+    DRIVEALONEPAY: 5
+    SHARED2FREE: 5
+    SHARED3FREE: 5
+    SHARED2PAY: 5
+    SHARED3PAY: 5
+    WALK: 5
+    BIKE: 5
+    WALK_HVY: 5
+    WALK_LOC: 5
+    WALK_EXP: 5
+    WALK_COM: 5
+    WALK_LRF: 5
+    DRIVE_HVY: 0
+    DRIVE_LOC: 1
+    DRIVE_EXP: 2
+    DRIVE_COM: 3
+    DRIVE_LRF: 4
+    TNC_SINGLE: 5
+    TNC_SHARED: 5
+    TAXI: 5
+    
+commute_mapping:
+    work: commute
+    atwork: commute
+    eatout: non_commute 
+    othdiscr: non_commute
+    social: non_commute
+    school: commute
+    othmaint: non_commute
+    escort: non_commute
+    shopping: non_commute
+    univ: commute

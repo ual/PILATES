@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import yaml
 
 
 def read_datastore(settings, year=None, warm_start=False):
@@ -39,3 +40,13 @@ def read_datastore(settings, year=None, warm_start=False):
     store = pd.HDFStore(usim_datastore_fpath)
 
     return store, table_prefix_yr
+
+
+def read_yaml(path):
+    a_yaml_file = open(path)
+    return yaml.load(a_yaml_file, Loader=yaml.FullLoader)
+
+
+def save_yaml(path, settings):
+    with open(path, 'w') as outfile:
+        yaml.dump(settings, outfile, default_flow_style=False)
