@@ -14,7 +14,7 @@ travel_model_freq: 1
 vehicle_ownership_freq: 1
 
 # simulation platforms (comment out to turn off)
-land_use_model:
+land_use_model: urbansim
 travel_model: beam
 activity_demand_model: activitysim
 vehicle_ownership_model: atlas
@@ -68,7 +68,8 @@ atlas_basedir: /
 atlas_codedir: /
 atlas_sample_size: 0     # zero means no sampling, whole pop.
 atlas_num_processes: 9  # suggested <9 for hima
-atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --basedir {4} --codedir {5}"
+atlas_beamac: 0 # 0 if use pre-processed accessibility RData, otherwise inline calc
+atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --basedir {4} --codedir {5} --beamac {6}"
 
 
 
