@@ -221,11 +221,11 @@ def get_atlas_docker_vols(settings):
     return atlas_docker_vols
 
 ## For Atlas container command
-def get_atlas_cmd(settings, freq, output_year, npe, nsample):
+def get_atlas_cmd(settings, freq, output_year, npe, nsample, beamac):
     basedir = settings.get('basedir','/')
     codedir = settings.get('codedir','/')
     formattable_atlas_cmd = settings['atlas_formattable_command']
-    atlas_cmd = formattable_atlas_cmd.format(freq, output_year, npe, nsample, basedir, codedir)
+    atlas_cmd = formattable_atlas_cmd.format(freq, output_year, npe, nsample, basedir, codedir, beamac)
     return atlas_cmd
 
 
@@ -255,11 +255,11 @@ def warm_start_activities(settings, year, client):
 
     # 2. CREATE DATA FROM BASE YEAR SKIMS AND URBANSIM INPUTS
 
-    # skims
-    logger.info("Creating {0} skims from {1}".format(
-        activity_demand_model,
-        travel_model).upper())
-    asim_pre.create_skims_from_beam(settings, year)
+    # # skims ## now moved to warm start atlas stage
+    # logger.info("Creating {0} skims from {1}".format(
+    #     activity_demand_model,
+    #     travel_model).upper())
+    # asim_pre.create_skims_from_beam(settings, year)
 
     # data tables
     logger.info("Creating {0} input data from {1} outputs".format(
@@ -338,7 +338,7 @@ def forecast_land_use(settings, year, forecast_year, client):
     return
 
 ## Atlas: evolve household vehicle ownership
-def run_atlas(settings, output_year, client, warm_start_atlas):
+def run_atlas(settings, output_year, client, warm_start_atlas, atlas_run_count=1):
 
     # warm_start: warm_start_atlas = True, output_year = year = start_year
     # asim_no_usim: warm_start_atlas = True, output_year = year (should  = start_year)
@@ -350,11 +350,13 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
     freq = settings.get('vehicle_ownership_freq', False)
     npe = settings.get('atlas_num_processes', False)
     nsample = settings.get('atlas_sample_size', False)
+    beamac = settings.get('atlas_beamac', 0)
     atlas_image = image_names[vehicle_ownership_model]  ## ie atlas
     atlas_docker_vols = get_atlas_docker_vols(settings)
-    atlas_cmd = get_atlas_cmd(settings, freq, output_year, npe, nsample)
+    atlas_cmd = get_atlas_cmd(settings, freq, output_year, npe, nsample, beamac)
     docker_stdout = settings.get('docker_stdout', False)
-
+    activity_demand_model = settings['activity_demand_model']
+    travel_model = settings['travel_model']
 
     # 2. PREPARE ATLAS DATA
     if warm_start_atlas:
@@ -365,15 +367,35 @@ def run_atlas(settings, output_year, client, warm_start_atlas):
             "Preparing input data for vehicle ownership simulation for {0}.".format(output_year) )
     formatted_print(print_str)
 
+    # create skims.omx (lines moved from warm_start_activities)
+    if warm_start_atlas==True & atlas_run_count==1:
+        logger.info("Creating {0} skims from {1}".format(
+            activity_demand_model,
+            travel_model).upper())
+        asim_pre.create_skims_from_beam(settings, year)
+
     # prepare atlas inputs from urbansim h5 output
     # preprocessed csv input files saved in "atlas/atlas_inputs/year{}/"
     atlas_pre.prepare_atlas_inputs(settings, output_year, warm_start = warm_start_atlas)
 
+    # calculate accessibility if atlas_beamac != 0
+    if (beamac > 0):
+        ## if No Driving
+        path_list = ['WLK_COM_WLK', 'WLK_EXP_WLK', 'WLK_HVY_WLK', 'WLK_LOC_WLK', 'WLK_LRF_WLK']
+        measure_list = ['WACC','IWAIT','XWAIT','TOTIVT','WEGR']
+        ## if Allow Driving for access/egress
+        # path_list = ['WLK_COM_WLK', 'WLK_EXP_WLK', 'WLK_HVY_WLK', 'WLK_LOC_WLK', 'WLK_LRF_WLK',
+        #             'DRV_COM_DRV', 'DRV_EXP_DRV', 'DRV_HVY_DRV', 'DRV_LOC_DRV', 'DRV_LRF_DRV',
+        #             'WLK_COM_DRV', 'WLK_EXP_DRV', 'WLK_HVY_DRV', 'WLK_LOC_DRV', 'WLK_LRF_DRV',
+        #             'DRV_COM_WLK', 'DRV_EXP_WLK', 'DRV_HVY_WLK', 'DRV_LOC_WLK', 'DRV_LRF_WLK'] 
+        # measure_list = ['WACC','IWAIT','XWAIT','TOTIVT','WEGR','DTIM']
+        atlas_pre.compute_accessibility(path_list, measure_list, settings, output_year)
+
     # 3. RUN ATLAS via docker container client
     print_str = (
         "Simulating vehicle ownership for {0} "
-        "with frequency {1}, npe {2} nsample {3}".format(
-            output_year, freq, npe, nsample))
+        "with frequency {1}, npe {2} nsample {3} beamac {4}".format(
+            output_year, freq, npe, nsample, beamac))
     formatted_print(print_str)
     atlas = client.containers.run(
         atlas_image,
@@ -408,7 +430,7 @@ def run_atlas_auto(settings, output_year, client, warm_start_atlas):
     # run atlas
     atlas_run_count = 1
     try:
-        run_atlas(settings, output_year, client, warm_start_atlas)
+        run_atlas(settings, output_year, client, warm_start_atlas, atlas_run_count)
     except:
         logger.error('ATLAS RUN #{} FAILED'.format(atlas_run_count))
 
@@ -420,7 +442,7 @@ def run_atlas_auto(settings, output_year, client, warm_start_atlas):
         if not os.path.exists(os.path.join(atlas_output_path, fname)):
             logger.error('LAST ATLAS RUN FAILED -> RE-LAUNCHING ATLAS RUN #{} BELOW'.format(atlas_run_count))
             try:
-                run_atlas(settings, output_year, client, warm_start_atlas)
+                run_atlas(settings, output_year, client, warm_start_atlas, atlas_run_count)
             except:
                 logger.error('ATLAS RUN #{} FAILED'.format(atlas_run_count))
 

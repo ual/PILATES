@@ -87,8 +87,13 @@ def atlas_add_vehileTypeId(settings, output_year):
     # read original atlas output "vehicles_*.csv" as dataframe
     df = pd.read_csv(os.path.join(atlas_output_path, fname))
 
-    # add "vehicleTypeId" column in dataframe
-    df['vehicleTypeId']=df[['bodytype', 'vintage_category', 'pred_power']].agg('-'.join, axis=1)
+    # atlas:v1.0.6 can generate continuous modelyear
+    df['modelyear'] = df['modelyear'].astype(int)
+
+    # add "vehicleTypeId" column in dataframe for BEAM
+    # for prior-2015-model vehicles, vehicleTypeId is *_*_2015
+    df['vehicleTypeId']=df[['bodytype', 'pred_power', 'modelyear']].astype(str).agg('_'.join, axis=1)
+    df.loc[df['modelyear']<2015, 'vehicleTypeId'] = df.loc[df['modelyear']<2015, ['bodytype', 'pred_power']].astype(str).agg('_'.join, axis=1) + '_2015'
 
     # write to a new file vehicles2_*.csv 
     # because original file cannot be overwritten (root-owned)
