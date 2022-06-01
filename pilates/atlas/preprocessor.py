@@ -172,7 +172,7 @@ def compute_accessibility(path_list, measure_list, settings, year, threshold=500
     
     # format before writing
     accessibility_tract.index.name = 'tract'
-    accessibility['urban_cbsa'] = 1 ## all sfbay tracts belong to cbsa
+    accessibility_tract['urban_cbsa'] = 1 ## all sfbay tracts belong to cbsa
 
     # write tract-level accessibility data
     accessibility_tract.to_csv('{}/accessibility_{}_tract.csv'.format(atlas_input_path, year))
