@@ -112,6 +112,7 @@ class Person:
 			self.school_grade_level = max(min(per['student']*(self. age-3), 15), 0)  # use age to guess at grade level for those enrolled in school
 			self.work_hours = per['hours']
 			self.telecommute_level = per['work_at_home']*4
+			self.journey_to_work_mode = 1
 			# create and initialze the school and work zones if they don't exist - otherwise read them. Note - called 'zone' in the urbansim data, but in polaris refers to the activity location id
 			if 'work_zone_id' in per:
 				self.work_zone_id = per['work_zone_id']
@@ -144,8 +145,8 @@ class Person:
 				if not self.school_zone_id:
 					self.school_zone_id = -1
 				#query = 'insert into Person (person,household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
-				query = 'insert into Person (household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id, time_in_job) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
-				dbCon.execute(query, [self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.transit_pass, self.work_zone_id, self.school_zone_id, self.time_in_job])
+				query = 'insert into Person (household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id, time_in_job, journey_to_work_mode) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
+				dbCon.execute(query, [self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.transit_pass, self.work_zone_id, self.school_zone_id, self.time_in_job, self.journey_to_work_mode])
 			except sqlite3.IntegrityError:
 				print('SQLITE3 integrity error: ')
 				print(self.usim_record)
