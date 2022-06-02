@@ -392,7 +392,13 @@ class Usim_Data:
 		logger.info('Reading jobs from Urbansim output...')
 		for id, data in self.job_data.iterrows():
 			j = Job(data)
-			self.job_dict[id] = j
+			# ignore job if it is unplaced
+			try:
+				b_id = int(j.block_id)
+			except ValueError:
+				b_id = -1
+			if b_id >= 0:
+				self.job_dict[id] = j
 
 	def Close(self):
 		self.usim_data[self.persons_data_lbl] = self.per_data 
