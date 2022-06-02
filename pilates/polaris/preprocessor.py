@@ -222,7 +222,7 @@ class Zone:
 		self.persons += 1
 		if P.race == 1:
 			self.percent_white += 1
-		if P.race == 1:
+		if P.race == 2:
 			self.percent_black += 1
 	
 	def Add_Job(self, J):
@@ -248,7 +248,7 @@ class Zone:
 			self.hh_inc_avg = self.hh_inc_avg / self.households
 		
 	def Update_Zone_in_DB(self, DbCon):
-		Q = 'UPDATE zone SET pop_households = ?, pop_persons = ?, employment_total = ?, employment_retail = ?, employment_retail = ?, employment_retail = ?, employment_retail = ?, employment_retail = ?, employment_retail = ?, percent_white = ?, percent_black = ?, hh_inc_avg = ? WHERE zone = ?'
+		Q = 'UPDATE zone SET pop_households = ?, pop_persons = ?, employment_total = ?, employment_retail = ?, employment_government = ?, employment_manufacturing = ?, employment_services = ?, employment_industrial = ?, employment_other = ?, percent_white = ?, percent_black = ?, hh_inc_avg = ? WHERE zone = ?'
 		DbCon.execute(Q, [self.households,  self.persons,  self.employment_total,  self.employment_retail,  self.employment_government,  self.employment_manufacturing,  self.employment_services,  self.employment_industrial,  self.employment_other,  self.percent_white,  self.percent_black,  self.hh_inc_avg, self.id])
 		
 
