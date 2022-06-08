@@ -144,7 +144,12 @@ def parse_args_and_settings(settings_file='settings.yaml'):
             'start" mode to use a non-zero household sample size. The '
             'household sample size you specified is {0}'.format(
                 settings['household_sample_size']))
-
+    if (settings['atlas_beamac'] > 0) and ((settings['region'] != 'sfbay') or (settings['skims_zone_type'] != 'taz')):
+        raise ValueError(
+            'atlas_beamac must be 0 (read accessibility from RData) '
+            'unless region = sfbay and skims_zone_type = taz. When'
+            'atlas_beamac = 1, accessibility is calculated internally. ')
+        
     return settings
 
 
