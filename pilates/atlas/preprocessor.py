@@ -119,8 +119,7 @@ def compute_accessibility(path_list, measure_list, settings, year, threshold=500
     ODmatrix = _get_time_ODmatrix(settings, path_list, measure_list, threshold)
     
     # assign values = 1 if time taken by public transit <= 30min; 0 if not
-    ODmatrix[ODmatrix<=30] = 1 
-    ODmatrix[ODmatrix>30] = 0
+    ODmatrix = ODmatrix<=30
     
     # read and format geoid_to_zoneid mapping list
     mapping = pd.read_csv('pilates/utils/data/{}/beam/geoid_to_zone.csv'.format(settings['region']))
@@ -128,9 +127,7 @@ def compute_accessibility(path_list, measure_list, settings, year, threshold=500
     mapping = mapping['zone_id'].to_dict()
     
     # read OD matrix size (i.e., range of zone_id)
-    skims_dir = settings['asim_local_input_folder']
-    skims = omx.open_file(os.path.join(skims_dir, 'skims.omx'), mode = 'r') 
-    zone_count = skims.shape()[0]
+    zone_count = ODmatrix.shape[0]
     
     # read in jobs data (keep low_memory=False to solve dtypeerror)
     jobs = pd.read_csv("{}/year{}/jobs.csv".format(settings['atlas_host_input_folder'], year), low_memory=False)
