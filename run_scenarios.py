@@ -58,6 +58,8 @@ def check_urbansim(settings):
         return False
     
 def run_one_year(settings):
+    asim_dir = settings['region_to_asim_subdir']['sfbay']
+    logging.info('ActivitySim Subdirectory: {}'.format(asim_dir))
     
     start_year = settings['start_year']
     end_year = settings['end_year']
@@ -66,6 +68,8 @@ def run_one_year(settings):
         'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = settings.get('travel_model_freq', 1)
     container_manager = settings['container_manager']
+    settings['land_use_enabled'] = True
+    settings['traffic_assignment_enabled'] = False
     
     client = initialize_docker_client(settings)
     year = start_year
@@ -90,9 +94,7 @@ if __name__ == '__main__':
     
     settings_fpath = 'settings.yaml'
     settings = read_yaml(settings_fpath)
-    
-    
-    
+
     policy_fpath = 'policy_settings.yaml'
     policies = read_yaml(policy_fpath)
 
@@ -115,6 +117,13 @@ if __name__ == '__main__':
                 create_path(os.path.join('pilates','results', p, s), replace = False)
 
                 if p in ['tod_employment','tod_residential']:
+                    
+                    if os.path.isfile('pilates/urbansim/data/model_data_2011.h5'):
+                        os.remove('pilates/urbansim/data/model_data_2011.h5')
+                    
+                    settings = read_yaml(settings_fpath)
+                    settings['region_to_asim_subdir']['sfbay'] = 'bay_area'
+                    save_yaml(settings_fpath, settings)
 
                     land_use = p
                     factor = policies['policies'][p]['scenarios'][s]
@@ -132,7 +141,4 @@ if __name__ == '__main__':
                 #Save Resutls
                 result_summary = get_scenario_resutls(p, s, policies)
                 save_yaml(result_summary_fpath, result_summary)
-                
-                shutil.rmtree('pilates/activitysim/output')
-                os.mkdir('pilates/activitysim/output')
     

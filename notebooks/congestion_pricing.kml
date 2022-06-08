@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>
+	<name>congestion_pricing</name>
+	<gx:CascadingStyle kml:id="__managed_style_00C6DD69B722422060FB">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2f2fd3</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>402f2fd3</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_12682798A222422060FA">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/rpc/cc/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LabelStyle>
+			</LabelStyle>
+			<LineStyle>
+				<color>ff2f2fd3</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>402f2fd3</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_079E3443F422422060FA">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_12682798A222422060FA</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_00C6DD69B722422060FB</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Placemark id="0075C422F5224220043E">
+		<name>congestion_pricing</name>
+		<LookAt>
+			<longitude>-122.4229527201579</longitude>
+			<latitude>37.78160054583334</latitude>
+			<altitude>27.98200919235178</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>3174.976216887007</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_079E3443F422422060FA</styleUrl>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						-122.4266356241574,37.77832767788601,23.10577656564355 -122.4245112010041,37.76797798196885,14.02888373662409 -122.4134022200992,37.768667450227,2.707968894120922 -122.4118351936753,37.76859394299093,3.605307554295227 -122.4081451593559,37.7692273278756,2.902330365902501 -122.4061039512072,37.76959200207169,1.665900317697591 -122.4030248501801,37.76986538924504,1.047948370099197 -122.4005858696671,37.77001461395977,0.8151702565518404 -122.4000276295356,37.77045531854151,0.4294617165284631 -122.3985335515479,37.769326547921,0.4294964461466444 -122.3956526020558,37.77199877031461,0.2073770731042779 -122.3890531092617,37.77742222655834,-0.8864940992362647 -122.383415386253,37.77849430145129,-0.8319506538766974 -122.3830124412489,37.78266553002654,-0.831702812428563 -122.3829492659544,37.7905275082933,-0.8310044549782247 -122.3875281345233,37.79366011755996,-0.8310181381648585 -122.3929630432752,37.80023089243246,-0.8313982457016245 -122.3943410594234,37.80118581073067,-0.8311575354960665 -122.3969699267236,37.79973052145495,-2.086086130213628 -122.4008237133134,37.79869967713013,3.936995255443625 -122.412457716198,37.79721208743623,48.62091026373192 -122.4236048902974,37.79577244825143,43.27477321222 -122.4202569485086,37.77910623987056,16.47798400541816 -122.4266356241574,37.77832767788601,23.10577656564355 
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+	</Placemark>
+</Document>
+</kml>

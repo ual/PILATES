@@ -1,87 +1,65 @@
 policies:
-#     transit_fare:
-#         scenarios: 
-#             free_transit: 0.0
-#             current_fare: 1.0
-#             25%_increase: 1.25
-#         replace: False
-#         regex: '[A-Z]{3}\s-\sFare'
-#         chage_type: product # one of ['product', 'summation']
-#     transit_frequency:
-#         scenarios: 
-#             125%_Increased: 1.25
-#             Current_waiting_times: 1.0
-#             25%_Reduction: 0.75
-#         replace: False
-#         regex: 'wait'
-#         chage_type: product # one of ['product', 'summation']
-#     transit_operations:
-#         scenarios: 
-#             Current_in-vehicle_times: 1.0
-#             5%_Reduction: 0.95
-#             10%_Reduction: 0.90
-#         replace: False
-#         regex: '_[A-Z]{3}\s-\sIn-vehicle\stime'
-#         chage_type: product # one of ['product', 'summation'] 
-#     shared_tnc_price:
-#         scenarios: 
-#             25%_Reduction: 0.75 
-#             Current_Fare: 1.0
-#             50%_Increase: 1.50
-#         replace: False
-#         chage_type: product # one of ['product', 'summation']
-#         variables:
-#             - TNC_shared_baseFare
-#             - TNC_shared_costPerMile
-#             - TNC_shared_costPerMinute
-#             - TNC_shared_costMinimum
-#     shared_tnc_waiting_times:
-#         scenarios: 
-#             25%_Reduction: 0.75 
-#             Current_Fare: 1.0
-#             25%_Increase: 1.25
-#         replace: False
-#         chage_type: product # one of ['product', 'summation']
-#         variables: 
-#              - TNC_shared_waitTime_mean
+    transit_fare:
+        scenarios: 
+            free_transit: 0.0
+            current_fare: 1.0
+            25%_increase: 1.25
+        replace: False
+    transit_frequency:
+        scenarios: 
+            125%_Increased: 1.25
+            Current_waiting_times: 1.0
+            25%_Reduction: 0.75
+        replace: False
+    transit_operations:
+        scenarios: 
+            Current_in-vehicle_times: 1.0
+            5%_Reduction: 0.95
+            10%_Reduction: 0.90
+        replace: False
+    shared_tnc_price:
+        scenarios: 
+            25%_Reduction: 0.75 
+            Current_Fare: 1.0
+            50%_Increase: 1.50
+        replace: False
+    shared_tnc_waiting_times:
+        scenarios: 
+            25%_Reduction: 0.75 
+            Current_Fare: 1.0
+            25%_Increase: 1.25
+        replace: False
     tolls:
         scenarios: 
             Current_Toll_Price: 0
             $1_Increase: 100
             $3_Increase: 300
         replace: False
-        regex: Bridge toll
-        chage_type: summation # one of ['product', 'summation']
     VMT_fees:
         scenarios: 
-#             Current_Toll_Price: 0
-#             2_cents: 2
+            Current_Toll_Price: 0
+            2_cents: 2
             5_cents: 5
-        replace: False
-        chage_type: summation
-        variables:
-            - 'costPerMile' 
+       replace: False
     hov_lanes:
         scenarios: 
             25%_Increase: 1.25
             Current_Price: 1
             25%_Reduction: 0.75
-        replace: False
-        chage_type: product
-        regex: "Value toll"
+       replace: False
     tod_employment:
         scenarios: 
             current_density: 1.0
             10%_increase: 1.1
             20%_increase: 1.2
-        replace: False
+       replace: False
     tod_residential:
         scenarios: 
             current_density: 1.0
             10%_increase: 1.1
             20%_increase: 1.2
         replace: False
-    telecommte:
+    telecommute:
         scearios:
             conservative: 0
             aggresive: 0

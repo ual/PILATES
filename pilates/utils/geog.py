@@ -320,6 +320,20 @@ def geoid_to_zone_map(settings, year=None):
 
     return mapping
 
+def get_mass_transit_stations(settings):
+    
+    region = settings['region']
+    stations_fname = 'tmp/{}_mass_transit_stations.shp'.format(region)
+    exist  = os.path.exists(stations_fname)
+    
+    if exist:
+        stations = gpd.read_file(stations_fname)
+    else: 
+        ## FIX ME - Download the data - From where? 
+        stations = None
+    
+    return stations
+
 def get_transit_stations_blocks(settings):
     settings_copy = settings.copy()
     settings_copy['skims_zone_type'] = 'block'

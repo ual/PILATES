@@ -1,247 +1,202 @@
-#########################################################################################################
-
-############################
-#     PILATES SETTINGS     #
-############################
-
-# scenario defs
-region: austin
-scenario: base
-start_year: 2010
-end_year: 2020
-land_use_freq: 1
-travel_model_freq: 5
-
-# simulation platforms (leave blank to turn off)
-land_use_model: urbansim
-travel_model: beam
+FIPS:
+  austin:
+    counties:
+    - '021'
+    - '053'
+    - '055'
+    - '209'
+    - '453'
+    - '491'
+    state: '48'
+  sfbay:
+    counties:
+    - '001'
+    - '013'
+    - '041'
+    - '055'
+    - '075'
+    - 081
+    - 085
+    - 095
+    - 097
+    state: '06'
 activity_demand_model: activitysim
-
-# docker or singularity
-container_manager: docker
-#singularity settings
-singularity_images:
-  urbansim: block_model_v2_pb.sif
-  beam:
-  activitysim:
-  polaris:
-
-# docker settings
-docker_images:
-  urbansim: mxndrwgrdnr/block_model_v2_pb:latest
-  beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim:latest
-  polaris: tbd
-  atlas:
-docker_stdout: False
-pull_latest: False
-
-# skim settings
-skims_fname: austin-skims-res-full-new.csv.gz
-skims_zone_type: block_group  # one of [taz, block_group, block]
-
-#########################################################################################################
-
-###############################
-#    SUB-PLATFORM SETTINGS    #
-###############################
-
-# URBANSIM
-region_to_region_id:
-  sfbay: "06197001"
-  austin: "48197301"
-usim_local_data_folder: pilates/urbansim/data/
-usim_client_data_folder: /base/block_model_probaflow/data/
-usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
-usim_formattable_output_file_name: "model_data_{year}.h5"
-usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
-warm_start_activities: False
-
-
-# BEAM 
+asim_formattable_command: -h {0} -n {1} -c {2}
+asim_from_usim_col_maps:
+  households:
+    PERSONS: hhsize
+    cars: auto_ownership
+    persons: PERSONS
+    workers: num_workers
+  land_use:
+    COUNTY: county_id
+    ZONE: TAZ
+  persons:
+    member_id: PNUM
+asim_local_input_folder: pilates/activitysim/data/
+asim_local_output_folder: pilates/activitysim/output/
+asim_output_tables:
+  prefix: final_
+  tables:
+  - checkpoints
+  - land_use
+  - households
+  - persons
+  - tours
+  - trips
+  - joint_tour_participants
+  - plans
+asim_to_usim_col_maps:
+  households:
+    auto_ownership: cars
+    hhsize: persons
+    num_workers: workers
+  persons:
+    PNUM: member_id
+    school_taz: school_taz_id
+    workplace_taz: work_zone_id
+asim_validation_folder: pilates/activitysim/validation
+beam_asim_hwy_measure_map:
+  BTOLL: null
+  DIST: DIST_miles
+  TIME: TIME_minutes
+  VTOLL: VTOLL_FAR
+beam_asim_transit_measure_map:
+  BOARDS: BOARDS
+  DDIST: DDIST_miles
+  DTIM: DTIM_minutes
+  FAR: VTOLL_FAR
+  FERRYIVT: FERRYIVT_minutes
+  IVT: TOTIVT_IVT_minutes
+  IWAIT: null
+  KEYIVT: KEYIVT_minutes
+  TOTIVT: TOTIVT_IVT_minutes
+  WACC: WACC_minutes
+  WAIT: null
+  WAUX: WAUX_minutes
+  WEGR: WEGR_minutes
+  XWAIT: null
 beam_config: gemini/activitysim-base-from-60k-input.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
+beam_memory: 100g
 beam_scenario_folder: gemini/activitysim-plans-base-2010-cut-60k
-beam_memory: "100g"
-skim_zone_source_id_col: objectid
-replan_iters: 0
-replan_hh_samp_size: 0
-replan_after: trip_scheduling  # resume asim after this step
-final_asim_plans_folder:
-
-# POLARIS
+chunk_size: 10000000000
+container_manager: docker
+docker_images:
+  activitysim: jdcaicedo/activitysim:latest
+  atlas: null
+  beam: dimaopen/beam:0.8.6.3
+  polaris: tbd
+  urbansim: mxndrwgrdnr/block_model_v2_pb:latest
+docker_stdout: false
+end_year: 2011
+final_asim_plans_folder: null
+household_sample_size: 0
+hwy_paths:
+- SOV
+- SOVTOLL
+- HOV2
+- HOV2TOLL
+- HOV3
+- HOV3TOLL
+land_use_freq: 1
+land_use_model: urbansim
+local_crs:
+  austin: EPSG:32140
+  sfbay: EPSG:7131
+num_processes: 60
+periods:
+- EA
+- AM
+- MD
+- PM
+- EV
 polaris_local_data_folder: pilates/polaris/data
 polaris_skim_keys:
-  base: 'auto_skims'
-  t: 't4'  # 8-9am
+  base: auto_skims
   impedances:
-    - ivtt
-    - cost
-
-
-# ACTIVITYSIM
-household_sample_size: 0  # zero means no sampling, whole pop.
-chunk_size: 4000000000
-num_processes: 32
-asim_local_input_folder: pilates/activitysim/data/
-asim_local_output_folder: pilates/activitysim/output/
-asim_validation_folder: pilates/activitysim/validation
-asim_formattable_command: "-h {0} -n {1} -c {2}"
-region_to_asim_subdir:
-  austin: austin
-  detroit: detroit 
-  sfbay: bay_area
+  - ivtt
+  - cost
+  t: t4
+pull_latest: false
+region: sfbay
 region_to_asim_bucket:
   austin: austin-activitysim
   detroit: detroit-activitysim
   sfbay: bayarea-activitysim
-periods:
-  - EA
-  - AM
-  - MD
-  - PM
-  - EV
+region_to_asim_subdir:
+  austin: austin
+  detroit: detroit
+  sfbay: carb/scenarios/tolls/$1_Increase
+region_to_region_id:
+  austin: '48197301'
+  sfbay: 06197001
+replan_after: trip_scheduling
+replan_hh_samp_size: 0
+replan_iters: 0
+scenario: base
+singularity_images:
+  activitysim: null
+  beam: null
+  polaris: null
+  urbansim: block_model_v2_pb.sif
+skim_zone_source_id_col: objectid
+skims_fname: as-base-skims-sfbay-taz.csv.gz
+skims_zone_type: taz
+start_year: 2010
 transit_paths:
-  - DRV_COM_WLK
-  - DRV_HVY_WLK
-  - DRV_LOC_WLK
-  - DRV_LRF_WLK
-  - DRV_EXP_WLK
-  - WLK_COM_DRV   
-  - WLK_HVY_DRV
-  - WLK_LOC_DRV
-  - WLK_LRF_DRV
-  - WLK_EXP_DRV
-  - WLK_COM_WLK
-  - WLK_HVY_WLK
-  - WLK_LOC_WLK
-  - WLK_LRF_WLK
-  - WLK_EXP_WLK
-  - WLK_TRN_WLK
-hwy_paths:
-  - SOV
-  - SOVTOLL
-  - HOV2
-  - HOV2TOLL
-  - HOV3
-  - HOV3TOLL
-beam_asim_hwy_measure_map:
-  TIME: TIME_minutes
-  DIST: DIST_miles
-  BTOLL: null
-  VTOLL: VTOLL_FAR
-beam_asim_transit_measure_map:
-  WAIT: null
-  TOTIVT: TOTIVT_IVT_minutes
-  KEYIVT: KEYIVT_minutes
-  FERRYIVT: FERRYIVT_minutes
-  FAR: VTOLL_FAR
-  DTIM: DTIM_minutes
-  DDIST: DDIST_miles
-  WAUX: WAUX_minutes
-  WEGR: WEGR_minutes
-  WACC: WACC_minutes
-  IWAIT: null
-  XWAIT: null
-  BOARDS: BOARDS
-  IVT: TOTIVT_IVT_minutes
-asim_output_tables:
-  prefix: final_
-  tables:
-    - checkpoints
-    - land_use
-    - households
-    - persons
-    - tours
-    - trips
-    - joint_tour_participants
-    - plans
-asim_from_usim_col_maps:
-  households:
-    persons: PERSONS  # asim preproc
-    PERSONS: hhsize  # asim settings.yaml
-    cars: auto_ownership  # asim preproc
-#     VEHICL: auto_ownership  # asim annotate_households.csv
-    workers: num_workers  # asim settings.yaml
-  persons:
-    member_id: PNUM  # asim preproc
-  land_use:
-    ZONE: TAZ  # asim settings.yaml
-    COUNTY: county_id  # asim settings.yaml
-asim_to_usim_col_maps:
-  households:
-    hhsize: persons  # asim postproc
-    num_workers: workers  # asim postproc
-    auto_ownership: cars  # asim postproc
-  persons:
-    PNUM: member_id  # asim postproc
-    workplace_taz: work_zone_id  # asim postproc
-    school_taz: school_taz_id  # asim postproc
-
-
-
-#########################################################################################################
-
-################################
-#    MISC. PILATES SETTINGS    #
-################################
-
-# GEOGRAPHY SETTINGS
-FIPS:
-  sfbay:
-    state: "06"
-    counties:
-      - "001"
-      - "013"
-      - "041"
-      - "055"
-      - "075"
-      - "081"
-      - "085"
-      - "095"
-      - "097"
-  austin:
-    state: "48"
-    counties:
-      - "021"
-      - "053"
-      - "055"
-      - "209"
-      - "453"
-      - "491"
-local_crs:
-  sfbay: EPSG:7131
-  austin: EPSG:32140
-
-# VALIDATION METRIC LIBRARY
+- DRV_COM_WLK
+- DRV_HVY_WLK
+- DRV_LOC_WLK
+- DRV_LRF_WLK
+- DRV_EXP_WLK
+- WLK_COM_DRV
+- WLK_HVY_DRV
+- WLK_LOC_DRV
+- WLK_LRF_DRV
+- WLK_EXP_DRV
+- WLK_COM_WLK
+- WLK_HVY_WLK
+- WLK_LOC_WLK
+- WLK_LRF_WLK
+- WLK_EXP_WLK
+- WLK_TRN_WLK
+travel_model: beam
+travel_model_freq: 1
+usim_client_data_folder: /base/block_model_probaflow/data/
+usim_formattable_command: -r {0} -i {1} -y {2} -f {3} -t {4}
+usim_formattable_input_file_name: custom_mpo_{region_id}_model_data.h5
+usim_formattable_output_file_name: model_data_{year}.h5
+usim_local_data_folder: pilates/urbansim/data/
 validation_metrics:
-  growth:
-    - population
-    - employment
-    - residential_units
-  commute_dists:
-  mode_shares:
-  auto_ownership:
+  auto_ownership: null
+  commute_dists: null
   density_gradients:
-    rent:
-      access:
-        var: employment
-        cost: minutes
-        levels:
-          - 15
-          - 45
     jobs:
       access:
-        var: employment
         cost: minutes
         levels:
-          - 15
-          - 45
+        - 15
+        - 45
+        var: employment
     population:
       access:
-        var: employment
         cost: minutes
         levels:
-          - 15
-          - 45
+        - 15
+        - 45
+        var: employment
+    rent:
+      access:
+        cost: minutes
+        levels:
+        - 15
+        - 45
+        var: employment
+  growth:
+  - population
+  - employment
+  - residential_units
+  mode_shares: null
+warm_start_activities: false
