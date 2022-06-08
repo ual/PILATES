@@ -34,5 +34,5 @@ Seat Utilization: 1.323612705162052
 Total VMT: 96955605.42099985
 Transit Ridership: 1712925
 VMT per Capita: 14.115350676813387
-name: Current_waiting_times
-policy: transit_frequency
+name: conservative
+policy: car_free_zones
