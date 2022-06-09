@@ -24,7 +24,7 @@ docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb
   atlas: ghcr.io/lbnl-science-it/atlas:v1.0.7
   beam: zaneedell/beam:0.8.6.10
-  activitysim: zaneedell/activitysim:ridehailskims.0
+  activitysim: zaneedell/activitysim:new-geoms.1
   polaris:
 docker_stdout: False
 pull_latest: True # False
