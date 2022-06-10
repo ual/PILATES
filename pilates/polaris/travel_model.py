@@ -8,7 +8,7 @@ import pilates.polaris.postprocessor as postprocessor
 import logging
 import glob
 import fnmatch
-import polarisruntime as PR
+import pilates.polaris.polarisruntime as PR
 from pathlib import Path
 from threading import Thread
 

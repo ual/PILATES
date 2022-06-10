@@ -681,7 +681,7 @@ if __name__ == '__main__':
         'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = settings.get('travel_model_freq', 1)
     warm_start_skims = settings['warm_start_skims']
-    warm_start = settings['warm_start_activities']
+    warm_start_acts = settings['warm_start_activities']
     static_skims = settings['static_skims']
     land_use_enabled = settings['land_use_enabled']
     activity_demand_enabled = settings['activity_demand_enabled']
@@ -690,7 +690,7 @@ if __name__ == '__main__':
     container_manager = settings['container_manager']
     #restart_from_polaris - use to restart a crashed run at a new 'start_year' without doing initialization
     restart_from_polaris = settings['restart_from_polaris']
-    if restart_from_polaris: warm_start = False
+    if restart_from_polaris: warm_start_acts = False
     
     logger.info("Initializing data...")
     if not restart_from_polaris: clean_and_init_data()
@@ -724,7 +724,7 @@ if __name__ == '__main__':
         if land_use_enabled:
 
             # 1a. IF START YEAR, WARM START MANDATORY ACTIVITIES
-            if (year == start_year) and (warm_start):
+            if (year == start_year) and (warm_start_acts):
                 warm_start_activities(settings, year, client)
 
             # 1b. RUN LAND USE SIMULATION
