@@ -28,7 +28,10 @@ from pilates.urbansim import postprocessor as usim_post
 from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
 from pilates.utils.io import read_datastore
-from pilates.polaris.travel_model import run_polaris
+try:
+    from pilates.polaris.travel_model import run_polaris
+except ImportError:
+    print('Warning: Unable to import POLARIS runtime libraries.')
 
 
 logging.basicConfig(
