@@ -7,6 +7,26 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+def update_beam_population_sample(settings):
+    if 'beam_sample' in settings:
+        sample_size_config = 'beam.agentsim.agentSampleSizeAsFractionOfPopulation'
+        beam_config_path = os.path.join(
+            settings['beam_local_input_folder'],
+            settings['region'],
+            settings['beam_config'])
+        modified = False
+        with open(beam_config_path, 'r') as file:
+            data = file.readlines()
+        with open(beam_config_path, 'w') as file:
+            for line in data:
+                if line.startswith(sample_size_config):
+                    modified = True
+                    file.writelines(sample_size_config + " = " + str(settings['beam_sample']) + "\n")
+                else:
+                    file.writelines(line)
+            if ~modified:
+                file.writelines(sample_size_config + " = " + str(settings['beam_sample']) + "\n")
+
 def make_archive(source, destination):
     """
     From https://stackoverflow.com/questions/32640053/compressing-directory-using-shutil-make-archive-while-preserving-directory-str

@@ -752,6 +752,9 @@ if __name__ == '__main__':
     traffic_assignment_enabled = settings['traffic_assignment_enabled']
     replanning_enabled = settings['replanning_enabled']
 
+    if traffic_assignment_enabled:
+        beam_pre.update_beam_population_sample(settings)
+
     if warm_start_skims:
         formatted_print('"WARM START SKIMS" MODE ENABLED')
         logger.info('Generating activity plans for the base year only.')
