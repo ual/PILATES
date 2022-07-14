@@ -189,10 +189,10 @@ def create_usim_input_data(
 
     # Move UrbanSim input store (e.g. custom_mpo_193482435_model_data.h5)
     # to archive (e.g. input_data_for_2015_outputs.h5) because otherwise
-    # it will be overwritten shortly.
+    # it will be overwritten in the next step.
     input_datastore_name = _get_usim_datastore_fname(settings, io='input')
     input_store_path = os.path.join(data_dir, input_datastore_name)
-    archive_fname = 'input_data_for_{0}_outputs.h5'.format(input_year)
+    archive_fname = 'input_data_for_{0}_outputs.h5'.format(forecast_year)
     archive_path = input_store_path.replace(
         input_datastore_name, archive_fname)
     if os.path.exists(input_store_path):
@@ -214,7 +214,7 @@ def create_usim_input_data(
     if not os.path.exists(usim_output_store_path):
         raise ValueError('No output data found at {0}.'.format(
             usim_output_store_path))
-    usim_output_store = pd.HDFStore(usim_output_store_path)
+    usim_output_store, table_prefix_year = read_datastore(settings, forecast_year)
 
     logger.info(
         'Merging results back into UrbanSim format and storing as .h5!')
@@ -237,11 +237,12 @@ def create_usim_input_data(
     logger.info((
         "Passing last set of UrbanSim outputs through to the new "
         "Urbansim input store!"))
-    for h5_key in usim_output_store.keys():
+    for h5_key in output_store.keys():
         table_name = h5_key.split('/')[-1]
         if table_name not in updated_tables:
-            new_input_store[table_name] = usim_output_store[h5_key]
-            updated_tables.append(table_name)
+            if os.path.join('/', table_prefix_year, table_name) == h5_key:
+                new_input_store[table_name] = usim_output_store[h5_key]
+                updated_tables.append(table_name)
 
     # 3. copy USIM INPUTS into new input data store if not present already
     logger.info((
