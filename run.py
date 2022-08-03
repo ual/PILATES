@@ -4,6 +4,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import shutil
 import subprocess
+import multiprocessing
+import psutil
 
 import yaml
 
@@ -225,7 +227,7 @@ def get_base_asim_cmd(settings, household_sample_size=None):
     formattable_asim_cmd = settings['asim_formattable_command']
     if not household_sample_size:
         household_sample_size = settings.get('household_sample_size', 0)
-    num_processes = settings.get('num_processes', 4)
+    num_processes = settings.get('num_processes', multiprocessing.cpu_count() - 1)
     chunk_size = settings.get('chunk_size', 0)  # default no chunking
     base_asim_cmd = formattable_asim_cmd.format(
         household_sample_size, num_processes, chunk_size)
@@ -700,7 +702,7 @@ def run_traffic_assignment(
         docker_stdout = settings['docker_stdout']
         skims_fname = settings['skims_fname']
         origin_skims_fname = settings['origin_skims_fname']
-        beam_memory = settings['beam_memory']
+        beam_memory = settings.get('beam_memory', str(int(psutil.virtual_memory().total/(1024.**3)) - 2) + 'g')
 
         # remember the last produced skims in order to detect that
         # beam didn't work properly during this run

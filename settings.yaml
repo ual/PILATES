@@ -89,7 +89,7 @@ beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/
-beam_memory: "650g"
+#beam_memory: "650g"
 skim_zone_source_id_col: objectid
 replan_iters: 5
 replan_hh_samp_size: 0
@@ -109,7 +109,7 @@ polaris_skim_keys:
 # ACTIVITYSIM
 household_sample_size: 274783  # zero means no sampling, whole pop.
 chunk_size: 12_000_000_000 # 4000000000
-num_processes: 90 # 94
+#num_processes: 90 # 94
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
 asim_local_configs_folder: pilates/activitysim/configs/
