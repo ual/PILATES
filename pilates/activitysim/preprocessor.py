@@ -282,7 +282,7 @@ def _raw_beam_skims_preprocess(settings, year, skims_df):
     assert test_1, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
     assert test_2, 'There are {} missing destination zone ids in BEAM skims'.format(test_4)
     # Preprocess skims:
-    skims_df.set_index(['timePeriod','pathType','origin','destination'], inplace=True)
+    skims_df.set_index(['timePeriod', 'pathType', 'origin', 'destination'], inplace=True)
     skims_df.loc[:, 'DIST_miles'] = skims_df['DIST_meters'] * (0.621371 / 1000)
     skims_df.loc[:, 'DDIST_miles'] = skims_df['DDIST_meters'] * (0.621371 / 1000)
     skims_df.replace({np.inf: np.nan, 0: np.nan}, inplace=True)  ## TEMPORARY FIX
@@ -365,7 +365,7 @@ def _build_square_matrix(series, num_taz, source="origin", fill_na=0):
         logger.error("1-d skims must be associated with either 'origin' or 'destination'")
 
 
-def _build_od_matrix(df, origin, destination, metric, order, fill_na=0):
+def _build_od_matrix(df, metric, order, fill_na=0):
     """ Tranform skims from pandas dataframe to numpy square matrix (O-D matrix format) 
     Parameters: 
     -----------
@@ -386,7 +386,7 @@ def _build_od_matrix(df, origin, destination, metric, order, fill_na=0):
     ---------
     - numpy square 0-D matrix 
     """
-    out = pd.DataFrame(fill_na, index=origin, columns=destination).rename_axis(index="origin", columns="destination")
+    out = pd.DataFrame(fill_na, index=order, columns=order).rename_axis(index="origin", columns="destination")
     pivot = df[metric].unstack()
     out.loc[pivot.index, pivot.columns] = pivot.fillna(fill_na)
 
@@ -421,7 +421,7 @@ def _build_od_matrix(df, origin, destination, metric, order, fill_na=0):
     assert out.columns.isin(order).all(), 'There are missing destinations'
     assert (num_zones, num_zones) == out.shape, 'Origin-Destination matrix is not square'
 
-    return out.loc[order, order].fillna(fill_na).values
+    return out.values
 
 
 def impute_distances(zones, origin, destination):
@@ -483,9 +483,10 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
     # TO DO: Include walk and bike distances,
     # for now walk and bike are the same as drive.
     dist_column = settings['beam_asim_hwy_measure_map']['DIST']
-    dist_auto = auto_df.drop_duplicates(['origin', 'destination'], keep='last')
-    mx_dist = _build_od_matrix(dist_auto, 'origin', 'destination',
-                               dist_column, order, fill_na=np.nan)
+    if np.any(auto_df.index.duplicated()):
+        logger.warn("Duplicated index colulmns in auto df")
+        auto_df = auto_df.loc[auto_df.index.drop_duplicates(), :]
+    mx_dist = _build_od_matrix(auto_df, dist_column, order, fill_na=np.nan)
     # Impute missing distances 
     missing = np.isnan(mx_dist)
     if missing.any():
@@ -523,17 +524,14 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                     logger.info("Building blank skim for {0} because it doesn't exist in beam outputs".format(name))
                     mtx = np.zeros((num_taz, num_taz))
                 elif (measure == 'FAR') or (measure == 'BOARDS'):
-                    mtx = _build_od_matrix(df_, 'origin', 'destination',
-                                           measure_map[measure], order,
-                                           fill_na=0)
+                    mtx = _build_od_matrix(df_, measure_map[measure], order, fill_na=0)
                 elif measure_map[measure] in df_.columns:
                     # activitysim estimated its models using transit skims from Cube
                     # which store time values as scaled integers (e.g. x100), so their
                     # models also divide transit skim values by 100. Since our skims
                     # aren't coming out of Cube, we multiply by 100 to negate the division.
                     # This only applies for travel times.
-                    mtx = _build_od_matrix(df_, 'origin', 'destination',
-                                           measure_map[measure], order) * 100
+                    mtx = _build_od_matrix(df_, measure_map[measure], order) * 100
 
                 else:
                     mtx = np.zeros((num_taz, num_taz))
@@ -594,9 +592,7 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if path in beam_hwy_paths & measure_map[measure]:
-                    mtx = _build_od_matrix(df_, 'origin', 'destination',
-                                           measure_map[measure], order,
-                                           fill_na=np.nan)
+                    mtx = _build_od_matrix(df_, measure_map[measure], order, fill_na=np.nan)
                     missing = np.isnan(mtx)
 
                     if missing.any():
@@ -1198,17 +1194,19 @@ def _create_land_use_table(
     zones['EMPRES'] = households[[asim_zone_id_col, 'workers']].groupby(asim_zone_id_col)['workers'].sum().reindex(
         zones.index).fillna(0)
     zones['HHINCQ1'] = \
-    households.loc[households['income'] < 30000, [asim_zone_id_col, 'income']].groupby(asim_zone_id_col)[
-        'income'].count().reindex(zones.index).fillna(0)
+        households.loc[households['income'] < 30000, [asim_zone_id_col, 'income']].groupby(asim_zone_id_col)[
+            'income'].count().reindex(zones.index).fillna(0)
     zones['HHINCQ2'] = \
-    households.loc[households['income'].between(30000, 59999), [asim_zone_id_col, 'income']].groupby(asim_zone_id_col)[
-        'income'].count().reindex(zones.index).fillna(0)
+        households.loc[households['income'].between(30000, 59999), [asim_zone_id_col, 'income']].groupby(
+            asim_zone_id_col)[
+            'income'].count().reindex(zones.index).fillna(0)
     zones['HHINCQ3'] = \
-    households.loc[households['income'].between(60000, 99999), [asim_zone_id_col, 'income']].groupby(asim_zone_id_col)[
-        'income'].count().reindex(zones.index).fillna(0)
+        households.loc[households['income'].between(60000, 99999), [asim_zone_id_col, 'income']].groupby(
+            asim_zone_id_col)[
+            'income'].count().reindex(zones.index).fillna(0)
     zones['HHINCQ4'] = \
-    households.loc[households['income'] >= 100000, [asim_zone_id_col, 'income']].groupby(asim_zone_id_col)[
-        'income'].count().reindex(zones.index).fillna(0)
+        households.loc[households['income'] >= 100000, [asim_zone_id_col, 'income']].groupby(asim_zone_id_col)[
+            'income'].count().reindex(zones.index).fillna(0)
     zones['AGE0004'] = persons.loc[persons['age'].between(0, 4), [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)[
         'age'].count().reindex(zones.index).fillna(0)
     zones['AGE0519'] = persons.loc[persons['age'].between(5, 19), [asim_zone_id_col, 'age']].groupby(asim_zone_id_col)[
@@ -1224,20 +1222,20 @@ def _create_land_use_table(
     zones['SHPOP62P'] = (zones.AGE62P / zones.TOTPOP).reindex(zones.index).fillna(0)
     zones['TOTEMP'] = jobs[asim_zone_id_col].groupby(jobs[asim_zone_id_col]).count().reindex(zones.index).fillna(0)
     zones['RETEMPN'] = \
-    jobs.loc[jobs['sector_id'].isin(['44-45']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)[
-        'sector_id'].count().reindex(zones.index).fillna(0)
+        jobs.loc[jobs['sector_id'].isin(['44-45']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)[
+            'sector_id'].count().reindex(zones.index).fillna(0)
     zones['FPSEMPN'] = \
-    jobs.loc[jobs['sector_id'].isin(['52', '54']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)[
-        'sector_id'].count().reindex(zones.index).fillna(0)
+        jobs.loc[jobs['sector_id'].isin(['52', '54']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)[
+            'sector_id'].count().reindex(zones.index).fillna(0)
     zones['HEREMPN'] = \
-    jobs.loc[jobs['sector_id'].isin(['61', '62', '71']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)[
-        'sector_id'].count().reindex(zones.index).fillna(0)
+        jobs.loc[jobs['sector_id'].isin(['61', '62', '71']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)[
+            'sector_id'].count().reindex(zones.index).fillna(0)
     zones['AGREMPN'] = \
-    jobs.loc[jobs['sector_id'].isin(['11']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)[
-        'sector_id'].count().reindex(zones.index).fillna(0)
+        jobs.loc[jobs['sector_id'].isin(['11']), [asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)[
+            'sector_id'].count().reindex(zones.index).fillna(0)
     zones['MWTEMPN'] = \
-    jobs.loc[jobs['sector_id'].isin(['42', '31-33', '32', '48-49']), [asim_zone_id_col, 'sector_id']].groupby(
-        asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
+        jobs.loc[jobs['sector_id'].isin(['42', '31-33', '32', '48-49']), [asim_zone_id_col, 'sector_id']].groupby(
+            asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(0)
     zones['OTHEMPN'] = jobs.loc[
         ~jobs['sector_id'].isin(['44-45', '52', '54', '61', '62', '71', '11', '42', '31-33', '32', '48-49']), [
             asim_zone_id_col, 'sector_id']].groupby(asim_zone_id_col)['sector_id'].count().reindex(zones.index).fillna(
