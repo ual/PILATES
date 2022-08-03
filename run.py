@@ -31,8 +31,7 @@ from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
 from pilates.atlas import preprocessor as atlas_pre  ##
 from pilates.atlas import postprocessor as atlas_post  ##
-from pilates.utils.io import read_datastore
-from pilates.polaris.travel_model import run_polaris
+# from pilates.polaris.travel_model import run_polaris
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.INFO,
@@ -991,7 +990,7 @@ if __name__ == '__main__':
         if traffic_assignment_enabled:
 
             # 4. RUN TRAFFIC ASSIGNMENT
-            run_traffic_assignment(settings, year, forecast_year, client, travel_model)
+            run_traffic_assignment(settings, year, forecast_year, client, -1)
 
             # 5. REPLAN
             if replanning_enabled > 0:
