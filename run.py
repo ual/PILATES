@@ -104,6 +104,8 @@ def setup_beam_skims(settings):
 
     beam_geoms_location = os.path.join(beam_input_dir, region, beam_router_directory, beam_geoms_fname)
 
+    # TODO: Handle exception when these dont exist
+
     logger.info("Copying input skims from {0} to {1}".format(
         input_skims_location,
         mutable_skims_location))
@@ -775,8 +777,9 @@ def initialize_docker_client(settings):
         for model in models:
             if model:
                 image = image_names[model]
-                print('Pulling latest image for {0}'.format(image))
-                client.images.pull(image)
+                if image is not None:
+                    print('Pulling latest image for {0}'.format(image))
+                    client.images.pull(image)
 
     return client
 
@@ -851,7 +854,7 @@ def run_replanning_loop(settings, forecast_year):
 
         # e) run BEAM
         run_traffic_assignment(
-            settings, year, client, replanning_iteration_number)
+            settings, year, forecast_year, client, replanning_iteration_number)
 
     return
 

@@ -37,7 +37,7 @@ docker_images:
   polaris: tbd
   atlas:
 docker_stdout: False
-pull_latest: True # False
+pull_latest: False
 
 # skim settings
 skims_zone_type: taz # one of [taz, block_group, block]
@@ -95,6 +95,10 @@ replan_iters: 5
 replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
 final_asim_plans_folder: pilates/activitysim/output/final_plans
+beam_simulated_hwy_paths:
+  - SOV
+  - HOV2
+  - HOV3
 
 # POLARIS
 polaris_local_data_folder: pilates/polaris/data
