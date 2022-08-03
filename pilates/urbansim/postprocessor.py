@@ -1,7 +1,7 @@
 import os
 import logging
 import pandas as pd
-
+from pilates.utils.io import read_datastore
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +20,17 @@ def _get_usim_datastore_fname(settings, io, year=None):
     return datastore_name
 
 
-def create_next_iter_usim_data(settings, year):
+def create_next_iter_usim_data(settings, year, forecast_year):
 
     data_dir = settings['usim_local_data_folder']
 
-    # load original input data
+    # Move UrbanSim input store (e.g. custom_mpo_193482435_model_data.h5)
+    # to archive (e.g. input_data_for_2015_outputs.h5) because otherwise
+    # it will be overwritten in the next step.
     input_datastore_name = _get_usim_datastore_fname(settings, io='input')
     input_store_path = os.path.join(data_dir, input_datastore_name)
     if os.path.exists(input_store_path):
-        archive_fname = 'input_data_for_{0}_outputs.h5'.format(year)
+        archive_fname = 'input_data_for_{0}_outputs.h5'.format(forecast_year)
         logger.info(
             "Moving urbansim inputs from the previous iteration to {0}".format(
                 archive_fname))
@@ -37,23 +39,25 @@ def create_next_iter_usim_data(settings, year):
         os.rename(input_store_path, new_input_store_path)
 
     og_input_store = pd.HDFStore(new_input_store_path)
+    new_input_store = pd.HDFStore(input_store_path)
+    assert len(new_input_store.keys()) == 0
+    updated_tables = []
 
     # load last iter output data
-    output_datastore_name = _get_usim_datastore_fname(settings, 'output', year)
+    output_datastore_name = _get_usim_datastore_fname(settings, 'output', forecast_year)
     output_store_path = os.path.join(data_dir, output_datastore_name)
-    output_store = pd.HDFStore(output_store_path)
-
+    
+    # copy usim outputs into new input data store
     logger.info(
         'Merging results back into UrbanSim and storing as .h5!')
+    output_store, table_prefix_year = read_datastore(settings, forecast_year)
 
-    # copy usim outputs into new input data store
-    new_input_store = pd.HDFStore(input_store_path)
-    updated_tables = []
     for h5_key in output_store.keys():
         table_name = h5_key.split('/')[-1]
-        updated_tables.append(table_name)
-        new_input_store[table_name] = output_store[h5_key]
-
+        if os.path.join('/', table_prefix_year, table_name) == h5_key:
+            updated_tables.append(table_name)
+            new_input_store[table_name] = output_store[h5_key]
+        
     # copy missing tables from original usim inputs into new input data store
     for h5_key in og_input_store.keys():
         table_name = h5_key.split('/')[-1]
@@ -67,3 +71,4 @@ def create_next_iter_usim_data(settings, year):
     og_input_store.close()
     new_input_store.close()
     output_store.close()
+    

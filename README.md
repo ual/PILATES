@@ -38,16 +38,20 @@ NOTE: currently all input data is overwritten in place throughout the course of 
 
 ## 3. Executing the full workflow
 ```
-usage: ipython [-v] [-p] [-h HOUSEHOLD_SAMPLE_SIZE] [-s] [-w]
+usage: ipython [-v] [-p] [-h HOUSEHOLD_SAMPLE_SIZE] [-s] [-w] [-d DISABLE_MODEL] [-c CONFIG]
 
 optional arguments:
   -v, --verbose         print docker stdout
   -p, --pull_latest     pull latest docker images before running
   -h HOUSEHOLD_SAMPLE_SIZE, --household_sample_size HOUSEHOLD_SAMPLE_SIZE
-                        household sample size
+                        household sample size (only works if land use models are disables)
   -s, --static_skims    bypass traffic assignment altogether (i.e. use base year skims for every run)
   -w, --warm_start_skims
                         generate full activity plans for the base year only. useful for generating warm start skims.
+  -d DISABLE_MODEL, --disable_model DISABLE_MODEL
+                        "l" for land use, "a" for activity demand, "t" for traffic assignment. Can specify multiple (e.g. "at")
+  -c CONFIG, --config CONFIG
+                        Specify different config .yaml (other than "settings.yaml")
 ```
 
 ## Miscellany
