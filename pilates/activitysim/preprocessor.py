@@ -565,13 +565,16 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if name in resultsDict:
-                    skims[name] = resultsDict[name]
+                    mtx = resultsDict[name]
                 else:
                     logger.warning(
                         "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
                             name))
                     mtx = np.zeros((num_taz, num_taz), dtype=np.float32)
-                    skims[name] = mtx
+                if np.any(np.isinf(mtx)):
+                    logger.warning("Replacing {0} infs in skim {1}".format(np.isinf(mtx).sum().sum(), name))
+                    mtx[np.isinf(mtx)] = np.nan
+                skims[name] = mtx
     skims.close()
 
 
@@ -658,6 +661,9 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
                     logger.warning(
                         "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
                             name))
+                if np.any(np.isinf(mtx)):
+                    logger.warning("Replacing {0} infs in skim {1}".format(np.isinf(mtx).sum().sum(), name))
+                    mtx[np.isinf(mtx)] = np.nan
                 skims[name] = mtx
     skims.close()
 
