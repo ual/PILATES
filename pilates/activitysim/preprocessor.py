@@ -387,8 +387,11 @@ def _build_od_matrix(df, metric, order, fill_na=0):
     - numpy square 0-D matrix 
     """
     out = pd.DataFrame(fill_na, index=order, columns=order).rename_axis(index="origin", columns="destination")
-    pivot = df[metric].unstack()
-    out.loc[pivot.index, pivot.columns] = pivot.fillna(fill_na)
+    if metric in df.columns:
+        pivot = df[metric].unstack()
+        out.loc[pivot.index, pivot.columns] = pivot.fillna(fill_na)
+    else:
+        logger.warning("Missing measure {} in skims, filling in nans".format(metric))
 
     # vals = df.pivot(index=origin,
     #                 columns=destination,
@@ -587,7 +590,8 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if (path in beam_hwy_paths) & (measure in measure_map):
-                    mtx = _build_od_matrix(auto_df.loc[pd.IndexSlice[period, path, :, :]], measure_map[measure], order,
+                    # TODO: Something going wrong here
+                    mtx = _build_od_matrix(auto_df.loc[pd.IndexSlice[period, 'SOV', :, :]], measure_map[measure], order,
                                            fill_na=np.nan)
                     missing = np.isnan(mtx)
 
