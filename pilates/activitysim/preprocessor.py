@@ -390,8 +390,9 @@ def _build_od_matrix(df, metric, order, fill_na=0):
     if metric in df.columns:
         pivot = df[metric].unstack()
         out.loc[pivot.index, pivot.columns] = pivot.fillna(fill_na)
+        useDefaults = False
     else:
-        logger.warning("Missing measure {} in skims, filling in nans".format(metric))
+        useDefaults = True
 
     # vals = df.pivot(index=origin,
     #                 columns=destination,
@@ -424,7 +425,7 @@ def _build_od_matrix(df, metric, order, fill_na=0):
     assert out.columns.isin(order).all(), 'There are missing destinations'
     assert (num_zones, num_zones) == out.shape, 'Origin-Destination matrix is not square'
 
-    return out.values
+    return out.values, useDefaults
 
 
 def impute_distances(zones, origin, destination):
@@ -487,7 +488,9 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
     # for now walk and bike are the same as drive.
     dist_column = settings['beam_asim_hwy_measure_map']['DIST']
     dist_df = auto_df[[dist_column]].groupby(level=[2, 3]).agg('first')
-    mx_dist = _build_od_matrix(dist_df, dist_column, order, fill_na=np.nan)
+    mx_dist, useDefaults = _build_od_matrix(dist_df, dist_column, order, fill_na=np.nan)
+    if useDefaults:
+        logger.warning("Filling in default skim values for measure {0} because they're not in BEAM outputs".format(dist_column))
     # Impute missing distances 
     missing = np.isnan(mx_dist)
     if missing.any():
@@ -517,24 +520,30 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
 
     for path in transit_paths:
         for period in periods:
-            df_ = transit_df.loc[pd.IndexSlice[period, path, :, :], :]
+            df_ = transit_df.loc[pd.IndexSlice[period, path, :, :], :].groupby(level=[2, 3]).agg('first')
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if len(df_.index) == 0:
                     logger.info("Building blank skim for {0} because it doesn't exist in beam outputs".format(name))
                     mtx = np.zeros((num_taz, num_taz))
+                    useDefaults = True
                 elif (measure == 'FAR') or (measure == 'BOARDS'):
-                    mtx = _build_od_matrix(df_, measure_map[measure], order, fill_na=0)
+                    mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order, fill_na=0)
                 elif measure_map[measure] in df_.columns:
                     # activitysim estimated its models using transit skims from Cube
                     # which store time values as scaled integers (e.g. x100), so their
                     # models also divide transit skim values by 100. Since our skims
                     # aren't coming out of Cube, we multiply by 100 to negate the division.
                     # This only applies for travel times.
-                    mtx = _build_od_matrix(df_, measure_map[measure], order) * 100
+                    mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order) * 100
 
                 else:
                     mtx = np.zeros((num_taz, num_taz))
+                    useDefaults = True
+                if useDefaults:
+                    logger.warning(
+                        "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
+                            name))
                 skims[name] = mtx
     skims.close()
     del df_
@@ -586,13 +595,12 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
     beam_hwy_paths = settings['beam_simulated_hwy_paths']
 
     for period in periods:
+        _df = auto_df.loc[pd.IndexSlice[period, 'SOV', :, :]]
         for path in paths:
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if (path in beam_hwy_paths) & (measure in measure_map):
-                    # TODO: Something going wrong here
-                    mtx = _build_od_matrix(auto_df.loc[pd.IndexSlice[period, 'SOV', :, :]], measure_map[measure], order,
-                                           fill_na=np.nan)
+                    mtx, useDefaults = _build_od_matrix(_df, measure_map[measure], order, fill_na=np.nan)
                     missing = np.isnan(mtx)
 
                     if missing.any():
@@ -608,6 +616,11 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
                             mtx[orig, dest] = 0  ## Assumes no toll or payment
                 else:
                     mtx = np.zeros((num_taz, num_taz))
+                    useDefaults = True
+                if useDefaults:
+                    logger.warning(
+                        "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
+                            name))
                 skims[name] = mtx
     skims.close()
 
