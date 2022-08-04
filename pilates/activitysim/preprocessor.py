@@ -528,7 +528,7 @@ def _build_od_matrix_parallel(tup):
             # models also divide transit skim values by 100. Since our skims
             # aren't coming out of Cube, we multiply by 100 to negate the division.
             # This only applies for travel times.
-            mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order)
+            mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order, fill_na=np.nan)
             mtx *= 100
 
         else:
