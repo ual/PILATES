@@ -508,6 +508,10 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
     skims.close()
 
 
+# def _build_skim_matrix_parallel(df):
+#     blah
+
+
 def _transit_skims(settings, transit_df, order, data_dir=None):
     """ Generate transit OMX skims"""
 
@@ -520,7 +524,10 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
 
     for path in transit_paths:
         for period in periods:
-            df_ = transit_df.loc[pd.IndexSlice[period, path, :, :], :].groupby(level=[2, 3]).agg('first')
+            try:
+                df_ = transit_df.loc[pd.IndexSlice[period, path, :, :], :].groupby(level=[2, 3]).agg('first')
+            except KeyError:
+                df_ = pd.DataFrame()
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if len(df_.index) == 0:
@@ -596,11 +603,15 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
     beam_hwy_paths = settings['beam_simulated_hwy_paths']
 
     for period in periods:
-        _df = auto_df.loc[pd.IndexSlice[period, 'SOV', :, :]]
+
+        try:
+            _df = auto_df.loc[pd.IndexSlice[period, 'SOV', :, :]]
+        except KeyError:
+            _df = pd.DataFrame()
         for path in paths:
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
-                if (path in beam_hwy_paths) & (measure in measure_map):
+                if (path in beam_hwy_paths) & (measure in measure_map) & (len(_df) > 0):
                     mtx, useDefaults = _build_od_matrix(_df, measure_map[measure], order, fill_na=np.nan)
                     missing = np.isnan(mtx)
 
