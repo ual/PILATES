@@ -586,7 +586,7 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
         for path in paths:
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
-                if (path in beam_hwy_paths) & measure_map[measure]:
+                if (path in beam_hwy_paths) & (measure in measure_map):
                     mtx = _build_od_matrix(auto_df.loc[pd.IndexSlice[period, path, :, :]], measure_map[measure], order,
                                            fill_na=np.nan)
                     missing = np.isnan(mtx)
