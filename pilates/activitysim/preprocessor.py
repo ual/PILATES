@@ -553,9 +553,8 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
 
     for (period, path), processedDict in zip(groupBy.groups.keys(), ret_list):
         for measure, mtx in processedDict.items():
-            for path_ in transit_paths:
-                name = '{0}_{1}__{2}'.format(path_, measure, period)
-                resultsDict[name] = mtx
+            name = '{0}_{1}__{2}'.format(path, measure, period)
+            resultsDict[name] = mtx
 
     for path in transit_paths:
         for period in periods:
