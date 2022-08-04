@@ -13,7 +13,7 @@ from tqdm import tqdm
 import time
 import yaml
 import matplotlib.pyplot as plt
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 
 from pilates.utils.geog import get_block_geoms, \
     map_block_to_taz, get_zone_from_points, \
@@ -490,7 +490,8 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
     dist_df = auto_df[[dist_column]].groupby(level=[2, 3]).agg('first')
     mx_dist, useDefaults = _build_od_matrix(dist_df, dist_column, order, fill_na=np.nan)
     if useDefaults:
-        logger.warning("Filling in default skim values for measure {0} because they're not in BEAM outputs".format(dist_column))
+        logger.warning(
+            "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(dist_column))
     # Impute missing distances 
     missing = np.isnan(mx_dist)
     if missing.any():
@@ -508,8 +509,33 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
     skims.close()
 
 
-# def _build_skim_matrix_parallel(df):
-#     blah
+def _build_od_matrix_parallel(tup):
+    df, measure_map, num_taz, order = tup
+    out = dict()
+    for measure in measure_map.keys():
+        if len(df.index) == 0:
+            mtx = np.zeros((num_taz, num_taz), dtype=np.float)
+            useDefaults = True
+        elif (measure == 'FAR') or (measure == 'BOARDS'):
+            mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order, fill_na=0)
+        elif measure_map[measure] in df.columns:
+            # activitysim estimated its models using transit skims from Cube
+            # which store time values as scaled integers (e.g. x100), so their
+            # models also divide transit skim values by 100. Since our skims
+            # aren't coming out of Cube, we multiply by 100 to negate the division.
+            # This only applies for travel times.
+            mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order)
+            mtx *= 100
+
+        else:
+            mtx = np.zeros((num_taz, num_taz), dtype=np.float)
+            useDefaults = True
+        if useDefaults:
+            logger.warning(
+                "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
+                    measure))
+        out[measure] = mtx
+    return out
 
 
 def _transit_skims(settings, transit_df, order, data_dir=None):
@@ -522,37 +548,64 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
     skims = read_skims(settings, mode='a', data_dir=data_dir)
     num_taz = len(order)
 
+    groupBy = transit_df.groupby(level=[0, 1])
+
+    with Pool(cpu_count() - 1) as p:
+        ret_list = p.map(_build_od_matrix_parallel,
+                         [(group.loc[name], measure_map, num_taz, order) for name, group in groupBy])
+
+    resultsDict = dict()
+
+    for (period, path), processedDict in zip(groupBy.groups.keys(), ret_list):
+        for measure, mtx in processedDict.items():
+            for path_ in paths:
+                name = '{0}_{1}__{2}'.format(path_, measure, period)
+                resultsDict[name] = mtx
+
     for path in transit_paths:
         for period in periods:
-            try:
-                df_ = transit_df.loc[pd.IndexSlice[period, path, :, :], :].groupby(level=[2, 3]).agg('first')
-            except KeyError:
-                df_ = pd.DataFrame()
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
-                if len(df_.index) == 0:
-                    logger.info("Building blank skim for {0} because it doesn't exist in beam outputs".format(name))
-                    mtx = np.zeros((num_taz, num_taz))
-                    useDefaults = True
-                elif (measure == 'FAR') or (measure == 'BOARDS'):
-                    mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order, fill_na=0)
-                elif measure_map[measure] in df_.columns:
-                    # activitysim estimated its models using transit skims from Cube
-                    # which store time values as scaled integers (e.g. x100), so their
-                    # models also divide transit skim values by 100. Since our skims
-                    # aren't coming out of Cube, we multiply by 100 to negate the division.
-                    # This only applies for travel times.
-                    mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order)
-                    mtx *= 100
-
+                if name in resultsDict:
+                    skims[name] = resultsDict[name]
                 else:
-                    mtx = np.zeros((num_taz, num_taz))
-                    useDefaults = True
-                if useDefaults:
                     logger.warning(
                         "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
                             name))
-                skims[name] = mtx
+                    mtx = np.zeros((num_taz, num_taz), dtype=np.float)
+                    skims[name] = mtx
+    # print('stop')
+    #
+    # for path in transit_paths:
+    #     for period in periods:
+    #         try:
+    #             df_ = transit_df.loc[pd.IndexSlice[period, path, :, :], :].groupby(level=[2, 3]).agg('first')
+    #         except KeyError:
+    #             df_ = pd.DataFrame()
+    #         for measure in measure_map.keys():
+    #             name = '{0}_{1}__{2}'.format(path, measure, period)
+    #             if len(df_.index) == 0:
+    #                 mtx = np.zeros((num_taz, num_taz))
+    #                 useDefaults = True
+    #             elif (measure == 'FAR') or (measure == 'BOARDS'):
+    #                 mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order, fill_na=0)
+    #             elif measure_map[measure] in df_.columns:
+    #                 # activitysim estimated its models using transit skims from Cube
+    #                 # which store time values as scaled integers (e.g. x100), so their
+    #                 # models also divide transit skim values by 100. Since our skims
+    #                 # aren't coming out of Cube, we multiply by 100 to negate the division.
+    #                 # This only applies for travel times.
+    #                 mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order)
+    #                 mtx *= 100
+    #
+    #             else:
+    #                 mtx = np.zeros((num_taz, num_taz))
+    #                 useDefaults = True
+    #             if useDefaults:
+    #                 logger.warning(
+    #                     "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
+    #                         name))
+    #             skims[name] = mtx
     skims.close()
     del df_
 
@@ -585,7 +638,7 @@ def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
                     mtx = _build_square_matrix(df_[skimMeasure], num_taz, 'origin', 0.0)
 
                 else:
-                    mtx = np.zeros((num_taz, num_taz))
+                    mtx = np.zeros((num_taz, num_taz), dtype=np.float)
                 skims[name] = mtx
     skims.close()
     del df, df_
@@ -602,17 +655,27 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
     num_taz = len(order)
     beam_hwy_paths = settings['beam_simulated_hwy_paths']
 
-    for period in periods:
+    groupBy = auto_df.groupby(level=[0,1])
 
-        try:
-            _df = auto_df.loc[pd.IndexSlice[period, 'SOV', :, :]]
-        except KeyError:
-            _df = pd.DataFrame()
+    with Pool(cpu_count()-1) as p:
+        ret_list = p.map(_build_od_matrix_parallel, [(group.loc[name], measure_map, num_taz, order) for name, group in groupBy])
+
+    resultsDict = dict()
+
+    for (period, path), processedDict in zip(groupBy.groups.keys(), ret_list):
+        if path == "SOV":
+            for measure, mtx in processedDict.items():
+                for path_ in paths:
+                    name = '{0}_{1}__{2}'.format(path_, measure, period)
+                    print(name)
+                    resultsDict[name] = mtx
+
+    for period in periods:
         for path in paths:
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
-                if (path in beam_hwy_paths) & (measure in measure_map) & (len(_df) > 0):
-                    mtx, useDefaults = _build_od_matrix(_df, measure_map[measure], order, fill_na=np.nan)
+                if name in resultsDict:
+                    mtx = resultsDict[name]
                     missing = np.isnan(mtx)
 
                     if missing.any():
@@ -627,9 +690,7 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
                         else:
                             mtx[orig, dest] = 0  ## Assumes no toll or payment
                 else:
-                    mtx = np.zeros((num_taz, num_taz))
-                    useDefaults = True
-                if useDefaults:
+                    mtx = np.zeros((num_taz, num_taz), dtype=np.float)
                     logger.warning(
                         "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
                             name))
@@ -763,7 +824,7 @@ def skim_validations(settings, year, order, data_dir=None):
                      'WLK_LOC_WLK_WAIT__AM', 'WLK_LOC_WLK_WAUX__AM',
                      'WLK_LOC_WLK_WEGR__AM', 'WLK_LOC_WLK_XWAIT__AM',
                      'WLK_LOC_WLK_WACC__AM']
-    PuT_time = np.zeros((num_zones, num_zones))
+    PuT_time = np.zeros((num_zones, num_zones), dtype=np.float)
     for measure in loc_time_list:
         time = np.array(skims[measure]) / 100
         PuT_time = PuT_time + time
