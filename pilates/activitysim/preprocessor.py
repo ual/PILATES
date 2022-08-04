@@ -529,7 +529,6 @@ def _build_od_matrix_parallel(tup):
             # aren't coming out of Cube, we multiply by 100 to negate the division.
             # This only applies for travel times.
             mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order, fill_na)
-            mtx *= 100
 
         else:
             mtx = np.zeros((num_taz, num_taz), dtype=np.float32)
@@ -575,7 +574,10 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                 if np.any(np.isinf(mtx)):
                     logger.warning("Replacing {0} infs in skim {1}".format(np.isinf(mtx).sum().sum(), name))
                     mtx[np.isinf(mtx)] = np.nan
-                skims[name] = mtx
+                if (measure == 'FAR') or (measure == 'BOARDS'):
+                    skims[name] = mtx
+                else:
+                    skims[name] = mtx * 100
     skims.close()
 
 
