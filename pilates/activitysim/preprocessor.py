@@ -483,10 +483,8 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
     # TO DO: Include walk and bike distances,
     # for now walk and bike are the same as drive.
     dist_column = settings['beam_asim_hwy_measure_map']['DIST']
-    if np.any(auto_df.index.duplicated()):
-        logger.warn("Duplicated index colulmns in auto df")
-        auto_df = auto_df.loc[auto_df.index.drop_duplicates(), :]
-    mx_dist = _build_od_matrix(auto_df, dist_column, order, fill_na=np.nan)
+    dist_df = auto_df[[dist_column]].groupby(level=[2, 3]).agg('first')
+    mx_dist = _build_od_matrix(dist_df, dist_column, order, fill_na=np.nan)
     # Impute missing distances 
     missing = np.isnan(mx_dist)
     if missing.any():
