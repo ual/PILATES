@@ -574,40 +574,7 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                             name))
                     mtx = np.zeros((num_taz, num_taz), dtype=np.float)
                     skims[name] = mtx
-    # print('stop')
-    #
-    # for path in transit_paths:
-    #     for period in periods:
-    #         try:
-    #             df_ = transit_df.loc[pd.IndexSlice[period, path, :, :], :].groupby(level=[2, 3]).agg('first')
-    #         except KeyError:
-    #             df_ = pd.DataFrame()
-    #         for measure in measure_map.keys():
-    #             name = '{0}_{1}__{2}'.format(path, measure, period)
-    #             if len(df_.index) == 0:
-    #                 mtx = np.zeros((num_taz, num_taz))
-    #                 useDefaults = True
-    #             elif (measure == 'FAR') or (measure == 'BOARDS'):
-    #                 mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order, fill_na=0)
-    #             elif measure_map[measure] in df_.columns:
-    #                 # activitysim estimated its models using transit skims from Cube
-    #                 # which store time values as scaled integers (e.g. x100), so their
-    #                 # models also divide transit skim values by 100. Since our skims
-    #                 # aren't coming out of Cube, we multiply by 100 to negate the division.
-    #                 # This only applies for travel times.
-    #                 mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order)
-    #                 mtx *= 100
-    #
-    #             else:
-    #                 mtx = np.zeros((num_taz, num_taz))
-    #                 useDefaults = True
-    #             if useDefaults:
-    #                 logger.warning(
-    #                     "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
-    #                         name))
-    #             skims[name] = mtx
     skims.close()
-    del df_
 
 
 def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
