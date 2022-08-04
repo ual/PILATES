@@ -665,6 +665,9 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
                     logger.warning(
                         "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
                             name))
+                if ('TOLL' in path) & ('TOLL' in measure):
+                    # For now penalize toll routes because we don't simulate them
+                    mtx.fill(1.0e7)
                 if np.any(np.isinf(mtx)):
                     logger.warning("Replacing {0} infs in skim {1}".format(np.isinf(mtx).sum().sum(), name))
                     mtx[np.isinf(mtx)] = np.nan
