@@ -365,7 +365,7 @@ def _build_square_matrix(series, num_taz, source="origin", fill_na=0):
         logger.error("1-d skims must be associated with either 'origin' or 'destination'")
 
 
-def _build_od_matrix(df, metric, order, fill_na=0):
+def _build_od_matrix(df, metric, order, fill_na=0.0):
     """ Tranform skims from pandas dataframe to numpy square matrix (O-D matrix format) 
     Parameters: 
     -----------
@@ -386,7 +386,7 @@ def _build_od_matrix(df, metric, order, fill_na=0):
     ---------
     - numpy square 0-D matrix 
     """
-    out = pd.DataFrame(fill_na, index=order, columns=order).rename_axis(index="origin", columns="destination")
+    out = pd.DataFrame(fill_na, index=order, columns=order, dtype=np.float32).rename_axis(index="origin", columns="destination")
     if metric in df.columns:
         pivot = df[metric].unstack()
         out.loc[pivot.index, pivot.columns] = pivot.fillna(fill_na)
@@ -514,7 +514,7 @@ def _build_od_matrix_parallel(tup):
     out = dict()
     for measure in measure_map.keys():
         if len(df.index) == 0:
-            mtx = np.zeros((num_taz, num_taz), dtype=np.float)
+            mtx = np.zeros((num_taz, num_taz), dtype=np.float32)
             useDefaults = True
         elif (measure == 'FAR') or (measure == 'BOARDS'):
             mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order, fill_na=0)
@@ -528,12 +528,7 @@ def _build_od_matrix_parallel(tup):
             mtx *= 100
 
         else:
-            mtx = np.zeros((num_taz, num_taz), dtype=np.float)
-            useDefaults = True
-        if useDefaults:
-            logger.warning(
-                "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
-                    measure))
+            mtx = np.zeros((num_taz, num_taz), dtype=np.float32)
         out[measure] = mtx
     return out
 
@@ -572,7 +567,7 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                     logger.warning(
                         "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
                             name))
-                    mtx = np.zeros((num_taz, num_taz), dtype=np.float)
+                    mtx = np.zeros((num_taz, num_taz), dtype=np.float32)
                     skims[name] = mtx
     skims.close()
 
@@ -605,7 +600,7 @@ def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
                     mtx = _build_square_matrix(df_[skimMeasure], num_taz, 'origin', 0.0)
 
                 else:
-                    mtx = np.zeros((num_taz, num_taz), dtype=np.float)
+                    mtx = np.zeros((num_taz, num_taz), dtype=np.float32)
                 skims[name] = mtx
     skims.close()
     del df, df_
@@ -656,7 +651,7 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
                         else:
                             mtx[orig, dest] = 0  ## Assumes no toll or payment
                 else:
-                    mtx = np.zeros((num_taz, num_taz), dtype=np.float)
+                    mtx = np.zeros((num_taz, num_taz), dtype=np.float32)
                     logger.warning(
                         "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
                             name))
@@ -790,7 +785,7 @@ def skim_validations(settings, year, order, data_dir=None):
                      'WLK_LOC_WLK_WAIT__AM', 'WLK_LOC_WLK_WAUX__AM',
                      'WLK_LOC_WLK_WEGR__AM', 'WLK_LOC_WLK_XWAIT__AM',
                      'WLK_LOC_WLK_WACC__AM']
-    PuT_time = np.zeros((num_zones, num_zones), dtype=np.float)
+    PuT_time = np.zeros((num_zones, num_zones), dtype=np.float32)
     for measure in loc_time_list:
         time = np.array(skims[measure]) / 100
         PuT_time = PuT_time + time
