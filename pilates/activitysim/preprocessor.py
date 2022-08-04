@@ -386,10 +386,10 @@ def _build_od_matrix(df, metric, order, fill_na=0.0):
     ---------
     - numpy square 0-D matrix 
     """
-    out = pd.DataFrame(fill_na, index=order, columns=order, dtype=np.float32).rename_axis(index="origin", columns="destination")
+    out = pd.DataFrame(np.nan, index=order, columns=order, dtype=np.float32).rename_axis(index="origin", columns="destination")
     if metric in df.columns:
         pivot = df[metric].unstack()
-        out.loc[pivot.index, pivot.columns] = pivot.fillna(fill_na)
+        out.loc[pivot.index, pivot.columns] = pivot.fillna(np.nan)
         useDefaults = False
         infs = np.isinf(out)
         if np.any(infs):
@@ -429,7 +429,7 @@ def _build_od_matrix(df, metric, order, fill_na=0.0):
     assert out.columns.isin(order).all(), 'There are missing destinations'
     assert (num_zones, num_zones) == out.shape, 'Origin-Destination matrix is not square'
 
-    return out.values, useDefaults
+    return out.fillna(fill_na).values, useDefaults
 
 
 def impute_distances(zones, origin, destination):
@@ -514,21 +514,21 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
 
 
 def _build_od_matrix_parallel(tup):
-    df, measure_map, num_taz, order = tup
+    df, measure_map, num_taz, order, fill_na = tup
     out = dict()
     for measure in measure_map.keys():
         if len(df.index) == 0:
             mtx = np.zeros((num_taz, num_taz), dtype=np.float32)
             useDefaults = True
         elif (measure == 'FAR') or (measure == 'BOARDS'):
-            mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order, fill_na=0)
+            mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order, fill_na)
         elif measure_map[measure] in df.columns:
             # activitysim estimated its models using transit skims from Cube
             # which store time values as scaled integers (e.g. x100), so their
             # models also divide transit skim values by 100. Since our skims
             # aren't coming out of Cube, we multiply by 100 to negate the division.
             # This only applies for travel times.
-            mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order, fill_na=np.nan)
+            mtx, useDefaults = _build_od_matrix(df, measure_map[measure], order, fill_na)
             mtx *= 100
 
         else:
@@ -546,12 +546,13 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
     measure_map = settings['beam_asim_transit_measure_map']
     skims = read_skims(settings, mode='a', data_dir=data_dir)
     num_taz = len(order)
+    fill_na = 0.0
 
     groupBy = transit_df.groupby(level=[0, 1])
 
     with Pool(cpu_count() - 1) as p:
         ret_list = p.map(_build_od_matrix_parallel,
-                         [(group.loc[name], measure_map, num_taz, order) for name, group in groupBy])
+                         [(group.loc[name], measure_map, num_taz, order, fill_na) for name, group in groupBy])
 
     resultsDict = dict()
 
@@ -622,11 +623,12 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
     skims = read_skims(settings, mode='a', data_dir=data_dir)
     num_taz = len(order)
     beam_hwy_paths = settings['beam_simulated_hwy_paths']
+    fill_na = np.nan
 
     groupBy = auto_df.groupby(level=[0,1])
 
     with Pool(cpu_count()-1) as p:
-        ret_list = p.map(_build_od_matrix_parallel, [(group.loc[name], measure_map, num_taz, order) for name, group in groupBy])
+        ret_list = p.map(_build_od_matrix_parallel, [(group.loc[name], measure_map, num_taz, order, fill_na) for name, group in groupBy])
 
     resultsDict = dict()
 
