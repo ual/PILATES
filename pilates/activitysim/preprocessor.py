@@ -535,7 +535,8 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                     # models also divide transit skim values by 100. Since our skims
                     # aren't coming out of Cube, we multiply by 100 to negate the division.
                     # This only applies for travel times.
-                    mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order) * 100
+                    mtx, useDefaults = _build_od_matrix(df_, measure_map[measure], order)
+                    mtx *= 100
 
                 else:
                     mtx = np.zeros((num_taz, num_taz))
