@@ -511,11 +511,10 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
     measure_map = settings['beam_asim_transit_measure_map']
     skims = read_skims(settings, mode='a', data_dir=data_dir)
     num_taz = len(order)
-    df = transit_df.copy()
 
     for path in transit_paths:
         for period in periods:
-            df_ = df[(df.pathType == path) & (df.timePeriod == period)]
+            df_ = transit_df.loc[pd.IndexSlice[period, path, :, :], :]
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if len(df_.index) == 0:
@@ -583,14 +582,12 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
     num_taz = len(order)
     beam_hwy_paths = settings['beam_simulated_hwy_paths']
 
-    df = auto_df.copy()
     for period in periods:
-        df_ = df[df['timePeriod'] == period]
         for path in paths:
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if path in beam_hwy_paths & measure_map[measure]:
-                    mtx = _build_od_matrix(df_, measure_map[measure], order, fill_na=np.nan)
+                    mtx = _build_od_matrix(auto_df.loc[pd.IndexSlice[period, path, :, :]], measure_map[measure], order, fill_na=np.nan)
                     missing = np.isnan(mtx)
 
                     if missing.any():
