@@ -391,6 +391,10 @@ def _build_od_matrix(df, metric, order, fill_na=0.0):
         pivot = df[metric].unstack()
         out.loc[pivot.index, pivot.columns] = pivot.fillna(fill_na)
         useDefaults = False
+        infs = np.isinf(out)
+        if np.any(infs):
+            logger.warning("Replacing {0} infs in skim {1}".format(infs.sum().sum(), metric))
+            out[infs] = fill_na
     else:
         useDefaults = True
 
