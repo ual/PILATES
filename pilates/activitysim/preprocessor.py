@@ -534,7 +534,7 @@ def _transit_skims(settings, transit_df, order, data_dir=None):
                     mtx = np.zeros((num_taz, num_taz))
                 skims[name] = mtx
     skims.close()
-    del df, df_
+    del df_
 
 
 def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
