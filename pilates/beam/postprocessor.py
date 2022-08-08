@@ -62,8 +62,8 @@ def merge_current_od_skims(all_skims_path, previous_skims_path, beam_output_dir)
     }
     index_columns = ['timePeriod', 'pathType', 'origin', 'destination']
 
-    all_skims = pd.read_csv(all_skims_path, dtype=schema, index_col=index_columns)
-    cur_skims = pd.read_csv(current_skims_path, dtype=schema, index_col=index_columns)
+    all_skims = pd.read_csv(all_skims_path, dtype=schema, index_col=index_columns, na_values=["∞"])
+    cur_skims = pd.read_csv(current_skims_path, dtype=schema, index_col=index_columns, na_values=["∞"])
     for col in cur_skims.columns:  # Handle new skim columns
         if col not in all_skims.columns:
             all_skims[col] = 0.0
@@ -135,9 +135,9 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
 
     index_columns = ['timePeriod', 'reservationType', 'origin']
 
-    all_skims = pd.read_csv(all_skims_path, dtype=aggregatedInput)
+    all_skims = pd.read_csv(all_skims_path, dtype=aggregatedInput, na_values=["∞"])
     all_skims.set_index(index_columns, drop=True, inplace=True)
-    cur_skims = pd.read_csv(current_skims_path, dtype=rawInputSchema)
+    cur_skims = pd.read_csv(current_skims_path, dtype=rawInputSchema, na_values=["∞"])
     cur_skims['timePeriod'] = cur_skims['hour'].apply(hourToTimeBin)
     cur_skims.rename(columns={'tazId': 'origin'}, inplace=True)
     cur_skims['completedRequests'] = cur_skims['observations'] * (1. - cur_skims['unmatchedRequestsPercent'] / 100.)
