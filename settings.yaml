@@ -17,7 +17,7 @@ vehicle_ownership_freq: 1
 land_use_model:
 travel_model: beam
 activity_demand_model: activitysim
-vehicle_ownership_model: atlas
+vehicle_ownership_model:
 
 # docker or singularity
 container_manager: docker
@@ -121,7 +121,7 @@ asim_validation_folder: pilates/activitysim/validation
 asim_formattable_command: "-h {0} -n {1} -c {2}"
 region_to_asim_subdir:
   austin: austin
-  detroit: detroit 
+  detroit: detroit
   sfbay: bay_area
 region_to_asim_bucket:
   austin: austin-activitysim
@@ -139,7 +139,7 @@ transit_paths:
   - DRV_LOC_WLK
   - DRV_LRF_WLK
   - DRV_EXP_WLK
-  - WLK_COM_DRV   
+  - WLK_COM_DRV
   - WLK_HVY_DRV
   - WLK_LOC_DRV
   - WLK_LRF_DRV
@@ -199,7 +199,7 @@ asim_from_usim_col_maps:
     persons: PERSONS  # asim preproc
     PERSONS: hhsize  # asim settings.yaml
     cars: auto_ownership  # asim preproc
-#     VEHICL: auto_ownership  # asim annotate_households.csv
+    #     VEHICL: auto_ownership  # asim annotate_households.csv
     workers: num_workers  # asim settings.yaml
   persons:
     member_id: PNUM  # asim preproc
@@ -216,6 +216,13 @@ asim_to_usim_col_maps:
     workplace_taz: work_zone_id  # asim postproc
     school_taz: school_taz_id  # asim postproc
 
+
+# POSTPROCESSING
+postprocessing_output_folder: pilates/postprocessing/output
+scenario_definitions:
+  name: "baseline"
+  lever: "default"
+  lever_position: 1.0
 
 
 #########################################################################################################

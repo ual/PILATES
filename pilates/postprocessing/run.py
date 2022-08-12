@@ -11,6 +11,7 @@ from pilates.utils.geog import get_taz_geoms
 from pilates.utils.io import parse_args_and_settings
 from joblib import Parallel, delayed
 import zipfile
+from datetime import date
 
 dtypes = {
     "time": "float32",
@@ -41,18 +42,21 @@ def _load_events_file(settings, year, replanning_iteration_number, beam_iteratio
     events_dir = os.path.join("ITERS", "it.{0}".format(beam_iteration), "{0}.events.csv.gz".format(beam_iteration))
     path = os.path.join(beam_output_dir, region, iteration_output_dir, events_dir)
     events = pd.read_csv(path, dtype=dtypes, nrows=1e6)
+
+    # Adding scenario info
+    scenario_defs = settings['scenario_definitions']
+    events['scenario'] = scenario_defs['name']
+    events['scenario'] = events['scenario'].astype("category")
+    events['lever'] = scenario_defs['lever']
+    events['lever'] = events['lever'].astype("category")
+    events['year'] = year
+    events['lever_position'] = scenario_defs['lever_position']
+
     return events
 
 
 def _reformat_events_file(events):
     # Rename the "mode" column
-    # Adding scenario info
-    events['scenario'] = "baseline"
-    events['scenario'] = events['scenario'].astype("category")
-    events['lever'] = "default"
-    events['lever'] = events['lever'].astype("category")
-    events['year'] = 2018
-    events['lever_position'] = 1
 
     events.rename(columns={"mode": "modeBEAM"}, inplace=True)
 
@@ -396,7 +400,7 @@ def _aggregate_on_trip(df, name):
 
 def _build_person_trip_events(events):
     gb = events.groupby('IDMerged')
-    processed_list = Parallel(n_jobs=-1)(delayed(_aggregate_on_trip)(group) for name, group in gb)
+    processed_list = Parallel(n_jobs=-1)(delayed(_aggregate_on_trip)(group, name) for name, group in gb)
     person_trip_events = pd.concat(processed_list)
     return person_trip_events
 
@@ -442,7 +446,7 @@ def _process_person_trip_events(person_trip_events):
                   (person_trip_events['mode_choice_actual_BEAM'] == 'ride_hail_transit')]
     choices = ['ride_hail', 'transit', 'walk', 'bike', 'car', 'ride_hail_transit']
     person_trip_events['mode_choice_actual_6'] = np.select(conditions, choices, default=np.nan)
-    return person_trip_events
+    return person_trip_events.sort_values(by=['IDMerged', 'tripIndex']).reset_index(drop=True)
 
 
 def _read_asim_utilities(settings, year, iteration):
@@ -453,9 +457,39 @@ def _read_asim_utilities(settings, year, iteration):
     with zipfile.ZipFile(trip_utility_location) as z:
         for filename in z.namelist():
             if not os.path.isdir(filename):
-                if filename.startswith("utilities"):
-                    chunks.append(pd.read_csv(os.path.join(asim_output_data_dir, iteration_output_dir, filename)))
-    return pd.concat(chunks, ignore_index=True)
+                if filename.endswith("utilities.csv"):
+                    chunks.append(pd.read_csv(z.open(filename)))
+    return pd.concat(chunks, ignore_index=True).sort_values(by=['trip_id'])
+
+
+def _merge_trips_with_utilities(asim_trips, asim_utilities, beam_trips):
+    SFActMerged = pd.merge(left=asim_trips, right=asim_utilities, how='left', on=['trip_id']).sort_values(
+        by=['person_id', 'trip_id']).reset_index(drop=True)
+    eventsASim = pd.merge(left=beam_trips, right=SFActMerged, how='left', left_on=["IDMerged", 'tripIndex'],
+                          right_on=['person_id', 'trip_id'])
+    eventsASim.rename(columns={"mode_choice_logsum_y": "logsum_tours_mode_AS_tours"}, inplace=True)
+    eventsASim.rename(columns={"tour_mode": "tour_mode_AS_tours"}, inplace=True)
+    eventsASim.rename(columns={"mode_choice_logsum_x": "logsum_trip_mode_AS_trips"}, inplace=True)
+    eventsASim.rename(columns={"trip_mode": "trip_mode_AS_trips"}, inplace=True)
+    return eventsASim
+
+
+def _read_asim_plans(settings, year, iteration):
+    asim_output_data_dir = settings['asim_local_output_folder']
+    iteration_output_dir = "year-{0}-iteration-{1}".format(year, iteration)
+    path = os.path.join(asim_output_data_dir, iteration_output_dir)
+    households = pd.read_csv(os.path.join(path, "households.csv.gz")).sort_values(by=['household_id']).reset_index(
+        drop=True)
+    persons = pd.read_csv(os.path.join(path, "persons.csv.gz")).sort_values(by=['household_id']).reset_index(drop=True)
+    tours = pd.read_csv(os.path.join(path, "tours.csv.gz")).sort_values(by=['person_id']).reset_index(drop=True)
+    trips = pd.read_csv(os.path.join(path, "trips.csv.gz")).sort_values(by=['person_id', 'tour_id']).reset_index(
+        drop=True)
+    hhpersons = pd.merge(left=persons, right=households, how='left', on='household_id')
+    hhperTours = pd.merge(left=tours, right=hhpersons, how='left', on='person_id').sort_values(
+        by=['person_id', 'tour_id']).reset_index(drop=True)
+    tour_trips = pd.merge(left=trips, right=hhperTours, how='left', on=['person_id', 'tour_id']).sort_values(
+        by=['trip_id'])
+    return tour_trips
 
 
 def process_event_file(settings, year, iteration):
@@ -467,6 +501,18 @@ def process_event_file(settings, year, iteration):
     person_trip_events = _build_person_trip_events(events)
     del events
     person_trip_events = _process_person_trip_events(person_trip_events)
+    tour_trips = _read_asim_plans(settings, year, iteration)
+    final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
+    scenario_defs = settings['scenario_definitions']
+
+    post_output_folder = settings['postprocessing_output_folder']
+
+    filename = "{0}_{1}_{2}-{3}_{4}.csv.gz".format(settings['region'],
+                                                   scenario_defs['name'],
+                                                   scenario_defs['lever'],
+                                                   scenario_defs['lever_position'],
+                                                   date.today().strftime("%Y%m%d"))
+    final_output.to_csv(os.path.join(post_output_folder, filename), compression="gzip")
 
 
 if __name__ == '__main__':
@@ -477,7 +523,13 @@ if __name__ == '__main__':
     output_path = os.path.join(beam_output_dir, region, "year*")
     outputDirs = glob.glob(output_path)
     yearsAndIters = [(loc.split('-')[-3], loc.split('-')[-1]) for loc in outputDirs]
+    yrs = dict()
+    # Only do this for the latest available iteration in each year
     for year, iter in yearsAndIters:
-        print(year, iter)
+        if year in yrs:
+            if int(iter) > int(yrs[year]):
+                yrs[year] = iter
+        else:
+            yrs[year] = iter
+    for year, iter in yrs.items():
         process_event_file(settings, year, iter)
-    print("asdfasdf")
