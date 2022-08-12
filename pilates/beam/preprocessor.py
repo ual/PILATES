@@ -123,11 +123,11 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
                                                         replanning_iteration_number)
         copy_with_compression_asim_file_to_asim_archive(beam_scenario_folder, 'persons.csv.gz', year,
                                                         replanning_iteration_number)
-        copy_with_compression_asim_file_to_asim_archive(asim_output_data_dir, 'land_use.csv', year,
+        copy_with_compression_asim_file_to_asim_archive(asim_output_data_dir, 'final_land_use.csv', year,
                                                         replanning_iteration_number)
-        copy_with_compression_asim_file_to_asim_archive(asim_output_data_dir, 'tours.csv', year,
+        copy_with_compression_asim_file_to_asim_archive(asim_output_data_dir, 'final_tours.csv', year,
                                                         replanning_iteration_number)
-        copy_with_compression_asim_file_to_asim_archive(asim_output_data_dir, 'trips.csv', year,
+        copy_with_compression_asim_file_to_asim_archive(asim_output_data_dir, 'final_trips.csv', year,
                                                         replanning_iteration_number)
         copy_with_compression_asim_file_to_asim_archive(asim_output_data_dir, 'trip_mode_choice', year,
                                                         replanning_iteration_number)

@@ -481,8 +481,8 @@ def _read_asim_plans(settings, year, iteration):
     households = pd.read_csv(os.path.join(path, "households.csv.gz")).sort_values(by=['household_id']).reset_index(
         drop=True)
     persons = pd.read_csv(os.path.join(path, "persons.csv.gz")).sort_values(by=['household_id']).reset_index(drop=True)
-    tours = pd.read_csv(os.path.join(path, "tours.csv.gz")).sort_values(by=['person_id']).reset_index(drop=True)
-    trips = pd.read_csv(os.path.join(path, "trips.csv.gz")).sort_values(by=['person_id', 'tour_id']).reset_index(
+    tours = pd.read_csv(os.path.join(path, "final_tours.csv.gz")).sort_values(by=['person_id']).reset_index(drop=True)
+    trips = pd.read_csv(os.path.join(path, "final_trips.csv.gz")).sort_values(by=['person_id', 'tour_id']).reset_index(
         drop=True)
     hhpersons = pd.merge(left=persons, right=households, how='left', on='household_id')
     hhperTours = pd.merge(left=tours, right=hhpersons, how='left', on='person_id').sort_values(
