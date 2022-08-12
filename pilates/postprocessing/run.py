@@ -522,7 +522,7 @@ if __name__ == '__main__':
     region = settings['region']
     output_path = os.path.join(beam_output_dir, region, "year*")
     outputDirs = glob.glob(output_path)
-    yearsAndIters = [(loc.split('-')[-3], loc.split('-')[-1]) for loc in outputDirs]
+    yearsAndIters = [(loc.split('-', 3)[-3], loc.split('-', 3)[-1]) for loc in outputDirs]
     yrs = dict()
     # Only do this for the latest available iteration in each year
     for year, iter in yearsAndIters:
