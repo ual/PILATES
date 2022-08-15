@@ -10,6 +10,7 @@ import os
 from pilates.utils.geog import get_taz_geoms
 from pilates.utils.io import parse_args_and_settings
 from joblib import Parallel, delayed
+from multiprocessing import cpu_count
 import zipfile
 from datetime import date
 
@@ -24,14 +25,15 @@ dtypes = {
     "parkingType": "category",
     "mode": "category",
     "personalVehicleAvailable": "category",
-    "person": "object",
-    "driver": "object",
-    "riders": "object",
+    "person": "str",
+    "driver": "str",
+    "riders": "str",
     'primaryFuelType': "category",
     'secondaryFuelType': 'category',
     'currentTourMode': 'category',
     'currentActivity': 'category',
-    'nextActivity': 'category'
+    'nextActivity': 'category',
+    'tripId': "Float32"
 }
 
 
@@ -335,10 +337,10 @@ def _add_geometry_id_to_DataFrame(df, gdf, xcol, ycol, idColumn="geometry", df_g
 
 def _add_geometry_to_events(settings, events):
     taz = get_taz_geoms(settings)
-    processed_list = Parallel(n_jobs=-1)(
+    processed_list = Parallel(n_jobs=cpu_count() - 1)(
         delayed(_add_geometry_id_to_DataFrame)(ev, taz, "startX", "startY", "BlockGroupStart") for ev in
-        np.array_split(events, 100))
-    processed_list = Parallel(n_jobs=-1)(
+        np.array_split(events, cpu_count() - 1))
+    processed_list = Parallel(n_jobs=cpu_count() - 1)(
         delayed(_add_geometry_id_to_DataFrame)(ev, taz, "endX", "endY", "BlockGroupEnd") for ev in
         processed_list)
     events = pd.concat(processed_list)
@@ -400,7 +402,7 @@ def _aggregate_on_trip(df, name):
 
 def _build_person_trip_events(events):
     gb = events.groupby('IDMerged')
-    processed_list = Parallel(n_jobs=-1)(delayed(_aggregate_on_trip)(group, name) for name, group in gb)
+    processed_list = Parallel(n_jobs=cpu_count() - 1)(delayed(_aggregate_on_trip)(group, name) for name, group in gb)
     person_trip_events = pd.concat(processed_list)
     return person_trip_events
 
@@ -446,7 +448,7 @@ def _process_person_trip_events(person_trip_events):
                   (person_trip_events['mode_choice_actual_BEAM'] == 'ride_hail_transit')]
     choices = ['ride_hail', 'transit', 'walk', 'bike', 'car', 'ride_hail_transit']
     person_trip_events['mode_choice_actual_6'] = np.select(conditions, choices, default=np.nan)
-    return person_trip_events.sort_values(by=['IDMerged', 'tripIndex']).reset_index(drop=True)
+    return person_trip_events.sort_values(by=['IDMerged', 'tripIndex']).reset_index(drop=False)
 
 
 def _read_asim_utilities(settings, year, iteration):
@@ -493,15 +495,22 @@ def _read_asim_plans(settings, year, iteration):
 
 
 def process_event_file(settings, year, iteration):
+    print("Loading utilities")
     utils = _read_asim_utilities(settings, year, iteration)
+    print("Loading events")
     events = _load_events_file(settings, year, iteration)
     events = _reformat_events_file(events)
+    print("Adding geoms to events")
     events = _add_geometry_to_events(settings, events)
+    print("Expanding events")
     events = _expand_events_file(events)
+    print("Building person trip events")
     person_trip_events = _build_person_trip_events(events)
     del events
     person_trip_events = _process_person_trip_events(person_trip_events)
+    print("Reading asim plans")
     tour_trips = _read_asim_plans(settings, year, iteration)
+    print("Merging final outputs")
     final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
     scenario_defs = settings['scenario_definitions']
 

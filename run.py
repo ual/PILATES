@@ -34,6 +34,7 @@ from pilates.beam import postprocessor as beam_post
 from pilates.atlas import preprocessor as atlas_pre  ##
 from pilates.atlas import postprocessor as atlas_post  ##
 from pilates.utils.io import parse_args_and_settings
+from pilates.postprocessing.postprocessor import process_event_file
 
 # from pilates.polaris.travel_model import run_polaris
 
@@ -764,6 +765,24 @@ def run_replanning_loop(settings, forecast_year):
     return
 
 
+def postprocess_all(settings):
+    beam_output_dir = settings['beam_local_output_folder']
+    region = settings['region']
+    output_path = os.path.join(beam_output_dir, region, "year*")
+    outputDirs = glob.glob(output_path)
+    yearsAndIters = [(loc.split('-', 3)[-3], loc.split('-', 3)[-1]) for loc in outputDirs]
+    yrs = dict()
+    # Only do this for the latest available iteration in each year
+    for year, iter in yearsAndIters:
+        if year in yrs:
+            if int(iter) > int(yrs[year]):
+                yrs[year] = iter
+        else:
+            yrs[year] = iter
+    for year, iter in yrs.items():
+        process_event_file(settings, year, iter)
+
+
 if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
@@ -905,5 +924,6 @@ if __name__ == '__main__':
             # 5. REPLAN
             if replanning_enabled > 0:
                 run_replanning_loop(settings, forecast_year)
+                process_event_file(settings, forecast_year, settings['replan_iters'])
 
     logger.info("Finished")
