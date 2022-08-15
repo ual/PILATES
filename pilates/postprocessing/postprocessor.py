@@ -516,11 +516,12 @@ def process_event_file(settings, year, iteration):
 
     post_output_folder = settings['postprocessing_output_folder']
 
-    filename = "{0}_{1}_{2}-{3}_{4}.csv.gz".format(settings['region'],
-                                                   scenario_defs['name'],
-                                                   scenario_defs['lever'],
-                                                   scenario_defs['lever_position'],
-                                                   date.today().strftime("%Y%m%d"))
+    filename = "{0}_{1}_{2}-{3}_{4}__{5}.csv.gz".format(settings['region'],
+                                                        scenario_defs['name'],
+                                                        scenario_defs['lever'],
+                                                        scenario_defs['lever_position'],
+                                                        year,
+                                                        date.today().strftime("%Y%m%d"))
     final_output.to_csv(os.path.join(post_output_folder, filename), compression="gzip")
 
 
