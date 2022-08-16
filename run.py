@@ -33,6 +33,9 @@ from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
 from pilates.atlas import preprocessor as atlas_pre  ##
 from pilates.atlas import postprocessor as atlas_post  ##
+from pilates.utils.io import parse_args_and_settings
+from pilates.postprocessing.postprocessor import process_event_file
+
 # from pilates.polaris.travel_model import run_polaris
 
 logging.basicConfig(
@@ -126,103 +129,6 @@ def setup_beam_skims(settings):
         asim_geoms_location))
 
     shutil.copyfile(beam_geoms_location, asim_geoms_location)
-
-
-def parse_args_and_settings(settings_file='settings.yaml'):
-    # parse command-line args
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument(
-        '-v', '--verbose', action='store_true', help='print docker stdout')
-    parser.add_argument(
-        '-p', '--pull_latest', action='store_true',
-        help='pull latest docker images before running')
-    parser.add_argument(
-        "-h", "--household_sample_size", action="store",
-        help="household sample size")
-    parser.add_argument(
-        "-s", "--static_skims", action="store_true",
-        help="bypass traffic assignment, use same skims for every run.")
-    parser.add_argument(
-        "-w", "--warm_start_skims", action="store_true",
-        help="generate full activity plans for the base year only.")
-    parser.add_argument(
-        '-f', '--figures', action='store_true',
-        help='outputs validation figures')
-    parser.add_argument(
-        '-d', '--disable_model', action='store',
-        help=(
-            '"l" for land use, "a" for activity demand, '
-            '"t" for traffic assignment. Can specify multiple (e.g. "at")'))
-    parser.add_argument(
-        '-c', '--config', action='store',
-        help='config file name')
-    args = parser.parse_args()
-
-    if args.config:
-        settings_file = args.config
-
-    # read settings from config file
-    with open(settings_file) as file:
-        settings = yaml.load(file, Loader=yaml.FullLoader)
-
-    # command-line only settings:
-    settings.update({
-        'static_skims': args.static_skims,
-        'warm_start_skims': args.warm_start_skims,
-        'asim_validation': args.figures})
-
-    # override .yaml settings with command-line values if command-line
-    # values are not False/None
-    if args.verbose:
-        settings.update({'docker_stdout': args.verbose})
-    if args.pull_latest:
-        settings.update({'pull_latest': args.pull_latest})
-    if args.household_sample_size:
-        settings.update({
-            'household_sample_size': args.household_sample_size})
-    disabled_models = '' if args.disable_model is None else args.disable_model
-
-    # turn models on or off
-    land_use_enabled = ((
-                            settings.get('land_use_model', False)) and (
-                            not settings.get('warm_start_skims')) and (
-                                "l" not in disabled_models))
-
-    vehicle_ownership_model_enabled = settings.get('vehicle_ownership_model', False)  ## Atlas
-    activity_demand_enabled = ((
-                                   settings.get('activity_demand_model', False)) and (
-                                       "a" not in disabled_models))
-    traffic_assignment_enabled = ((
-                                      settings.get('travel_model', False)) and (
-                                      not settings['static_skims']) and (
-                                          "t" not in disabled_models))
-    replanning_enabled = settings.get('replan_iters', 0) > 0
-
-    if activity_demand_enabled:
-        if settings['activity_demand_model'] == 'polaris':
-            replanning_enabled = False
-
-    settings.update({
-        'land_use_enabled': land_use_enabled,
-        'vehicle_ownership_model_enabled': vehicle_ownership_model_enabled,  ## Atlas
-        'activity_demand_enabled': activity_demand_enabled,
-        'traffic_assignment_enabled': traffic_assignment_enabled,
-        'replanning_enabled': replanning_enabled})
-
-    # raise errors/warnings for conflicting settings
-    if (settings['household_sample_size'] > 0) and land_use_enabled:
-        raise ValueError(
-            'Land use models must be disabled (explicitly or via "warm '
-            'start" mode to use a non-zero household sample size. The '
-            'household sample size you specified is {0}'.format(
-                settings['household_sample_size']))
-    if (settings['atlas_beamac'] > 0) and ((settings['region'] != 'sfbay') or (settings['skims_zone_type'] != 'taz')):
-        raise ValueError(
-            'atlas_beamac must be 0 (read accessibility from RData) '
-            'unless region = sfbay and skims_zone_type = taz. When'
-            'atlas_beamac = 1, accessibility is calculated internally. ')
-
-    return settings
 
 
 def get_base_asim_cmd(settings, household_sample_size=None):
@@ -704,7 +610,7 @@ def run_traffic_assignment(
         docker_stdout = settings['docker_stdout']
         skims_fname = settings['skims_fname']
         origin_skims_fname = settings['origin_skims_fname']
-        beam_memory = settings.get('beam_memory', str(int(psutil.virtual_memory().total/(1024.**3)) - 2) + 'g')
+        beam_memory = settings.get('beam_memory', str(int(psutil.virtual_memory().total / (1024. ** 3)) - 2) + 'g')
 
         # remember the last produced skims in order to detect that
         # beam didn't work properly during this run
@@ -859,6 +765,24 @@ def run_replanning_loop(settings, forecast_year):
     return
 
 
+def postprocess_all(settings):
+    beam_output_dir = settings['beam_local_output_folder']
+    region = settings['region']
+    output_path = os.path.join(beam_output_dir, region, "year*")
+    outputDirs = glob.glob(output_path)
+    yearsAndIters = [(loc.split('-', 3)[-3], loc.split('-', 3)[-1]) for loc in outputDirs]
+    yrs = dict()
+    # Only do this for the latest available iteration in each year
+    for year, iter in yearsAndIters:
+        if year in yrs:
+            if int(iter) > int(yrs[year]):
+                yrs[year] = iter
+        else:
+            yrs[year] = iter
+    for year, iter in yrs.items():
+        process_event_file(settings, year, iter)
+
+
 if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
@@ -1000,5 +924,6 @@ if __name__ == '__main__':
             # 5. REPLAN
             if replanning_enabled > 0:
                 run_replanning_loop(settings, forecast_year)
+                process_event_file(settings, forecast_year, settings['replan_iters'])
 
     logger.info("Finished")
