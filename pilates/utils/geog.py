@@ -266,7 +266,8 @@ def geoid_to_zone_map(settings, year=None):
     zone_id_col = 'zone_id'
 
     geoid_to_zone_fpath = \
-        "pilates/utils/data/{0}/{1}/{2}_geoid_to_zone.csv".format(region, travel_model,zone_type)
+        "pilates/utils/data/{0}/{1}/{2}_geoid_to_zone.csv".format(
+            region, travel_model, zone_type)
 
     if os.path.isfile(geoid_to_zone_fpath):
         logger.info("Reading GEOID to zone mapping.")

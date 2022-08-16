@@ -5,19 +5,17 @@
 ############################
 
 # scenario defs
-region: sfbay
+region: austin
 scenario: base
 start_year: 2010
-end_year: 2018
+end_year: 2040
 land_use_freq: 1
-travel_model_freq: 1
-vehicle_ownership_freq: 1
+travel_model_freq: 5
 
 # simulation platforms (leave blank to turn off)
-land_use_model:
-travel_model: beam
-activity_demand_model: activitysim
-vehicle_ownership_model:
+land_use_model: urbansim
+travel_model: polaris
+activity_demand_model: polaris
 
 # docker or singularity
 container_manager: docker
@@ -31,26 +29,20 @@ singularity_images:
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb:latest
-  atlas: ghcr.io/lbnl-science-it/atlas:v1.0.7
-  beam: zaneedell/beam:0.8.6.10
-  activitysim: zaneedell/activitysim:new-geoms.1
-  polaris: tbd
+  beam: 
+  activitysim:
+  activity_cemand_model:
+  polaris:
   atlas:
 docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_zone_type: taz # one of [taz, block_group, block]
-skims_fname: as-base-skims-sfbay-taz.csv.gz # for SF Bay
-# skims_fname: as-base-skims-austin-bg.csv.gz
-origin_skims_fname: as-origin-skims-sfbay-taz.csv.gz #file or folder name.
-beam_router_directory: r5-simple-no-local
-beam_geoms_fname: clipped_tazs.csv
-
-# region_zone_type:
-#   austin: block_groups # one of [taz, block_groups, block]
-#   detroit: block_groups # one of [taz, block_groups, block]
-#   sfbay: taz # one of [taz, block_groups, block]
+skims_fname: campo_skims.hdf5
+skim_format: polaris
+skims_zone_type: taz  # one of [taz, block_group, block]
+region_zone_type:
+  austin: taz # one of [taz, block_groups, block]                                              
 
 #########################################################################################################
 
@@ -67,39 +59,19 @@ usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
 usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
-warm_start_activities: False
-
-## ATLAS: vehicle simulation (may call usim somewhere) - Ling/Tin/Yuhan
-## Docker bind mounts: host == local; container == remote == client
-atlas_host_input_folder: pilates/atlas/atlas_input
-atlas_host_output_folder: pilates/atlas/atlas_output
-atlas_container_input_folder: /atlas_input
-atlas_container_output_folder: /atlas_output
-atlas_basedir: /
-atlas_codedir: /
-atlas_sample_size: 0     # zero means no sampling, whole pop.
-atlas_num_processes: 9  # suggested <9 for hima
-atlas_beamac: 0 # 0 if use pre-processed accessibility RData, otherwise inline calc
-atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --basedir {4} --codedir {5} --beamac {6}"
-
 
 
 # BEAM 
-beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
-beam_sample: 1.0
+beam_config: gemini/activitysim-base-from-60k-input.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
-beam_scenario_folder: urbansim/
-#beam_memory: "650g"
+beam_scenario_folder: gemini/activitysim-plans-base-2010-cut-60k
+beam_memory: "100g"
 skim_zone_source_id_col: objectid
-replan_iters: 5
+replan_iters: 0
 replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
-final_asim_plans_folder: pilates/activitysim/output/final_plans
-beam_simulated_hwy_paths:
-  - SOV
-  - HOV2
-  - HOV3
+final_asim_plans_folder:
 
 # POLARIS
 polaris_local_data_folder: pilates/polaris/data
@@ -112,17 +84,16 @@ polaris_skim_keys:
 
 
 # ACTIVITYSIM
-household_sample_size: 274783  # zero means no sampling, whole pop.
-chunk_size: 12_000_000_000 # 4000000000
-#num_processes: 90 # 94
+household_sample_size: 0  # zero means no sampling, whole pop.
+chunk_size: 4000000000
+num_processes: 32
 asim_local_input_folder: pilates/activitysim/data/
 asim_local_output_folder: pilates/activitysim/output/
-asim_local_configs_folder: pilates/activitysim/configs/
 asim_validation_folder: pilates/activitysim/validation
 asim_formattable_command: "-h {0} -n {1} -c {2}"
 region_to_asim_subdir:
   austin: austin
-  detroit: detroit
+  detroit: detroit 
   sfbay: bay_area
 region_to_asim_bucket:
   austin: austin-activitysim
@@ -140,7 +111,7 @@ transit_paths:
   - DRV_LOC_WLK
   - DRV_LRF_WLK
   - DRV_EXP_WLK
-  - WLK_COM_DRV
+  - WLK_COM_DRV   
   - WLK_HVY_DRV
   - WLK_LOC_DRV
   - WLK_LRF_DRV
@@ -158,9 +129,6 @@ hwy_paths:
   - HOV2TOLL
   - HOV3
   - HOV3TOLL
-ridehail_path_map:
-  RH_SOLO: Pooled
-  RH_POOLED: Solo
 beam_asim_hwy_measure_map:
   TIME: TIME_minutes
   DIST: DIST_miles
@@ -177,13 +145,10 @@ beam_asim_transit_measure_map:
   WAUX: WAUX_minutes
   WEGR: WEGR_minutes
   WACC: WACC_minutes
-  IWAIT: IWAIT_minutes
-  XWAIT: XWAIT_minutes
+  IWAIT: null
+  XWAIT: null
   BOARDS: BOARDS
   IVT: TOTIVT_IVT_minutes
-beam_asim_ridehail_measure_map:
-  WAIT: waitTimeInMinutes
-  REJECTIONPROB: unmatchedRequestPortion
 asim_output_tables:
   prefix: final_
   tables:
@@ -200,7 +165,7 @@ asim_from_usim_col_maps:
     persons: PERSONS  # asim preproc
     PERSONS: hhsize  # asim settings.yaml
     cars: auto_ownership  # asim preproc
-    #     VEHICL: auto_ownership  # asim annotate_households.csv
+#     VEHICL: auto_ownership  # asim annotate_households.csv
     workers: num_workers  # asim settings.yaml
   persons:
     member_id: PNUM  # asim preproc
@@ -217,13 +182,6 @@ asim_to_usim_col_maps:
     workplace_taz: work_zone_id  # asim postproc
     school_taz: school_taz_id  # asim postproc
 
-
-# POSTPROCESSING
-postprocessing_output_folder: pilates/postprocessing/output
-scenario_definitions:
-  name: "baseline"
-  lever: "default"
-  lever_position: 1.0
 
 
 #########################################################################################################
@@ -290,4 +248,3 @@ validation_metrics:
         levels:
           - 15
           - 45
-
