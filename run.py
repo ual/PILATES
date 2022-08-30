@@ -924,6 +924,8 @@ if __name__ == '__main__':
             # 5. REPLAN
             if replanning_enabled > 0:
                 run_replanning_loop(settings, forecast_year)
-                process_event_file(settings, forecast_year, settings['replan_iters'])
+                process_event_file(settings, year, settings['replan_iters'])
+            else:
+                process_event_file(settings, year, -1)
 
     logger.info("Finished")
