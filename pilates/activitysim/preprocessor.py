@@ -1350,11 +1350,11 @@ def copy_beam_geoms(settings, beam_geoms_location, asim_geoms_location):
 
         if zone_type == 'block':
             logger.info("Mapping block IDs")
-            beam_geoms_file[zone_id_col] = beam_geoms_file['TAZ'].astype(str).replace(mapping)
+            beam_geoms_file['TAZ'] = beam_geoms_file[zone_id_col].astype(str).replace(mapping)
 
         elif zone_type == 'block_group':
             logger.info("Mapping block group IDs to TAZ ids")
-            beam_geoms_file[zone_id_col] = beam_geoms_file['TAZ'].astype(str).replace(mapping)
+            beam_geoms_file['TAZ'] = beam_geoms_file[zone_id_col].astype(str).replace(mapping)
 
     beam_geoms_file.to_csv(asim_geoms_location)
 
