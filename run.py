@@ -131,7 +131,7 @@ def setup_beam_skims(settings):
         beam_geoms_location,
         asim_geoms_location))
 
-    copy_beam_geoms(beam_geoms_location, asim_geoms_location)
+    copy_beam_geoms(settings, beam_geoms_location, asim_geoms_location)
 
 
 def get_base_asim_cmd(settings, household_sample_size=None):
