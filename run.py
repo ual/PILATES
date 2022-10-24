@@ -1,5 +1,8 @@
 import warnings
 
+from pilates.activitysim.preprocessor import copy_beam_geoms
+from pilates.utils.geog import geoid_to_zone_map
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import shutil
@@ -128,7 +131,7 @@ def setup_beam_skims(settings):
         beam_geoms_location,
         asim_geoms_location))
 
-    shutil.copyfile(beam_geoms_location, asim_geoms_location)
+    copy_beam_geoms(settings, beam_geoms_location, asim_geoms_location)
 
 
 def get_base_asim_cmd(settings, household_sample_size=None):
