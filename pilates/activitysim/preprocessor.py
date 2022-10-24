@@ -1344,7 +1344,7 @@ def copy_beam_geoms(settings, beam_geoms_location, asim_geoms_location):
     zone_type = settings['skims_zone_type']
     zone_id_col = zone_type_column[zone_type]
 
-    if zone_id_col not in beam_geoms_file.columns:
+    if 'TAZ' not in beam_geoms_file.columns:
 
         mapping = geoid_to_zone_map(settings, year)
 
