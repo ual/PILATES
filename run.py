@@ -1,5 +1,7 @@
 import warnings
 
+from pilates.utils.geog import geoid_to_zone_map
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import shutil
@@ -128,7 +130,28 @@ def setup_beam_skims(settings):
         beam_geoms_location,
         asim_geoms_location))
 
-    shutil.copyfile(beam_geoms_location, asim_geoms_location)
+    copy_beam_geoms(beam_geoms_location, asim_geoms_location)
+
+
+def copy_beam_geoms(beam_geoms_location, asim_geoms_location):
+    zone_type_column = {'block_group': 'BLKGRP', 'taz': 'TAZ', 'block': 'BLK'}
+    beam_geoms_file = pd.read_csv(beam_geoms_location)
+    zone_type = settings['skims_zone_type']
+    zone_id_col = zone_type_column[zone_type]
+
+    if zone_id_col not in beam_geoms_file.columns:
+
+        mapping = geoid_to_zone_map(settings, year)
+
+        if zone_type == 'block':
+            logger.info("Mapping block IDs")
+            beam_geoms_file[zone_id_col] = beam_geoms_file['TAZ'].astype(str).replace(mapping)
+
+        elif zone_type == 'block_group':
+            logger.info("Mapping block group IDs to TAZ ids")
+            beam_geoms_file[zone_id_col] = beam_geoms_file['TAZ'].astype(str).replace(mapping)
+
+    beam_geoms_file.to_csv(asim_geoms_location)
 
 
 def get_base_asim_cmd(settings, household_sample_size=None):
