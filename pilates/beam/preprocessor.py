@@ -7,9 +7,15 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-def update_beam_population_sample(settings):
-    if 'beam_sample' in settings:
-        sample_size_config = 'beam.agentsim.agentSampleSizeAsFractionOfPopulation'
+beam_param_map = {'beam_sample': 'beam.agentsim.agentSampleSizeAsFractionOfPopulation',
+                  'beam_replanning_portion': 'beam.agentsim.agents.plans.merge.fraction'
+                  }
+
+
+def update_beam_config(settings, param, valueOverride=None):
+    if param in settings:
+        config_header = beam_param_map[param]
+        config_value = valueOverride or settings[param]
         beam_config_path = os.path.join(
             settings['beam_local_input_folder'],
             settings['region'],
@@ -19,13 +25,14 @@ def update_beam_population_sample(settings):
             data = file.readlines()
         with open(beam_config_path, 'w') as file:
             for line in data:
-                if line.startswith(sample_size_config):
+                if line.startswith(config_header):
                     modified = True
-                    file.writelines(sample_size_config + " = " + str(settings['beam_sample']) + "\n")
+                    file.writelines(config_header + " = " + str(config_value) + "\n")
                 else:
                     file.writelines(line)
             if ~modified:
-                file.writelines(sample_size_config + " = " + str(settings['beam_sample']) + "\n")
+                file.writelines(config_header + " = " + str(config_value) + "\n")
+
 
 def make_archive(source, destination):
     """
