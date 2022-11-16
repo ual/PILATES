@@ -1,5 +1,8 @@
 import warnings
 
+from pilates.activitysim.preprocessor import copy_beam_geoms
+from pilates.utils.geog import geoid_to_zone_map
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import shutil
@@ -128,7 +131,7 @@ def setup_beam_skims(settings):
         beam_geoms_location,
         asim_geoms_location))
 
-    shutil.copyfile(beam_geoms_location, asim_geoms_location)
+    copy_beam_geoms(settings, beam_geoms_location, asim_geoms_location)
 
 
 def get_base_asim_cmd(settings, household_sample_size=None):
@@ -927,6 +930,8 @@ if __name__ == '__main__':
             # 5. REPLAN
             if replanning_enabled > 0:
                 run_replanning_loop(settings, forecast_year)
-                process_event_file(settings, forecast_year, settings['replan_iters'])
+                process_event_file(settings, year, settings['replan_iters'])
+            else:
+                process_event_file(settings, year, -1)
 
     logger.info("Finished")

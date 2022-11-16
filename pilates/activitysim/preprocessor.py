@@ -386,7 +386,8 @@ def _build_od_matrix(df, metric, order, fill_na=0.0):
     ---------
     - numpy square 0-D matrix 
     """
-    out = pd.DataFrame(np.nan, index=order, columns=order, dtype=np.float32).rename_axis(index="origin", columns="destination")
+    out = pd.DataFrame(np.nan, index=order, columns=order, dtype=np.float32).rename_axis(index="origin",
+                                                                                         columns="destination")
     if metric in df.columns:
         pivot = df[metric].unstack()
         out.loc[pivot.index, pivot.columns] = pivot.fillna(np.nan)
@@ -627,10 +628,11 @@ def _auto_skims(settings, auto_df, order, data_dir=None):
     beam_hwy_paths = settings['beam_simulated_hwy_paths']
     fill_na = np.nan
 
-    groupBy = auto_df.groupby(level=[0,1])
+    groupBy = auto_df.groupby(level=[0, 1])
 
-    with Pool(cpu_count()-1) as p:
-        ret_list = p.map(_build_od_matrix_parallel, [(group.loc[name], measure_map, num_taz, order, fill_na) for name, group in groupBy])
+    with Pool(cpu_count() - 1) as p:
+        ret_list = p.map(_build_od_matrix_parallel,
+                         [(group.loc[name], measure_map, num_taz, order, fill_na) for name, group in groupBy])
 
     resultsDict = dict()
 
@@ -1334,6 +1336,27 @@ def _create_land_use_table(
     zones['COUNTY'] = 1  # FIXME
 
     return zones
+
+
+def copy_beam_geoms(settings, beam_geoms_location, asim_geoms_location):
+    zone_type_column = {'block_group': 'BLKGRP', 'taz': 'TAZ', 'block': 'BLK'}
+    beam_geoms_file = pd.read_csv(beam_geoms_location)
+    zone_type = settings['skims_zone_type']
+    zone_id_col = zone_type_column[zone_type]
+
+    if 'TAZ' not in beam_geoms_file.columns:
+
+        mapping = geoid_to_zone_map(settings)
+
+        if zone_type == 'block':
+            logger.info("Mapping block IDs")
+            beam_geoms_file['TAZ'] = beam_geoms_file['GEOID'].astype(str).replace(mapping)
+
+        elif zone_type == 'block_group':
+            logger.info("Mapping block group IDs to TAZ ids")
+            beam_geoms_file['TAZ'] = beam_geoms_file['GEOID'].astype(str).replace(mapping)
+
+    beam_geoms_file.to_csv(asim_geoms_location)
 
 
 def create_asim_data_from_h5(
