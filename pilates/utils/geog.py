@@ -10,19 +10,19 @@ from pilates.utils.io import read_datastore
 
 logger = logging.getLogger(__name__)
 
-def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id', 
-                  data_dir='./tmp/' ):
-    
+
+def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
+                  data_dir='./tmp/'):
     region = settings['region']
     zone_type = settings['skims_zone_type']
 
-    file_name =  '{0}_{1}.shp'.format(zone_type, region)
+    file_name = '{0}_{1}.shp'.format(zone_type, region)
     taz_geoms_fpath = os.path.join(data_dir, file_name)
-    
+
     if os.path.exists(taz_geoms_fpath):
         logger.info("Loading taz geoms from disk!")
         gdf = gpd.read_file(taz_geoms_fpath)
-        
+
     else:
         logger.info("Downloading {} geoms".format(zone_type))
 
@@ -34,26 +34,30 @@ def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
         elif region == 'austin':
             url = (
                 'https://beam-outputs.s3.amazonaws.com/pilates-outputs/geometries/block_groups_austin.geojson')
-            
+
         ## FIX ME: other regions taz should be here - only sfbay for now
         gdf = gpd.read_file(url, crs="EPSG:4326")
-        gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
+        if region == 'austin':
+            mapping = geoid_to_zone_map(settings)
+            logger.info("Mapping block group IDs to TAZ ids")
+            gdf[zone_id_col_out] = gdf[taz_id_col_in].astype(str).replace(mapping)
+        elif region == "sfbay":
+            gdf.rename(columns={taz_id_col_in: zone_id_col_out}, inplace=True)
 
         # zone_id col must be str
         gdf[zone_id_col_out] = gdf[zone_id_col_out].astype(str)
         gdf.to_file(taz_geoms_fpath)
-    
+
     return gdf
 
 
 def get_county_block_geoms(
         state_fips, county_fips, zone_type='block', result_size=10000):
-
-    if (zone_type == 'block') or (zone_type == 'taz'): #to map blocks to taz. 
+    if (zone_type == 'block') or (zone_type == 'taz'):  # to map blocks to taz.
         base_url = (
             'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
-#             'Tracts_Blocks/MapServer/12/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
-            'tigerWMS_Census2010/MapServer/18/query?where=STATE%3D{0}+and+COUNTY%3D{1}'#2010 census
+            #             'Tracts_Blocks/MapServer/12/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
+            'tigerWMS_Census2010/MapServer/18/query?where=STATE%3D{0}+and+COUNTY%3D{1}'  # 2010 census
             '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
             '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CBLOCK%2CCENTLAT'
             '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=json')
@@ -61,8 +65,8 @@ def get_county_block_geoms(
     elif zone_type == 'block_group':
         base_url = (
             'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/'
-#             'Tracts_Blocks/MapServer/11/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
-            'tigerWMS_Census2010/MapServer/16/query?where=STATE%3D{0}+and+COUNTY%3D{1}'#2010 census
+            #             'Tracts_Blocks/MapServer/11/query?where=STATE%3D{0}+and+COUNTY%3D{1}' #2020 census
+            'tigerWMS_Census2010/MapServer/16/query?where=STATE%3D{0}+and+COUNTY%3D{1}'  # 2010 census
             '&resultRecordCount={2}&resultOffset={3}&orderBy=GEOID'
             '&outFields=GEOID%2CSTATE%2CCOUNTY%2CTRACT%2CBLKGRP%2CCENTLAT'
             '%2CCENTLON&outSR=%7B"wkid"+%3A+4326%7D&f=json')
@@ -102,15 +106,14 @@ def get_county_block_geoms(
 
 
 def get_block_geoms(settings, data_dir='./tmp/'):
-
     region = settings['region'] or 'beam'
     FIPS = settings['FIPS'][region]
     state_fips = FIPS['state']
     county_codes = FIPS['counties']
-    
+
     zone_type = settings['skims_zone_type']
     if zone_type == 'taz':
-        zone_type_v1 = 'block' #triger block geometries
+        zone_type_v1 = 'block'  # triger block geometries
     else:
         zone_type_v1 = zone_type
 
@@ -131,12 +134,12 @@ def get_block_geoms(settings, data_dir='./tmp/'):
                     len(county_codes))):
             county_gdf = get_county_block_geoms(state_fips, county, zone_type)
             all_block_geoms.append(county_gdf)
-  
+
         blocks_gdf = gpd.GeoDataFrame(
             pd.concat(all_block_geoms, ignore_index=True), crs="EPSG:4326")
-        
+
         # make sure geometries match with geometries in blocks table
-        if zone_type in ['block','block_group']:
+        if zone_type in ['block', 'block_group']:
             geoids = list(geoid_to_zone_map(settings, year=None).keys())
             blocks_gdf = blocks_gdf[blocks_gdf.GEOID.isin(geoids)]
 
@@ -150,7 +153,6 @@ def get_block_geoms(settings, data_dir='./tmp/'):
 
 
 def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
-
     logger.info("Assigning blocks to TAZs!")
 
     # df to store GEOID to TAZ results
@@ -180,7 +182,6 @@ def get_taz_from_block_geoms(blocks_gdf, zones_gdf, local_crs, zone_col_name):
     unassigned_mask = ~blocks_gdf['GEOID'].isin(block_to_taz_results['GEOID'])
 
     if any(unassigned_mask):
-
         blocks_gdf['geometry'] = blocks_gdf['geometry'].centroid
         zones_gdf['geometry'] = zones_gdf['geometry'].centroid
 
@@ -231,10 +232,10 @@ def get_zone_from_points(df, zones_gdf, local_crs):
     '''
     logger.info("Assigning zone IDs to {0}".format(df.index.name))
     zone_id_col = zones_gdf.index.name
-    
+
     gdf = gpd.GeoDataFrame(
         df, geometry=gpd.points_from_xy(df.x, df.y), crs="EPSG:4326")
-    
+
     zones_gdf.geometry.crs = "EPSG:4326"
 
     # convert to meters-based local crs
@@ -245,7 +246,7 @@ def get_zone_from_points(df, zones_gdf, local_crs):
     intx = gpd.sjoin(
         gdf, zones_gdf.reset_index(),
         how='left', op='intersects')
-    
+
     assert len(intx) == len(gdf)
 
     return intx[zone_id_col]
@@ -311,7 +312,6 @@ def geoid_to_zone_map(settings, year=None):
 
         # zone IDs are generated on-the-fly for GEOID/FIPS-based skims
         if zone_type in ['block', 'block_group']:
-
             geoid_to_zone = pd.DataFrame(
                 {'GEOID': order, 'zone_id': range(1, len(order) + 1)},
                 dtype=str)
