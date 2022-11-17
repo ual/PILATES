@@ -646,9 +646,7 @@ def run_traffic_assignment(
                     'mode': 'rw'}},
             environment={
                 'JAVA_OPTS': (
-                    '-XX:+UnlockExperimentalVMOptions -XX:+'
-                    'UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
-                        beam_memory))},
+                    '-XX:+UnlockExperimentalVMOptions -Xmx{0}'.format(beam_memory))},
             command="--config={0}".format(path_to_beam_config),
             stdout=docker_stdout, stderr=True, detach=False, remove=True
         )

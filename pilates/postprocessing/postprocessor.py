@@ -13,6 +13,9 @@ from joblib import Parallel, delayed
 from multiprocessing import cpu_count
 import zipfile
 from datetime import date
+import logging
+
+logger = logging.getLogger(__name__)
 
 dtypes = {
     "time": "float32",
@@ -499,34 +502,37 @@ def _read_asim_plans(settings, year, iteration):
 
 
 def process_event_file(settings, year, iteration):
-    print("Loading utilities")
-    utils = _read_asim_utilities(settings, year, iteration)
-    print("Loading events")
-    events = _load_events_file(settings, year, iteration)
-    events = _reformat_events_file(events)
-    print("Adding geoms to events")
-    events = _add_geometry_to_events(settings, events)
-    print("Expanding events")
-    events = _expand_events_file(events)
-    print("Building person trip events")
-    person_trip_events = _build_person_trip_events(events)
-    del events
-    person_trip_events = _process_person_trip_events(person_trip_events)
-    print("Reading asim plans")
-    tour_trips = _read_asim_plans(settings, year, iteration)
-    print("Merging final outputs")
-    final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
-    scenario_defs = settings['scenario_definitions']
+    try:
+        logger.info("Loading utilities")
+        utils = _read_asim_utilities(settings, year, iteration)
+        logger.info("Loading events")
+        events = _load_events_file(settings, year, iteration)
+        events = _reformat_events_file(events)
+        logger.info("Adding geoms to events")
+        events = _add_geometry_to_events(settings, events)
+        logger.info("Expanding events")
+        events = _expand_events_file(events)
+        logger.info("Building person trip events")
+        person_trip_events = _build_person_trip_events(events)
+        del events
+        person_trip_events = _process_person_trip_events(person_trip_events)
+        logger.info("Reading asim plans")
+        tour_trips = _read_asim_plans(settings, year, iteration)
+        logger.info("Merging final outputs")
+        final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
+        scenario_defs = settings['scenario_definitions']
 
-    post_output_folder = settings['postprocessing_output_folder']
+        post_output_folder = settings['postprocessing_output_folder']
 
-    filename = "{0}_{1}_{2}-{3}_{4}__{5}.csv.gz".format(settings['region'],
-                                                        scenario_defs['name'],
-                                                        scenario_defs['lever'],
-                                                        scenario_defs['lever_position'],
-                                                        year,
-                                                        date.today().strftime("%Y%m%d"))
-    final_output.to_csv(os.path.join(post_output_folder, filename), compression="gzip")
+        filename = "{0}_{1}_{2}-{3}_{4}__{5}.csv.gz".format(settings['region'],
+                                                            scenario_defs['name'],
+                                                            scenario_defs['lever'],
+                                                            scenario_defs['lever_position'],
+                                                            year,
+                                                            date.today().strftime("%Y%m%d"))
+        final_output.to_csv(os.path.join(post_output_folder, filename), compression="gzip")
+    except:
+        logger.error("Did not successfully run the postproccessor, did activitysim fail?")
 
 
 if __name__ == '__main__':
