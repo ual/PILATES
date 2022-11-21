@@ -37,7 +37,7 @@ from pilates.beam import postprocessor as beam_post
 from pilates.atlas import preprocessor as atlas_pre  ##
 from pilates.atlas import postprocessor as atlas_post  ##
 from pilates.utils.io import parse_args_and_settings
-from pilates.postprocessing.postprocessor import process_event_file
+from pilates.postprocessing.postprocessor import process_event_file, copy_outputs_to_mep
 
 # from pilates.polaris.travel_model import run_polaris
 
@@ -934,7 +934,9 @@ if __name__ == '__main__':
             if replanning_enabled > 0:
                 run_replanning_loop(settings, forecast_year)
                 process_event_file(settings, year, settings['replan_iters'])
+                copy_outputs_to_mep(settings, year, settings['replan_iters'])
             else:
                 process_event_file(settings, year, -1)
+                copy_outputs_to_mep(settings, year, -1)
 
     logger.info("Finished")

@@ -11,6 +11,7 @@ if  [ $# -eq 2 ]
         gcloud alpha storage cp -r -n pilates/activitysim/output/pipeline.h5 gs://beam-core-outputs/$2/activitysim/pipeline.h5
         gcloud alpha storage cp -r -n pilates/activitysim/data/ gs://beam-core-outputs/$2/activitysim/data/
         gcloud alpha storage cp -r -n pilates/postprocessing/output/ gs://beam-core-outputs/$2/inexus/
+        gcloud alpha storage cp -r -n pilates/postprocessing/MEP/ gs://beam-core-outputs/$2/MEP/
 
 else
     echo "Please provide a region (e.g. 'austin' or 'sfbay') and GCloud directory name"

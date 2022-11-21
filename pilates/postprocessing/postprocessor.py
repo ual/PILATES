@@ -42,13 +42,13 @@ dtypes = {
 }
 
 
-def copy_outputs_to_mep(settings, year):
+def copy_outputs_to_mep(settings, year, iter):
     asim_output_data_dir = settings['asim_local_output_folder']
     mep_output_data_dir = os.path.join(settings['mep_local_output_folder'], str(year))
     if not os.path.exists(mep_output_data_dir):
         os.makedirs(mep_output_data_dir)
     beam_iter_output_dir = os.path.join(settings['beam_local_output_folder'], settings['region'],
-                                        "year-{0}-iteration-{1}".format(year, settings["replan_iters"]))
+                                        "year-{0}-iteration-{1}".format(year, iter))
 
     def copy_with_compression_asim_file_to_mep(asim_file_name, mep_file_name):
         asim_file_path = os.path.join(asim_output_data_dir, asim_file_name)
