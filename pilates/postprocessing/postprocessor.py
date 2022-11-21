@@ -1,3 +1,4 @@
+import gzip
 import os
 import pandas as pd
 import numpy as np
@@ -14,6 +15,7 @@ from multiprocessing import cpu_count
 import zipfile
 from datetime import date
 import logging
+from pilates.activitysim.postprocessor import get_usim_datastore_fname
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,61 @@ dtypes = {
     'nextActivity': 'category',
     'tripId': "Float32"
 }
+
+
+def copy_outputs_to_mep(settings, year):
+    asim_output_data_dir = settings['asim_local_output_folder']
+    mep_output_data_dir = os.path.join(settings['mep_local_output_folder'], str(year))
+    beam_iter_output_dir = os.path.join(settings['beam_local_output_folder'], settings['region'],
+                                        "year-{0}-iteration-{1}".format(year, settings["replan_iters"]))
+
+    def copy_with_compression_asim_file_to_mep(asim_file_name, mep_file_name):
+        asim_file_path = os.path.join(asim_output_data_dir, asim_file_name)
+        mep_file_path = os.path.join(mep_output_data_dir, mep_file_name)
+        logger.info("Copying asim file %s to beam input scenario file %s", asim_file_path, mep_file_path)
+
+        if os.path.exists(asim_file_path):
+            with open(asim_file_path, 'rb') as f_in, gzip.open(
+                    mep_file_path, 'wb') as f_out:
+                f_out.writelines(f_in)
+
+    def copy_urbansim_outputs_to_mep():
+        data_dir = settings['usim_local_data_folder']
+        usim_output_store_name = get_usim_datastore_fname(
+            settings, io='output', year=year)
+        usim_output_store_path = os.path.join(data_dir, usim_output_store_name)
+        if not os.path.exists(usim_output_store_path):
+            raise ValueError('No output data store found at {0}'.format(
+                usim_output_store_path))
+        usim_output_store = pd.HDFStore(usim_output_store_path)
+        jobs = usim_output_store.get('jobs')
+        blocks = usim_output_store.get('blocks')
+        jobs.to_csv(os.path.join(mep_output_data_dir, "jobs.csv.gz"))
+        blocks.to_csv(os.path.join(mep_output_data_dir, "blocks.csv.gz"))
+
+    def copy_asim_files_to_mep():
+        copy_with_compression_asim_file_to_mep('final_plans.csv', 'plans.csv.gz')
+        copy_with_compression_asim_file_to_mep('final_households.csv', 'households.csv.gz')
+        copy_with_compression_asim_file_to_mep('final_persons.csv', 'persons.csv.gz')
+        copy_with_compression_asim_file_to_mep('final_land_use.csv', 'land_use.csv.gz')
+
+    def copy_beam_files_to_mep():
+        shutil.copy(os.path.join(beam_iter_output_dir, "network.csv.gz"),
+                    os.path.join(mep_output_data_dir, "network.csv.gz"))
+        linkstats_path = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.linkstats.csv.gz")
+        shutil.copy(linkstats_path, os.path.join(mep_output_data_dir, "linkstats.csv.gz"))
+        beam_router_dir = os.path.join(settings['beam_local_input_folder'], settings['region'],
+                                       settings['beam_router_directory'])
+        mep_gtfs_dir = os.path.join(mep_output_data_dir, "GTFS")
+        if not os.path.exists(mep_gtfs_dir):
+            os.makedirs(mep_gtfs_dir)
+        for file in os.listdir(beam_router_dir):
+            if file.endswith(".zip"):
+                shutil.copy(os.path.join(beam_router_dir, file), os.path.join(mep_gtfs_dir, file))
+
+    copy_urbansim_outputs_to_mep()
+    copy_asim_files_to_mep()
+    copy_beam_files_to_mep()
 
 
 def _load_events_file(settings, year, replanning_iteration_number, beam_iteration=0):
