@@ -646,9 +646,7 @@ def run_traffic_assignment(
                     'mode': 'rw'}},
             environment={
                 'JAVA_OPTS': (
-                    '-XX:+UnlockExperimentalVMOptions -XX:+'
-                    'UseCGroupMemoryLimitForHeap -Xmx{0}'.format(
-                        beam_memory))},
+                    '-XX:+UnlockExperimentalVMOptions -Xmx{0}'.format(beam_memory))},
             command="--config={0}".format(path_to_beam_config),
             stdout=docker_stdout, stderr=True, detach=False, remove=True
         )
@@ -762,6 +760,10 @@ def run_replanning_loop(settings, forecast_year):
             print(log)
 
         # e) run BEAM
+        if replanning_iteration_number < replan_iters:
+            beam_pre.update_beam_config(settings, 'beam_replanning_portion')
+        else:
+            beam_pre.update_beam_config(settings, 'beam_replanning_portion', 1.0)
         run_traffic_assignment(
             settings, year, forecast_year, client, replanning_iteration_number)
 
@@ -825,6 +827,9 @@ if __name__ == '__main__':
         print("ACTIVITY DEMAND MODEL DISABLED")
     if not traffic_assignment_enabled:
         print("TRAFFIC ASSIGNMENT MODEL DISABLED")
+
+    if traffic_assignment_enabled:
+        beam_pre.update_beam_config(settings, 'beam_sample')
 
     if warm_start_skims:
         formatted_print('"WARM START SKIMS" MODE ENABLED')
@@ -922,6 +927,7 @@ if __name__ == '__main__':
         if traffic_assignment_enabled:
 
             # 4. RUN TRAFFIC ASSIGNMENT
+            beam_pre.update_beam_config(settings, 'beam_replanning_portion', 1.0)
             run_traffic_assignment(settings, year, forecast_year, client, -1)
 
             # 5. REPLAN

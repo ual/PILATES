@@ -7,6 +7,32 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+beam_param_map = {'beam_sample': 'beam.agentsim.agentSampleSizeAsFractionOfPopulation',
+                  'beam_replanning_portion': 'beam.agentsim.agents.plans.merge.fraction'
+                  }
+
+
+def update_beam_config(settings, param, valueOverride=None):
+    if param in settings:
+        config_header = beam_param_map[param]
+        config_value = valueOverride or settings[param]
+        beam_config_path = os.path.join(
+            settings['beam_local_input_folder'],
+            settings['region'],
+            settings['beam_config'])
+        modified = False
+        with open(beam_config_path, 'r') as file:
+            data = file.readlines()
+        with open(beam_config_path, 'w') as file:
+            for line in data:
+                if line.startswith(config_header):
+                    modified = True
+                    file.writelines(config_header + " = " + str(config_value) + "\n")
+                else:
+                    file.writelines(line)
+            if ~modified:
+                file.writelines(config_header + " = " + str(config_value) + "\n")
+
 
 def make_archive(source, destination):
     """

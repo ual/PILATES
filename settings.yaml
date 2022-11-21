@@ -86,6 +86,8 @@ atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --b
 
 # BEAM 
 beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
+beam_sample: 1.0
+beam_replanning_portion: 0.4
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/
