@@ -45,6 +45,8 @@ dtypes = {
 def copy_outputs_to_mep(settings, year):
     asim_output_data_dir = settings['asim_local_output_folder']
     mep_output_data_dir = os.path.join(settings['mep_local_output_folder'], str(year))
+    if not os.path.exists(mep_output_data_dir):
+        os.makedirs(mep_output_data_dir)
     beam_iter_output_dir = os.path.join(settings['beam_local_output_folder'], settings['region'],
                                         "year-{0}-iteration-{1}".format(year, settings["replan_iters"]))
 
@@ -61,7 +63,7 @@ def copy_outputs_to_mep(settings, year):
     def copy_urbansim_outputs_to_mep():
         data_dir = settings['usim_local_data_folder']
         usim_output_store_name = get_usim_datastore_fname(
-            settings, io='output', year=year)
+            settings, io='input', year=year)
         usim_output_store_path = os.path.join(data_dir, usim_output_store_name)
         if not os.path.exists(usim_output_store_path):
             raise ValueError('No output data store found at {0}'.format(
