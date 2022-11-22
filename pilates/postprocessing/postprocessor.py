@@ -645,3 +645,4 @@ if __name__ == '__main__':
             yrs[year] = iter
     for year, iter in yrs.items():
         process_event_file(settings, year, iter)
+        copy_outputs_to_mep(settings, year, iter)
