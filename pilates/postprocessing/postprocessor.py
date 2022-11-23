@@ -89,8 +89,8 @@ def copy_outputs_to_mep(settings, year, iter):
                     os.path.join(mep_output_data_dir, "network.csv.gz"))
         linkstats_path = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.linkstats.csv.gz")
         shutil.copy(linkstats_path, os.path.join(mep_output_data_dir, "linkstats.csv.gz"))
-        parkingSkims = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.skimsParking.csv.gz")
-        shutil.copy(parkingSkims, os.path.join(mep_output_data_dir, "parkingSkims.csv.gz"))
+        parkingStats = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.parkingStats.csv.gz")
+        shutil.copy(parkingStats, os.path.join(mep_output_data_dir, "parkingStats.csv.gz"))
         ridehailSkims = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.skimsRidehail.csv.gz")
         shutil.copy(ridehailSkims, os.path.join(mep_output_data_dir, "ridehailSkims.csv.gz"))
         odSkims = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.skimsTAZ.csv.gz")
@@ -583,8 +583,9 @@ def build_mep_summaries(trips, settings, iteration):
                    ['mode_choice_actual_BEAM', 'cost_BEAM', 'distance_mode_choice', 'fuel_marginal']].groupby(
         'mode_choice_actual_BEAM').agg(sum)
     totalsByMode.index = totalsByMode.index.str.replace("teleportation", "passenger")
-    totalsByMode['cost_per_mile'] = totalsByMode['cost_BEAM'] / totalsByMode['distance_mode_choice'] * 1609.34
-    totalsByMode['joules_per_mile'] = totalsByMode['fuel_marginal'] / totalsByMode['distance_mode_choice'] * 1609.34
+    totalsByMode['cost_per_passenger_mile'] = totalsByMode['cost_BEAM'] / totalsByMode['distance_mode_choice'] * 1609.34
+    totalsByMode['joules_per_passenger_mile'] = totalsByMode['fuel_marginal'] / totalsByMode[
+        'distance_mode_choice'] * 1609.34
     beam_output_dir = settings['beam_local_output_folder']
     region = settings['region']
     iteration_output_dir = "year-{0}-iteration-{1}".format(year, iteration)
