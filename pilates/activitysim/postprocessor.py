@@ -2,6 +2,7 @@ import logging
 import pandas as pd
 import zipfile
 import os
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,8 +34,7 @@ def _load_asim_outputs(settings):
     return asim_output_dict
 
 
-def _get_usim_datastore_fname(settings, io, year=None):
-
+def get_usim_datastore_fname(settings, io, year=None):
     if io == 'output':
         datastore_name = settings['usim_formattable_output_file_name'].format(
             year=year)
@@ -58,7 +58,7 @@ def _prepare_updated_tables(
     data_dir = settings['usim_local_data_folder']
 
     # e.g. model_data_2012.h5
-    usim_output_store_name = _get_usim_datastore_fname(
+    usim_output_store_name = get_usim_datastore_fname(
         settings, io='output', year=forecast_year)
     usim_output_store_path = os.path.join(data_dir, usim_output_store_name)
     if not os.path.exists(usim_output_store_path):
@@ -127,8 +127,8 @@ def _prepare_updated_tables(
 
         # make sure all required columns are present
         if not all([
-                col in asim_output_dict[table_name].columns
-                for col in required_cols[table_name]]):
+            col in asim_output_dict[table_name].columns
+            for col in required_cols[table_name]]):
             raise KeyError(
                 "Not all required columns are in the {0} table!".format(
                     table_name))
@@ -151,7 +151,6 @@ def _prepare_updated_tables(
 
 
 def create_beam_input_data(settings, forecast_year, asim_output_dict):
-
     asim_output_data_dir = settings['asim_local_output_folder']
     archive_name = 'asim_outputs_{0}.zip'.format(forecast_year)
     outpath = os.path.join(asim_output_data_dir, archive_name)
@@ -159,7 +158,6 @@ def create_beam_input_data(settings, forecast_year, asim_output_dict):
         'Merging results back into UrbanSim format and storing as .zip!')
 
     with zipfile.ZipFile(outpath, 'w') as csv_zip:
-
         # copy asim outputs into archive
         for table_name in asim_output_dict.keys():
             logger.info(
@@ -190,7 +188,7 @@ def create_usim_input_data(
     # Move UrbanSim input store (e.g. custom_mpo_193482435_model_data.h5)
     # to archive (e.g. input_data_for_2015_outputs.h5) because otherwise
     # it will be overwritten in the next step.
-    input_datastore_name = _get_usim_datastore_fname(settings, io='input')
+    input_datastore_name = get_usim_datastore_fname(settings, io='input')
     input_store_path = os.path.join(data_dir, input_datastore_name)
     archive_fname = 'input_data_for_{0}_outputs.h5'.format(forecast_year)
     archive_path = input_store_path.replace(
@@ -208,7 +206,7 @@ def create_usim_input_data(
     og_input_store = pd.HDFStore(archive_path)
 
     # load last iter UrbanSim output data
-    usim_output_datastore_name = _get_usim_datastore_fname(
+    usim_output_datastore_name = get_usim_datastore_fname(
         settings, 'output', forecast_year)
     usim_output_store_path = os.path.join(data_dir, usim_output_datastore_name)
     if not os.path.exists(usim_output_store_path):
@@ -246,8 +244,8 @@ def create_usim_input_data(
 
     # 3. copy USIM INPUTS into new input data store if not present already
     logger.info((
-        "Passing static UrbanSim inputs through to the new Urbansim "
-        "input store!").format(table_name))
+                    "Passing static UrbanSim inputs through to the new Urbansim "
+                    "input store!").format(table_name))
     for h5_key in og_input_store.keys():
         table_name = h5_key.split('/')[-1]
         if table_name not in updated_tables:
@@ -261,7 +259,6 @@ def create_usim_input_data(
 
 
 def create_next_iter_inputs(settings, year, forecast_year):
-
     tables_updated_by_asim = ['households', 'persons']
     asim_output_dict = _load_asim_outputs(settings)
     asim_output_dict = _prepare_updated_tables(
@@ -286,7 +283,7 @@ def update_usim_inputs_after_warm_start(
     # load usim data
     if not usim_data_dir:
         usim_data_dir = settings['usim_local_data_folder']
-    datastore_name = _get_usim_datastore_fname(settings, io='input')
+    datastore_name = get_usim_datastore_fname(settings, io='input')
     input_store_path = os.path.join(usim_data_dir, datastore_name)
     if not os.path.exists(input_store_path):
         raise ValueError('No input data found at {0}'.format(input_store_path))

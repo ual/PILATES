@@ -11,6 +11,7 @@ if  [ $# -eq 2 ]
         aws s3 sync pilates/activitysim/data/ s3://beam-outputs/pilates-outputs/$2/activitysim/data/ --region us-east-2;
         aws s3 cp pilates/beam/beam_output/ s3://beam-outputs/pilates-outputs/"$2"/ --exclude "*" --include "*$1*" --region us-east-2;
         aws s3 cp pilates/postprocessing/output/ s3://beam-outputs/pilates-outputs/"$2"/inexus/ --exclude ".git*"
+        aws s3 cp pilates/postprocessing/MEP/ s3://beam-outputs/pilates-outputs/"$2"/MEP/ --exclude ".git*"
 else
     echo "Please provide a region (e.g. 'austin' or 'sfbay') and S3 directory name"
 fi        

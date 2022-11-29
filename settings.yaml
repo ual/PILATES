@@ -111,6 +111,8 @@ polaris_skim_keys:
     - ivtt
     - cost
 
+# MEP
+mep_local_output_folder: pilates/postprocessing/MEP/
 
 # ACTIVITYSIM
 household_sample_size: 274783  # zero means no sampling, whole pop.
