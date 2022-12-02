@@ -128,11 +128,16 @@ def copy_plans_from_asim(settings, year, replanning_iteration_number=0):
             logger.info("No plans existed already so copying them directly. THIS IS BAD")
             pd.read_csv(asim_plans_path).to_csv(beam_plans_path, compression='gzip')
 
-    if replanning_iteration_number >= 0:
-        merge_only_updated_households()
+    if replanning_iteration_number < 0:
+        copy_with_compression_asim_file_to_beam('final_plans.csv', 'plans.csv.gz')
+        copy_with_compression_asim_file_to_beam('final_households.csv', 'households.csv.gz')
+        copy_with_compression_asim_file_to_beam('final_persons.csv', 'persons.csv.gz')
+        copy_with_compression_asim_file_to_beam('final_land_use.csv', 'land_use.csv.gz')
+        copy_with_compression_asim_file_to_beam('final_tours.csv', 'tours.csv.gz')
+        copy_with_compression_asim_file_to_beam('final_trips.csv', 'trips.csv.gz')
+        copy_with_compression_asim_file_to_beam('final_joint_tour_participants.csv', 'joint_tour_participants.csv.gz')
     else:
-        logger.info(
-            "Not copying over any output files to BEAM because we just did it at the beginning of a replanning loop")
+        merge_only_updated_households()
 
     if settings.get('final_asim_plans_folder', False):
         # This first one not currently necessary when asim-lite is replanning all households
