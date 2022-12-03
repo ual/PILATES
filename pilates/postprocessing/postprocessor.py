@@ -88,13 +88,25 @@ def copy_outputs_to_mep(settings, year, iter):
         shutil.copy(os.path.join(beam_iter_output_dir, "network.csv.gz"),
                     os.path.join(mep_output_data_dir, "network.csv.gz"))
         linkstats_path = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.linkstats.csv.gz")
-        shutil.copy(linkstats_path, os.path.join(mep_output_data_dir, "linkstats.csv.gz"))
-        parkingStats = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.parkingStats.csv.gz")
-        shutil.copy(parkingStats, os.path.join(mep_output_data_dir, "parkingStats.csv.gz"))
+        try:
+            shutil.copy(linkstats_path, os.path.join(mep_output_data_dir, "linkstats.csv.gz"))
+        except:
+            logger.error("Missing expected beam output file {0}".format(linkstats_path))
+        parkingStats = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.parkingStats.csv")
+        try:
+            shutil.copy(parkingStats, os.path.join(mep_output_data_dir, "parkingStats.csv"))
+        except:
+            logger.error("Missing expected beam output file {0}".format(parkingStats))
         ridehailSkims = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.skimsRidehail.csv.gz")
-        shutil.copy(ridehailSkims, os.path.join(mep_output_data_dir, "ridehailSkims.csv.gz"))
+        try:
+            shutil.copy(ridehailSkims, os.path.join(mep_output_data_dir, "ridehailSkims.csv.gz"))
+        except:
+            logger.error("Missing expected beam output file {0}".format(ridehailSkims))
         odSkims = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.skimsTAZ.csv.gz")
-        shutil.copy(odSkims, os.path.join(mep_output_data_dir, "odSkims.csv.gz"))
+        try:
+            shutil.copy(odSkims, os.path.join(mep_output_data_dir, "odSkims.csv.gz"))
+        except:
+            logger.error("Missing expected beam output file {0}".format(odSkims))
         beam_router_dir = os.path.join(settings['beam_local_input_folder'], settings['region'],
                                        settings['beam_router_directory'])
         mep_gtfs_dir = os.path.join(mep_output_data_dir, "GTFS")
