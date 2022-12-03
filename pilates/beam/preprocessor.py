@@ -8,7 +8,8 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 beam_param_map = {'beam_sample': 'beam.agentsim.agentSampleSizeAsFractionOfPopulation',
-                  'beam_replanning_portion': 'beam.agentsim.agents.plans.merge.fraction'
+                  'beam_replanning_portion': 'beam.agentsim.agents.plans.merge.fraction',
+                  'beam_max_plan_memory_size': 'beam.replanning.maxAgentPlanMemorySize'
                   }
 
 
