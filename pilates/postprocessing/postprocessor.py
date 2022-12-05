@@ -595,7 +595,7 @@ def _read_asim_plans(settings, year, iteration):
     return tour_trips
 
 
-def build_mep_summaries(trips, settings, iteration):
+def build_mep_summaries(trips, settings, year, iteration):
     totalsByMode = trips.loc[:,
                    ['mode_choice_actual_BEAM', 'cost_BEAM', 'distance_mode_choice', 'fuel_marginal']].groupby(
         'mode_choice_actual_BEAM').agg(sum)
@@ -631,8 +631,8 @@ def process_event_file(settings, year, iteration):
         try:
             final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
         except Exception as e:
-            print("Error during mep summary: \n {0}".format(e))
-            logger.error("Error during mep summary: \n {0}".format(e))
+            print("Error during merging: \n {0}".format(e))
+            logger.error("Error during merging: \n {0}".format(e))
         scenario_defs = settings['scenario_definitions']
         post_output_folder = settings['postprocessing_output_folder']
 
@@ -646,7 +646,7 @@ def process_event_file(settings, year, iteration):
 
         logger.info("Building mep summaries")
         try:
-            build_mep_summaries(final_output, settings, iteration)
+            build_mep_summaries(final_output, settings, year, iteration)
         except Exception as e:
             print("Error during mep summary: \n {0}".format(e))
 
