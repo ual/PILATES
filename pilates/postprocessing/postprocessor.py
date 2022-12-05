@@ -38,7 +38,7 @@ dtypes = {
     'currentTourMode': 'category',
     'currentActivity': 'category',
     'nextActivity': 'category',
-    'tripId': "str"
+    'tripId': 'Int64'
 }
 
 
@@ -156,7 +156,8 @@ def _reformat_events_file(events):
 
     # Replace "Work" with "work" in the "actType" column
     events["actType"].replace({"Work": "work"}, inplace=True)
-    events = events[~events.person.str.contains("Agent", na=False)].reset_index(drop=True)
+    initialParkingEvents = (events["type"] == "ParkingEvent") & (events["time"] == 0)
+    events = events[~events.person.str.contains("Agent", na=False) & ~initialParkingEvents].reset_index(drop=True)
 
     # shift column 'person' to first position
     first_column = events.pop('person')
@@ -561,6 +562,10 @@ def _read_asim_utilities(settings, year, iteration):
 
 
 def _merge_trips_with_utilities(asim_trips, asim_utilities, beam_trips):
+    tripIdsBEAM = set(beam_trips.tripIndex)
+    tripIdsASIM = set(asim_trips.trip_id)
+    logger.info("Finding {0} BEAM trips not in ASIM plans and {1} ASIM trips not in BEAM events".format(
+        len(tripIdsBEAM - tripIdsASIM), len(tripIdsASIM - tripIdsBEAM)))
     SFActMerged = pd.merge(left=asim_trips, right=asim_utilities, how='left', on=['trip_id']).sort_values(
         by=['person_id', 'trip_id']).reset_index(drop=True)
     eventsASim = pd.merge(left=beam_trips, right=SFActMerged, how='left', left_on=["IDMerged", 'tripIndex'],
@@ -645,8 +650,8 @@ def process_event_file(settings, year, iteration):
         except Exception as e:
             print("Error during mep summary: \n {0}".format(e))
 
-    except:
-        logger.error("Did not successfully run the postproccessor, did activitysim fail?")
+    except Exception as e:
+        logger.error("Did not successfully run the postproccessor, did activitysim fail? \n {0}".format(e))
 
 
 if __name__ == '__main__':
