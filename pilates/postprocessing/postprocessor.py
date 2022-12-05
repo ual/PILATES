@@ -624,7 +624,11 @@ def process_event_file(settings, year, iteration):
         tour_trips = _read_asim_plans(settings, year, iteration)
         logger.info("Merging final outputs")
         final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
-        build_mep_summaries(final_output, settings, iteration)
+        logger.info("Building mep summaries")
+        try:
+            build_mep_summaries(final_output, settings, iteration)
+        except Exception as e:
+            print("Error during mep summary: \n {0}".format(e))
         scenario_defs = settings['scenario_definitions']
 
         post_output_folder = settings['postprocessing_output_folder']
