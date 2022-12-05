@@ -623,14 +623,12 @@ def process_event_file(settings, year, iteration):
         logger.info("Reading asim plans")
         tour_trips = _read_asim_plans(settings, year, iteration)
         logger.info("Merging final outputs")
-        final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
-        logger.info("Building mep summaries")
         try:
-            build_mep_summaries(final_output, settings, iteration)
+            final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
         except Exception as e:
             print("Error during mep summary: \n {0}".format(e))
+            logger.error("Error during mep summary: \n {0}".format(e))
         scenario_defs = settings['scenario_definitions']
-
         post_output_folder = settings['postprocessing_output_folder']
 
         filename = "{0}_{1}_{2}-{3}_{4}__{5}.csv.gz".format(settings['region'],
@@ -640,6 +638,13 @@ def process_event_file(settings, year, iteration):
                                                             year,
                                                             date.today().strftime("%Y%m%d"))
         final_output.to_csv(os.path.join(post_output_folder, filename), compression="gzip")
+
+        logger.info("Building mep summaries")
+        try:
+            build_mep_summaries(final_output, settings, iteration)
+        except Exception as e:
+            print("Error during mep summary: \n {0}".format(e))
+
     except:
         logger.error("Did not successfully run the postproccessor, did activitysim fail?")
 
