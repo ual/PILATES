@@ -145,6 +145,9 @@ def _reformat_events_file(events):
     # Replace "Work" with "work" in the "actType" column
     events["actType"].replace({"Work": "work"}, inplace=True)
     events = events[~events.person.str.contains("Agent", na=False)].reset_index(drop=True)
+    
+    # Remove the cases where parking events have time = 0 
+    events = events[~((events.type.str.contains("ParkingEvent", na=False))&(events['time']==0))].reset_index(drop=True)
 
     # shift column 'person' to first position
     first_column = events.pop('person')
@@ -411,7 +414,7 @@ def _add_geometry_id_to_DataFrame(df, gdf, xcol, ycol, idColumn="geometry", df_g
     gdf_data = gdf_data.merge(joined['zone_id'], left_index=True, right_index=True, how="left")
     gdf_data.rename(columns={'zone_id': idColumn}, inplace=True)
     df = pd.DataFrame(gdf_data.drop(columns='geometry'))
-    df.drop(columns=[xcol, ycol], inplace=True)
+    #df.drop(columns=[xcol, ycol], inplace=True)
     return df.loc[~df.index.duplicated(keep='first'), :]
 
 
@@ -472,7 +475,21 @@ def _aggregate_on_trip(df, name):
                'fuelGasoline': np.sum,
                'fuel_marginal': np.sum,
                'BlockGroupStart': 'first',
+               'startX': 'first',
+               'startY': 'first',
+               'bgid_start': 'first',
+               'tractid_start':'first',
+               'juris_name_start': 'first',
+               'county_name_start': 'first',
+               'mpo_start': 'first',
                'BlockGroupEnd': 'last',
+               'endX': 'last',
+               'endY': 'last',
+               'bgid_end':'last',    
+               'tractid_end':'last',
+               'juris_name_end':'last',       
+               'county_name_end': 'last',   
+               'mpo_end': 'last',
                'emissionFood': np.sum,
                'emissionElectricity': np.sum,
                'emissionDiesel': np.sum,
@@ -494,8 +511,10 @@ def _build_person_trip_events(events):
 def _process_person_trip_events(person_trip_events):
     person_trip_events['duration_door_to_door'] = person_trip_events['actStartTime'] - person_trip_events[
         'actEndTime']
-    person_trip_events['waitTime'] = person_trip_events['duration_door_to_door'] - person_trip_events[
-        'duration_travelling']
+    person_trip_events['waitTime_no_replanning'] = np.where(person_trip_events['replanning_status'] == 0, 
+         person_trip_events['duration_door_to_door'] - Person_Trip_eventsSF['duration_travelling'], 0)
+    person_trip_events['waitTime_replanning'] = np.where(person_trip_events['replanning_status'] > 0, 
+         person_trip_events['duration_door_to_door'] - Person_Trip_eventsSF['duration_travelling'], 0) 
     person_trip_events['actPurpose'] = person_trip_events['actEndType'].astype(str) + "_to_" + person_trip_events[
         'actStartType'].astype(str)
     person_trip_events.rename(columns={"legVehicleIds": "vehicleIds_estimate"}, inplace=True)
@@ -532,6 +551,9 @@ def _process_person_trip_events(person_trip_events):
                   (person_trip_events['mode_choice_actual_BEAM'] == 'ride_hail_transit')]
     choices = ['ride_hail', 'transit', 'walk', 'bike', 'car', 'ride_hail_transit']
     person_trip_events['mode_choice_actual_6'] = np.select(conditions, choices, default=np.nan)
+    # Column with four summarized modes
+    person_trip_events['mode_choice_actual_4']  = np.where((person_trip_events['mode_choice_actual_5'] == 'walk')|(
+                          person_trip_events['mode_choice_actual_5'] == 'bike'), 'walk/bike', person_trip_events['mode_choice_actual_5'])
     return person_trip_events.sort_values(by=['IDMerged', 'tripIndex']).reset_index(drop=False)
 
 
@@ -555,7 +577,7 @@ def _merge_trips_with_utilities(asim_trips, asim_utilities, beam_trips):
                           right_on=['person_id', 'trip_id'])
     eventsASim.rename(columns={"mode_choice_logsum_y": "logsum_tours_mode_AS_tours"}, inplace=True)
     eventsASim.rename(columns={"tour_mode": "tour_mode_AS_tours"}, inplace=True)
-    eventsASim.rename(columns={"mode_choice_logsum_x": "logsum_trip_mode_AS_trips"}, inplace=True)
+    eventsASim.rename(columns={"mode_choice_logsum_x": "logsum_trip_Potential_INEXUS"}, inplace=True)
     eventsASim.rename(columns={"trip_mode": "trip_mode_AS_trips"}, inplace=True)
     return eventsASim
 
