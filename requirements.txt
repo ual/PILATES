@@ -1,0 +1,10 @@
+docker
+pyyaml
+openmatrix
+pandas
+geopandas
+tqdm
+h5py
+matplotlib
+spython
+sortedcontainers

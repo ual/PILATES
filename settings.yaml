@@ -11,7 +11,7 @@ start_year: 2020
 end_year: 2040
 land_use_freq: 1
 travel_model_freq: 5
-restart_from_polaris: True
+restart_from_polaris: False
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
@@ -50,6 +50,8 @@ region_zone_type:
 ###############################
 #    SUB-PLATFORM SETTINGS    #
 ###############################
+
+data_folder: ../jamie_setup/no_cacc_ref/PILATES
 
 # URBANSIM
 region_to_region_id:

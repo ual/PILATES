@@ -31,6 +31,7 @@ def archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_leve
 	logger.info('Archiving UrbanSim skims')
 
 	# rename existing h5 file
+    # TODO: Path Relative to Source Dir
 	data_dir = 'pilates/polaris/data'
 	old_name = '{0}/{1}_skims.hdf5'.format(data_dir, db_name)
 	new_name = '{0}/{1}_{2}_skims.hdf5'.format(data_dir, db_name, forecast_year)
@@ -160,10 +161,10 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 							return 0.6
 
 		def calculate_gttime_factor(self, skim, wait_times):
-			
+
 			o_idx = skim.zone_id_to_index_map[self.oid]
 			d_idx = skim.zone_id_to_index_map[self.did]
-			
+
 			if self.total > 0:
 				self.tnc = self.tnc/self.total
 				self.noAV = self.noAV/self.total
@@ -177,7 +178,7 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 				self.l5 = 0.0
 				wait = wait_times[self.o_idx]
 
-			
+
 
 			# determine if the OD pair is mostly highway or arterial
 			self.set_congestion_and_highway_flags(skim)
@@ -305,12 +306,12 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 	print ('Done.')
 
 def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings):
-	
-	
+
+
 	if not os.path.exists(db_demand):
 		logger.critical("Error: input polaris demand db not found at: " + db_demand)
 		sys.exit()
-		
+
 	# verify filepaths
 	if forecast_year:
 		usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
@@ -321,26 +322,26 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 		usim_base_fname = usim_settings['usim_formattable_input_file_name']
 		usim_base = usim_base_fname.format(region_id=region_id)
 		usim_output = "{0}/{1}".format(usim_output_dir, usim_base)
-		
+
 	logger.info(("Updating urbansim model, {0}, from polaris demand database...").format(usim_output))
-	
+
 	# load the polaris person table into a data frame - should be updated with work and school locations
 	dbcon = sqlite3.connect(db_demand)
-	
+
 	# get the person table
 	per_df = pd.read_sql_query("SELECT * FROM person", dbcon, index_col=['person'])
 	per_df = per_df.reset_index()
-	
+
 	# change member id to one-indexed for consistency with urbansim
 	per_df['id'] = per_df['id'] + 1
 
-	# create common multi-index using household and member id 
+	# create common multi-index using household and member id
 	per_df = per_df.set_index(['household','id'],drop=False)
-	
+
 	# populate the urbansim object to update
 	usim = Usim_Data(forecast_year, usim_output)
 	p = usim.per_data
-	
+
 
 	# create a temp index
 	p_idx_name = p.index.name
@@ -349,17 +350,17 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 		p.index.name = p_idx_name
 	p = p.reset_index()
 	p = p.set_index(['household_id','member_id'],drop=False)
-	
+
 	p['work_zone_id'] = per_df['work_location_id'].reindex(p.index)
 	p['school_zone_id'] = per_df['school_location_id'].reindex(p.index)
 	p = p.set_index(p_idx_name)
-		
+
 	# update the person data table in the usim object
 	usim.per_data = p
-	
+
 	# close saves it back to original datastore and writes to file
 	usim.Close()
-	
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Process the skim data for UrbanSim')

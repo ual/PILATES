@@ -100,8 +100,7 @@ def add_skims_to_model_data(settings, data_dir=None):
         data_dir = settings['usim_local_data_folder']
     model_data_fpath = os.path.join(data_dir, model_data_fname)
     if not os.path.exists(model_data_fpath):
-        raise ValueError('No input data found at {0}'.format(
-            model_data_fpath))
+        raise ValueError('No input data found at {0}'.format(model_data_fpath))
     store = pd.HDFStore(model_data_fpath)
 
     # add skims
