@@ -11,11 +11,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
+def archive_polaris_output(database_name, forecast_year, output_dir, model_dir):
 	# build archive folder name
 	folder_name = '{0}-{1}'.format(database_name, forecast_year)
 	# Create archive Directory if don't exist
-	archive = Path(os.path.join(data_dir, folder_name))
+	archive = Path(os.path.join(model_dir, folder_name))
 	# check if folder already exists
 	if not archive.exists():
 		os.mkdir(str(archive))
@@ -27,12 +27,11 @@ def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
 	shutil.copytree(output_dir, tgt)
 	return Path(tgt)
 
-def archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level):
+def archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, output_dir, vot_level):
 	logger.info('Archiving UrbanSim skims')
 
 	# rename existing h5 file
-    # TODO: Path Relative to Source Dir
-	data_dir = 'pilates/polaris/data'
+	data_dir = pilates_data_dir / 'pilates/polaris/data'
 	old_name = '{0}/{1}_skims.hdf5'.format(data_dir, db_name)
 	new_name = '{0}/{1}_{2}_skims.hdf5'.format(data_dir, db_name, forecast_year)
 	os.rename(old_name,new_name)
@@ -57,8 +56,6 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 	#------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	DbCon = sqlite3.connect ( DemandDbPath )
 	DbCon.execute ( "pragma foreign_keys = on;" )
-	ProcessDir = os.getcwd ()
-
 	DbCon.execute ( "attach database '" + NetworkDbPath + "' as a;" )
 	DbCon.execute ( "attach database '" + ResultDbPath + "' as b;" )
 
@@ -236,9 +233,7 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 		query2 += "group by zone order by zone;"
 		ZoneRows = DbCon.execute ( query2 )
 
-		ZoneWaitTimes = {}
-		for zone, avg_wait in ZoneRows:
-			ZoneWaitTimes[zone] = avg_wait
+		ZoneWaitTimes = { zone:avg_wait for zone, avg_wait in ZoneRows }
 		print ('Done.')
 
 

@@ -174,6 +174,8 @@ def parse_args_and_settings(settings_file='settings.yaml'):
             'household sample size you specified is {0}'.format(
                 settings['household_sample_size']))
 
+    settings.update({'pilates_src_dir': Path(__file__).parent.resolve()})
+
     return settings
 
 
@@ -373,6 +375,7 @@ def forecast_land_use_singularity(settings, year, forecast_year):
     skims_source = settings['travel_model']
     local_data_dir = abspath(settings['data_folder'])
     usim_local_data_folder = join(local_data_dir, settings['usim_local_data_folder'])
+    sif_path = settings['singularity_images']['urbansim']
 
     # 2. PREPARE URBANSIM DATA
     print_str = "Preparing {0} input data for land use development simulation.".format(year)
@@ -380,7 +383,8 @@ def forecast_land_use_singularity(settings, year, forecast_year):
     usim_pre.add_skims_to_model_data(settings)
 
     # 3. RUN URBANSIM
-    subprocess.run(['bash', './run_urbansim.sh', str(region_id), str(year), str(forecast_year), str(land_use_freq), str(skims_source), abspath(usim_local_data_folder)])
+    run_script = settings['pilates_src_dir'] / "run_urbansim.sh"
+    subprocess.run(['bash', run_script, str(region_id), str(year), str(forecast_year), str(land_use_freq), str(skims_source), abspath(usim_local_data_folder), sif_path])
     # logger.info(output)
     logger.info('Done!')
     return

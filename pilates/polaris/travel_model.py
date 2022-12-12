@@ -63,32 +63,32 @@ def modify_scenario(scenario_file, parameter, value):
 def run_polaris(forecast_year, settings, warm_start=False):
 
 	logger.info('**** RUNNING POLARIS FOR FORECAST YEAR {0}, WARM START MODE = {1}'.format(forecast_year, warm_start))
-	data_dir = abspath(settings['data_folder'])
+	pilates_data_dir = Path(abspath(settings['data_folder']))
 
 	# read settings from config file
-	with open(join(data_dir, 'polaris_settings.yaml')) as file:
+	with open(pilates_data_dir / 'pilates' / 'polaris' / 'polaris_settings.yaml') as file:
 		polaris_settings = yaml.load(file, Loader=yaml.FullLoader)
-	data_dir = Path(data_dir)
-	backup_dir = data_dir / "backup"
-	scripts_dir = data_dir / "conv_scripts"
-	db_name = polaris_settings.get('db_name')
-	out_name = polaris_settings.get('out_name')
-	polaris_exe = polaris_settings.get('polaris_exe')
-	scenario_init_file = polaris_settings.get('scenario_main_init', None)
-	scenario_main_file = polaris_settings.get('scenario_main')
-	vehicle_file_base = polaris_settings.get('vehicle_file_basename', None)
-	vehicle_file_fleet_base = polaris_settings.get('fleet_vehicle_file_basename', None)
-	num_threads = polaris_settings.get('num_threads')
-	num_abm_runs = polaris_settings.get('num_abm_runs')
-	block_loc_file_name = polaris_settings.get('block_loc_file_name')
-	population_scale_factor = polaris_settings.get('population_scale_factor')
+	model_dir = pilates_data_dir / "austin" # TODO: No hardcode
+	backup_dir = pilates_data_dir / "backup"
+	scripts_dir = pilates_data_dir / "pilates" / 'polaris' / "conv_scripts"
+	db_name = polaris_settings['db_name']
+	out_name = polaris_settings['out_name']
+	polaris_exe = polaris_settings['polaris_exe']
+	scenario_init_file = polaris_settings['scenario_main_init']
+	scenario_main_file = polaris_settings['scenario_main']
+	vehicle_file_base = polaris_settings['vehicle_file_basename']
+	vehicle_file_fleet_base = polaris_settings['fleet_vehicle_file_basename']
+	num_threads = polaris_settings.get('num_threads', 6)
+	num_abm_runs = polaris_settings['num_abm_runs']
+	block_loc_file_name = polaris_settings['block_loc_file_name']
+	population_scale_factor = polaris_settings['population_scale_factor']
 	archive_dir = polaris_settings.get('archive_dir')
-	db_supply = "{0}/{1}-Supply.sqlite".format(str(data_dir), db_name)
-	db_demand = "{0}/{1}-Demand.sqlite".format(str(data_dir), db_name)
-	block_loc_file = "{0}/{1}".format(str(data_dir), block_loc_file_name)
+	db_supply = f"{model_dir}/{db_name}-Supply.sqlite"
+	db_demand = f"{model_dir}/{db_name}-Demand.sqlite"
+	block_loc_file = "{0}/{1}".format(str(model_dir), block_loc_file_name)
 	vot_level = polaris_settings.get('vot_level')
 
-	usim_output_dir = abspath(join(data_dir, settings['usim_local_data_folder']))
+	usim_output_dir = abspath(join(pilates_data_dir, settings['usim_local_data_folder']))
 
 	# store the original inputs
 	supply_db_name = db_name + "-Supply.sqlite"
@@ -97,24 +97,23 @@ def run_polaris(forecast_year, settings, warm_start=False):
 	highway_skim_file_name = "highway_skim_file.bin"
 	transit_skim_file_name = "transit_skim_file.bin"
 
-
-	cwd = os.getcwd()
-	os.chdir(data_dir)
+	pwd = os.getcwd()
+	os.chdir(model_dir)
 
 	#check if warm start and initialize changes
 	if warm_start:
 		num_abm_runs = 1
 
-		# start with fresh demand database from backup (only for warm start
-		PR.copyreplacefile(backup_dir / demand_db_name, data_dir)
+		# start with fresh demand database from backup (only for warm start)
+		# PR.copyreplacefile(backup_dir / demand_db_name, model_dir)
 
-		# load the urbansim population for the init run
-		preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, 1.0, settings)
+		# # load the urbansim population for the init run
+		# preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, 1.0, settings)
 
 		# update the vehicles table with new costs
-		if forecast_year:
-			veh_script = "vehicle_operating_cost_" + str(forecast_year) + ".sql"
-			PR.execute_sql_script(data_dir / demand_db_name, data_dir / veh_script)
+		# if forecast_year:
+		# 	veh_script = "vehicle_operating_cost_" + str(forecast_year) + ".sql"
+		# 	PR.execute_sql_script(model_dir / demand_db_name, model_dir / veh_script)
 
 	fail_count = 0
 	loop = 0
@@ -127,9 +126,10 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		fleet_veh_file_name = '"' + vehicle_file_fleet_base + '_{0}.txt"'.format(forecast_year)
 		if not forecast_year:
 			veh_file_name = '"' + vehicle_file_base + '.txt"'.format(forecast_year)
-			fleet_veh_file_name = '"' + vehicle_file_fleet_base + 'txt"'.format(forecast_year)
+			fleet_veh_file_name = '"' + vehicle_file_fleet_base + '.txt"'.format(forecast_year)
 
 		if loop == 0:
+			print(f"forecast year: {forecast_year}")
 			if forecast_year:
 				scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
 			else:
@@ -189,53 +189,53 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		PR.modify_scenario(scenario_file, "vehicle_distribution_file_name", veh_file_name)
 		PR.modify_scenario(scenario_file, "fleet_vehicle_distribution_file_name", fleet_veh_file_name)
 
-		arguments = '{0} {1}'.format(scenario_file, str(num_threads))
-		logger.info(f'Executing \'{str(polaris_exe)} {arguments}\'')
 
 		# run executable
-		success = PR.run_polaris_instance(data_dir, polaris_exe, scenario_file, num_threads, None)
+		logger.info(f'Executing \'{polaris_exe} {scenario_file} {num_threads}\'')
+		success = PR.run_polaris_instance(model_dir, polaris_exe, scenario_file, num_threads, None)
+
 		# get output directory and write files into working dir for next run
-		output_dir = PR.get_latest_polaris_output(out_name, data_dir)
+		output_dir = PR.get_latest_polaris_output(out_name, model_dir)
 
 		if success:
-			PR.copyreplacefile(output_dir / demand_db_name, data_dir)
-			PR.execute_sql_script(data_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
+			PR.copyreplacefile(output_dir / demand_db_name, model_dir)
+			PR.execute_sql_script(model_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
 			# skip all of the file storage and analysis for warm start runs - only need the demand file
 			if not warm_start:
 				fail_count = 0
 				# copy the network outputs back to main data directory
-				PR.copyreplacefile(output_dir / result_db_name, data_dir)
-				PR.copyreplacefile(output_dir / highway_skim_file_name, data_dir)
-				PR.copyreplacefile(data_dir / supply_db_name, output_dir)
+				PR.copyreplacefile(output_dir / result_db_name, model_dir)
+				PR.copyreplacefile(output_dir / highway_skim_file_name, model_dir)
+				PR.copyreplacefile(model_dir / supply_db_name, output_dir)
 			loop += 1
 		else:
 			fail_count += 1
-			if fail_count >= 3:
+			if fail_count >= 0:
 				logger.info("POLARIS crashed three times in a row")
 				sys.exit()
 			else:
-				shutil.rmtree(output_dir)
 				logger.info(f"Deleting failed results directory for attempt: {loop}")
+				shutil.rmtree(output_dir)
 
 
-	os.chdir(cwd)
 	# find the latest output
-	output_dir = PR.get_latest_polaris_output(out_name, data_dir)
+	output_dir = PR.get_latest_polaris_output(out_name, model_dir)
 	# db_supply = "{0}/{1}-Supply.sqlite".format(output_dir, db_name)
 	# db_demand = "{0}/{1}-Demand.sqlite".format(output_dir, db_name)
 	# db_result =  "{0}/{1}-Result.sqlite".format(output_dir, db_name)
 	# auto_skim = "{0}/{1}".format(output_dir, polaris_settings.get('auto_skim_file'))
 	# transit_skim = "{0}/{1}".format(output_dir, polaris_settings.get('transit_skim_file'))
+	os.chdir(pwd)
 
 	# postprocessor.generate_polaris_skims_for_usim( 'pilates/polaris/data', db_name, db_supply, db_demand, db_result, auto_skim, transit_skim, vot_level)
 
 	if warm_start:
 		postprocessor.update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, settings)
 		# store the updated full population demand database for the next warm start round
-		PR.copyreplacefile(data_dir / demand_db_name, backup_dir )
+		PR.copyreplacefile(model_dir / demand_db_name, backup_dir)
 	else:
-		archive_dir = postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, data_dir)
-		postprocessor.archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level)
+		archive_dir = postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, model_dir)
+		postprocessor.archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, output_dir, vot_level)
 		# only run the analysis script for the final iteration of the loop and process asynchronously to save time
 		p1 = Thread(target=PR.execute_sql_script_with_attach, args=(archive_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", archive_dir / supply_db_name))
 		p1.start()

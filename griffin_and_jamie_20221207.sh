@@ -3,9 +3,8 @@
 set -eu
 
 main() {
-    echo "hi"
-    # module_load
-    # setup_venv
+    module_load
+    setup_venv
     . venv/bin/activate
     python3 ./run.py
 }

@@ -1006,9 +1006,8 @@ def enrollment_tables(settings, zones,
     local_crs = settings['local_crs'][region]
     zone_type = settings['skims_zone_type']
 
-    # TODO: Path Relative to Source Dir
-    path_to_schools_data = \
-        "pilates/utils/data/{0}/{1}_{2}.csv".format(region, zone_type, enrollment_type)
+    pilates_data_dir = settings['data_dir']
+    path_to_schools_data = f"{pilates_data_dir}/pilates/utils/data/{region}/{zone_type}_{enrollment_type}.csv"
 
     assert enrollment_type in ['schools', 'colleges'], "enrollemnt type one of ['schools', 'colleges']"
 
