@@ -28,11 +28,11 @@ def update_beam_config(settings, param, valueOverride=None):
             for line in data:
                 if line.startswith(config_header):
                     modified = True
-                    file.writelines(config_header + " = " + str(config_value) + "\n")
+                    file.writelines("\n" + config_header + " = " + str(config_value) + "\n")
                 else:
                     file.writelines(line)
             if ~modified:
-                file.writelines(config_header + " = " + str(config_value) + "\n")
+                file.writelines("\n" + config_header + " = " + str(config_value) + "\n")
 
 
 def make_archive(source, destination):
