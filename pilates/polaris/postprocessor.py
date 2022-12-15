@@ -48,7 +48,7 @@ def archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, ou
 
 def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):
 
-	skims = skim_reader.Skim_Results(silent=True)
+	skims = skim_reader.Skim_Results(silent=False)
 	skim_reader.Main(skims,auto_skim_path, transit_skim_path)
 
 	#******************************************************************************************************************************************************************

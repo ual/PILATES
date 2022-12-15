@@ -8,7 +8,7 @@ data_dir : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/no_cacc_ref/PILATES/a
 backup_dir : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/no_cacc_ref/PILATES/backup
 db_name : campo
 out_name : campo_abm
-polaris_exe : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/Integrated_Model
+polaris_exe : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/Integrated_Model/Integrated_Model
 num_threads : 16
 block_loc_file_name : campo_block_to_loc.csv
 auto_skim_file : highway_skim_file.bin
@@ -17,15 +17,12 @@ vot_level : 2
 
 # convergence settings
 results_dir : convergence_results  # = data_dir / json_data["results_dir"]
-scripts_dir : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/no_cacc_ref/PILATES/polaris/conv_scripts # = Path(json_data["scripts_dir"])
 
 # -- SET THE MAIN AND DTA RUN SCENARIO FILES
 population_scale_factor : 0.01  # MUST match settings in the scenario files below
 scenario_main_init : scenario_abm_init.json #= json_data["scenario_main_init"]
 scenario_main :  scenario_abm.json # = json_data["scenario_main"]
-vehicle_file_basename : vehicle_distribution_campo
-fleet_vehicle_file_basename : vehicle_distribution_campo_fleet
 
 
 # -- ENTER THE NUMBER OF MAIN RUNS AND DTA RUNS PER MAIN RUN
-num_abm_runs : 4  # = json_data["num_abm_runs"]
+num_abm_runs : 1  # = json_data["num_abm_runs"]

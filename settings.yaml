@@ -22,7 +22,7 @@ activity_demand_model: polaris
 container_manager: singularity
 #singularity settings
 singularity_images:
-  urbansim: /mnt/e/models/PILATES/block_model_v2_pb.sif
+  urbansim: /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/block_model_v2_pb.sif
   beam:
   activitysim:
   polaris:
@@ -50,8 +50,6 @@ region_zone_type:
 ###############################
 #    SUB-PLATFORM SETTINGS    #
 ###############################
-
-data_folder: /mnt/e/models/PILATES/no_cacc_ref
 
 # URBANSIM
 region_to_region_id:

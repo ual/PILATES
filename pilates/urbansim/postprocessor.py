@@ -44,12 +44,9 @@ def create_next_iter_usim_data(settings, year, forecast_year):
     updated_tables = []
 
     # load last iter output data
-    output_datastore_name = _get_usim_datastore_fname(settings, 'output', forecast_year)
-    output_store_path = os.path.join(data_dir, output_datastore_name)
-    
+
     # copy usim outputs into new input data store
-    logger.info(
-        'Merging results back into UrbanSim and storing as .h5!')
+    logger.info('Merging results back into UrbanSim and storing as .h5!')
     output_store, table_prefix_year = read_datastore(settings, forecast_year)
 
     for h5_key in output_store.keys():
@@ -57,18 +54,18 @@ def create_next_iter_usim_data(settings, year, forecast_year):
         if os.path.join('/', table_prefix_year, table_name) == h5_key:
             updated_tables.append(table_name)
             new_input_store[table_name] = output_store[h5_key]
-        
+
     # copy missing tables from original usim inputs into new input data store
     for h5_key in og_input_store.keys():
         table_name = h5_key.split('/')[-1]
         if table_name not in updated_tables:
-            logger.info(
-                "Copying {0} input table to output store!".format(
-                    table_name))
+            logger.info(f"Copying {table_name} input table to output store!")
             new_input_store[table_name] = og_input_store[h5_key]
 
-    assert new_input_store.keys() == og_input_store.keys()
+    if new_input_store.keys() != og_input_store.keys():
+        logger.error(f"inputs store keys ({new_input_store.keys()}) do not match original input keys ({og_input_store.keys()})")
+
     og_input_store.close()
     new_input_store.close()
     output_store.close()
-    
+

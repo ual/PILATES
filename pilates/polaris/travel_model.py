@@ -64,20 +64,21 @@ def run_polaris(forecast_year, settings, warm_start=False):
 
 	logger.info('**** RUNNING POLARIS FOR FORECAST YEAR {0}, WARM START MODE = {1}'.format(forecast_year, warm_start))
 	pilates_data_dir = Path(abspath(settings['data_folder']))
+	pilates_src_dir = settings['pilates_src_dir']
 
 	# read settings from config file
-	with open(pilates_data_dir / 'pilates' / 'polaris' / 'polaris_settings.yaml') as file:
+	with open(pilates_src_dir / 'pilates' / 'polaris' / 'polaris_settings.yaml') as file:
 		polaris_settings = yaml.load(file, Loader=yaml.FullLoader)
 	model_dir = pilates_data_dir / "austin" # TODO: No hardcode
 	backup_dir = pilates_data_dir / "backup"
-	scripts_dir = pilates_data_dir / "pilates" / 'polaris' / "conv_scripts"
+	scripts_dir = pilates_src_dir / "pilates" / 'polaris' / "conv_scripts"
 	db_name = polaris_settings['db_name']
 	out_name = polaris_settings['out_name']
 	polaris_exe = polaris_settings['polaris_exe']
 	scenario_init_file = polaris_settings['scenario_main_init']
 	scenario_main_file = polaris_settings['scenario_main']
-	vehicle_file_base = polaris_settings['vehicle_file_basename']
-	vehicle_file_fleet_base = polaris_settings['fleet_vehicle_file_basename']
+	vehicle_file_base = polaris_settings.get('vehicle_file_basename', 'vehicle_distribution')
+	vehicle_file_fleet_base = polaris_settings.get('fleet_vehicle_file_basename', 'vehicle_fleet_distribution')
 	num_threads = polaris_settings.get('num_threads', 6)
 	num_abm_runs = polaris_settings['num_abm_runs']
 	block_loc_file_name = polaris_settings['block_loc_file_name']
@@ -88,7 +89,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 	block_loc_file = "{0}/{1}".format(str(model_dir), block_loc_file_name)
 	vot_level = polaris_settings.get('vot_level')
 
-	usim_output_dir = abspath(join(pilates_data_dir, settings['usim_local_data_folder']))
+	usim_output_dir = pilates_data_dir / settings['usim_local_data_folder']
 
 	# store the original inputs
 	supply_db_name = db_name + "-Supply.sqlite"
@@ -105,15 +106,15 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		num_abm_runs = 1
 
 		# start with fresh demand database from backup (only for warm start)
-		# PR.copyreplacefile(backup_dir / demand_db_name, model_dir)
+		PR.copyreplacefile(backup_dir / demand_db_name, model_dir)
 
 		# # load the urbansim population for the init run
-		# preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, 1.0, settings)
+		preprocessor.preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, 1.0, settings)
 
 		# update the vehicles table with new costs
-		# if forecast_year:
-		# 	veh_script = "vehicle_operating_cost_" + str(forecast_year) + ".sql"
-		# 	PR.execute_sql_script(model_dir / demand_db_name, model_dir / veh_script)
+		if forecast_year:
+			veh_script = "vehicle_operating_cost_" + str(forecast_year) + ".sql"
+			PR.execute_sql_script(model_dir / demand_db_name, model_dir / veh_script)
 
 	fail_count = 0
 	loop = 0
@@ -211,7 +212,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		else:
 			fail_count += 1
 			if fail_count >= 0:
-				logger.info("POLARIS crashed three times in a row")
+				logger.info(f"POLARIS crashed {fail_count} times in a row")
 				sys.exit()
 			else:
 				logger.info(f"Deleting failed results directory for attempt: {loop}")

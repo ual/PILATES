@@ -17,24 +17,22 @@ def read_datastore(settings, year=None, warm_start=False):
 
     region = settings['region']
     region_id = settings['region_to_region_id'][region]
-    usim_local_data_folder = settings['usim_local_data_folder']
+    data_dir = settings['data_folder']
+    usim_local_data_folder = data_dir / settings['usim_local_data_folder']
 
-    if (year == settings['start_year']) or (warm_start):
+    if (year == settings['start_year']) or warm_start:
+        usim_datastore = settings['usim_formattable_input_file_name'].format(region_id=region_id)
         table_prefix_yr = ''  # input data store tables have no year prefix
-        usim_datastore = settings['usim_formattable_input_file_name'].format(
-            region_id=region_id)
 
     # Otherwise we read from the land use outputs
     else:
-        usim_datastore = settings['usim_formattable_output_file_name'].format(
-            year=year)
+        usim_datastore = settings['usim_formattable_output_file_name'].format(year=year)
         table_prefix_yr = str(year)
 
-    usim_datastore_fpath = os.path.join(usim_local_data_folder, usim_datastore)
+    usim_datastore_fpath = usim_local_data_folder / usim_datastore
 
-    if not os.path.exists(usim_datastore_fpath):
-        raise ValueError('No land use data found at {0}!'.format(
-            usim_datastore_fpath))
+    if not usim_datastore_fpath.exists():
+        raise ValueError(f'No land use data found at {usim_datastore_fpath}!')
 
     store = pd.HDFStore(usim_datastore_fpath)
 

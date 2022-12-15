@@ -41,29 +41,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def clean_and_init_data(usim_path, polaris_path):
-    if os.path.isdir(Path(usim_path) / 'backup'):
+    usim_backup, pol_backup =usim_path / 'backup', polaris_path / 'backup'
+    if usim_backup.is_dir():
+        logging.info(f"Clean and re-init *.h5 and *.txt in {usim_backup}")
         clean_data(usim_path, '*.h5')
         clean_data(usim_path, '*.txt')
         init_data(usim_path, '*.h5')
 
-    if os.path.isdir(Path(polaris_path) / 'backup'):
+    if pol_backup.is_dir():
+        logging.info(f"Clean and re-int *.hdf5 in {pol_backup}")
         clean_data(polaris_path, '*.hdf5')
         init_data(polaris_path, '*.hdf5')
 
 def clean_data(path, wildcard):
-    search_path = Path(path) / wildcard
-    logging.info(f"Cleaning: {search_path}")
-    filelist = glob.glob(str(search_path) )
-    for filepath in filelist:
+    for filepath in path.glob(wildcard):
         try:
             os.remove(filepath)
         except:
             logger.error("Error whie deleting file : {0}".format(filepath))
 
 def init_data(dest, wildcard):
-    backup_dir = Path(dest) / 'backup'
-    logging.info(f"Restoring {backup_dir} -> {dest}")
-    for filepath in backup_dir.glob(wildcard):
+    for filepath in Path(dest).joinpath('backup').glob(wildcard):
+        logging.info(f"  {filepath} -> {dest}")
         shutil.copy(filepath, dest)
 
 def formatted_print(string, width=50, fill_char='#'):
@@ -94,6 +93,7 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     parser.add_argument(
         '-p', '--pull_latest', action='store_true',
         help='pull latest docker images before running')
+    parser.add_argument("--data-dir", action="store", help="directory where data files are located")
     parser.add_argument(
         "-h", "--household_sample_size", action="store",
         help="household sample size")
@@ -174,7 +174,10 @@ def parse_args_and_settings(settings_file='settings.yaml'):
             'household sample size you specified is {0}'.format(
                 settings['household_sample_size']))
 
-    settings.update({'pilates_src_dir': Path(__file__).parent.resolve()})
+    settings['pilates_src_dir'] = Path(__file__).parent.resolve()
+    if args.data_dir is None:
+        raise RuntimeError("Please specify the data directory (--data-dir)")
+    settings['data_folder'] = Path(args.data_dir).resolve()
 
     return settings
 
@@ -194,11 +197,11 @@ def get_asim_docker_vols(settings):
     region = settings['region']
     asim_subdir = settings['region_to_asim_subdir'][region]
     asim_remote_workdir = join('/activitysim', asim_subdir)
-    local_data_dir = abspath(settings['data_folder'])
-    asim_local_input_folder = join(local_data_dir, settings['asim_local_input_folder'])
-    asim_local_output_folder = join(local_data_dir, settings['asim_local_output_folder'])
-    asim_remote_input_folder = join( asim_remote_workdir, 'data')
-    asim_remote_output_folder = join( asim_remote_workdir, 'output')
+    local_data_dir = settings['data_folder']
+    asim_local_input_folder = local_data_dir / settings['asim_local_input_folder']
+    asim_local_output_folder = local_data_dir / settings['asim_local_output_folder']
+    asim_remote_input_folder = join(asim_remote_workdir, 'data')
+    asim_remote_output_folder = join(asim_remote_workdir, 'output')
     asim_docker_vols = {
         asim_local_input_folder: {
             'bind': asim_remote_input_folder,
@@ -211,8 +214,7 @@ def get_asim_docker_vols(settings):
 
 def get_usim_docker_vols(settings):
     usim_remote_data_folder = settings['usim_client_data_folder']
-    local_data_dir = abspath(settings['data_folder'])
-    usim_local_data_folder = join(local_data_dir, settings['usim_local_data_folder'])
+    usim_local_data_folder = settings['data_folder'] / settings['usim_local_data_folder']
     usim_docker_vols = {
         usim_local_data_folder: {
             'bind': usim_remote_data_folder,
@@ -312,13 +314,11 @@ def forecast_land_use(settings, year, forecast_year, client, container_manager):
         sys.exit(1)
 
     # check for outputs, exit if none
-    local_data_dir = abspath(settings['data_folder'])
-    usim_local_data_folder = join(local_data_dir, settings['usim_local_data_folder'])
+    usim_local_data_folder = settings['data_folder'] / settings['usim_local_data_folder']
     usim_output_store = settings['usim_formattable_output_file_name'].format(year=forecast_year)
-    usim_datastore_fpath = os.path.join(usim_local_data_folder, usim_output_store)
-    if not os.path.exists(usim_datastore_fpath):
-        logger.critical(
-            "No UrbanSim output data found. It probably did not finish successfully.")
+    usim_datastore_fpath = usim_local_data_folder / usim_output_store
+    if not usim_datastore_fpath.exists():
+        logger.critical("No UrbanSim output data found. It probably did not finish successfully.")
         sys.exit(1)
 
 
@@ -378,8 +378,7 @@ def forecast_land_use_singularity(settings, year, forecast_year):
     sif_path = settings['singularity_images']['urbansim']
 
     # 2. PREPARE URBANSIM DATA
-    print_str = "Preparing {0} input data for land use development simulation.".format(year)
-    formatted_print(print_str)
+    formatted_print(f"Preparing {year} input data for land use development simulation.")
     usim_pre.add_skims_to_model_data(settings)
 
     # 3. RUN URBANSIM
@@ -675,15 +674,11 @@ if __name__ == '__main__':
     settings = parse_args_and_settings()
 
     # parse scenario settings
-
-    local_data_folder = abspath(settings['data_folder'])
-    os.chdir(local_data_folder)
-
     start_year = settings['start_year']
     end_year = settings['end_year']
-    formatted_print(f'RUNNING PILATES FROM {start_year} TO {end_year}')
-
     travel_model = settings.get('travel_model', False)
+    formatted_print(
+        'RUNNING PILATES FROM {0} TO {1}'.format(start_year, end_year))
     travel_model_freq = settings.get('travel_model_freq', 1)
     warm_start_skims = settings['warm_start_skims']
     warm_start_acts = settings['warm_start_activities']
@@ -699,13 +694,17 @@ if __name__ == '__main__':
 
     logger.info("Initializing data...")
     if not restart_from_polaris:
-        usim_local_data_folder = join(local_data_folder, settings['usim_local_data_folder'])
-        polaris_local_data_folder = join(local_data_folder, settings['polaris_local_data_folder'])
+        local_data_folder = settings['data_folder']
+        usim_local_data_folder = local_data_folder / settings['usim_local_data_folder']
+        polaris_local_data_folder = local_data_folder / settings['polaris_local_data_folder']
         clean_and_init_data(usim_local_data_folder, polaris_local_data_folder)
 
-    if not land_use_enabled: print("LAND USE MODEL DISABLED")
-    if not activity_demand_enabled: print("ACTIVITY DEMAND MODEL DISABLED")
-    if not traffic_assignment_enabled: print("TRAFFIC ASSIGNMENT MODEL DISABLED")
+    if not land_use_enabled:
+        print("LAND USE MODEL DISABLED")
+    if not activity_demand_enabled:
+        print("ACTIVITY DEMAND MODEL DISABLED")
+    if not traffic_assignment_enabled:
+        print("TRAFFIC ASSIGNMENT MODEL DISABLED")
 
     if warm_start_skims:
         formatted_print('"WARM START SKIMS" MODE ENABLED')
