@@ -38,7 +38,7 @@ dtypes = {
     'currentTourMode': 'category',
     'currentActivity': 'category',
     'nextActivity': 'category',
-    'tripId': "str"
+    'tripId': 'Int64'
 }
 
 
@@ -88,13 +88,25 @@ def copy_outputs_to_mep(settings, year, iter):
         shutil.copy(os.path.join(beam_iter_output_dir, "network.csv.gz"),
                     os.path.join(mep_output_data_dir, "network.csv.gz"))
         linkstats_path = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.linkstats.csv.gz")
-        shutil.copy(linkstats_path, os.path.join(mep_output_data_dir, "linkstats.csv.gz"))
-        parkingStats = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.parkingStats.csv.gz")
-        shutil.copy(parkingStats, os.path.join(mep_output_data_dir, "parkingStats.csv.gz"))
+        try:
+            shutil.copy(linkstats_path, os.path.join(mep_output_data_dir, "linkstats.csv.gz"))
+        except:
+            logger.error("Missing expected beam output file {0}".format(linkstats_path))
+        parkingStats = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.parkingStats.csv")
+        try:
+            shutil.copy(parkingStats, os.path.join(mep_output_data_dir, "parkingStats.csv"))
+        except:
+            logger.error("Missing expected beam output file {0}".format(parkingStats))
         ridehailSkims = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.skimsRidehail.csv.gz")
-        shutil.copy(ridehailSkims, os.path.join(mep_output_data_dir, "ridehailSkims.csv.gz"))
+        try:
+            shutil.copy(ridehailSkims, os.path.join(mep_output_data_dir, "ridehailSkims.csv.gz"))
+        except:
+            logger.error("Missing expected beam output file {0}".format(ridehailSkims))
         odSkims = os.path.join(beam_iter_output_dir, "ITERS", "it.0", "0.skimsTAZ.csv.gz")
-        shutil.copy(odSkims, os.path.join(mep_output_data_dir, "odSkims.csv.gz"))
+        try:
+            shutil.copy(odSkims, os.path.join(mep_output_data_dir, "odSkims.csv.gz"))
+        except:
+            logger.error("Missing expected beam output file {0}".format(odSkims))
         beam_router_dir = os.path.join(settings['beam_local_input_folder'], settings['region'],
                                        settings['beam_router_directory'])
         mep_gtfs_dir = os.path.join(mep_output_data_dir, "GTFS")
@@ -144,10 +156,10 @@ def _reformat_events_file(events):
 
     # Replace "Work" with "work" in the "actType" column
     events["actType"].replace({"Work": "work"}, inplace=True)
-    events = events[~events.person.str.contains("Agent", na=False)].reset_index(drop=True)
-    
-    # Remove the cases where parking events have time = 0 
-    events = events[~((events.type.str.contains("ParkingEvent", na=False))&(events['time']==0))].reset_index(drop=True)
+
+    initialParkingEvents = (events["type"] == "ParkingEvent") & (events["time"] == 0)
+    events = events[~events.person.str.contains("Agent", na=False) & ~initialParkingEvents].reset_index(drop=True)
+
 
     # shift column 'person' to first position
     first_column = events.pop('person')
@@ -571,6 +583,10 @@ def _read_asim_utilities(settings, year, iteration):
 
 
 def _merge_trips_with_utilities(asim_trips, asim_utilities, beam_trips):
+    tripIdsBEAM = set(beam_trips.tripIndex)
+    tripIdsASIM = set(asim_trips.trip_id)
+    logger.info("Finding {0} BEAM trips not in ASIM plans and {1} ASIM trips not in BEAM events".format(
+        len(tripIdsBEAM - tripIdsASIM), len(tripIdsASIM - tripIdsBEAM)))
     SFActMerged = pd.merge(left=asim_trips, right=asim_utilities, how='left', on=['trip_id']).sort_values(
         by=['person_id', 'trip_id']).reset_index(drop=True)
     eventsASim = pd.merge(left=beam_trips, right=SFActMerged, how='left', left_on=["IDMerged", 'tripIndex'],
@@ -600,7 +616,7 @@ def _read_asim_plans(settings, year, iteration):
     return tour_trips
 
 
-def build_mep_summaries(trips, settings, iteration):
+def build_mep_summaries(trips, settings, year, iteration):
     totalsByMode = trips.loc[:,
                    ['mode_choice_actual_BEAM', 'cost_BEAM', 'distance_mode_choice', 'fuel_marginal']].groupby(
         'mode_choice_actual_BEAM').agg(sum)
@@ -633,10 +649,12 @@ def process_event_file(settings, year, iteration):
         logger.info("Reading asim plans")
         tour_trips = _read_asim_plans(settings, year, iteration)
         logger.info("Merging final outputs")
-        final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
-        build_mep_summaries(final_output, settings, iteration)
+        try:
+            final_output = _merge_trips_with_utilities(tour_trips, utils, person_trip_events)
+        except Exception as e:
+            print("Error during merging: \n {0}".format(e))
+            logger.error("Error during merging: \n {0}".format(e))
         scenario_defs = settings['scenario_definitions']
-
         post_output_folder = settings['postprocessing_output_folder']
 
         filename = "{0}_{1}_{2}-{3}_{4}__{5}.csv.gz".format(settings['region'],
@@ -646,8 +664,15 @@ def process_event_file(settings, year, iteration):
                                                             year,
                                                             date.today().strftime("%Y%m%d"))
         final_output.to_csv(os.path.join(post_output_folder, filename), compression="gzip")
-    except:
-        logger.error("Did not successfully run the postproccessor, did activitysim fail?")
+
+        logger.info("Building mep summaries")
+        try:
+            build_mep_summaries(final_output, settings, year, iteration)
+        except Exception as e:
+            print("Error during mep summary: \n {0}".format(e))
+
+    except Exception as e:
+        logger.error("Did not successfully run the postproccessor, did activitysim fail? \n {0}".format(e))
 
 
 if __name__ == '__main__':
