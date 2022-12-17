@@ -9,6 +9,7 @@ from zipfile import ZipFile
 import shutil
 import os
 from pilates.utils.geog import get_taz_geoms
+from pilates.utils.geog import get_taz_labels
 from pilates.utils.io import parse_args_and_settings
 from joblib import Parallel, delayed
 from multiprocessing import cpu_count
