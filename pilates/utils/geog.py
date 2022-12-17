@@ -11,7 +11,7 @@ from pilates.utils.io import read_datastore
 logger = logging.getLogger(__name__)
 
 def get_taz_labels(settings,
-                  data_dir='./tmp/'):
+                  data_dir='/pilates/postprocessing/data/'):
 
     region = settings['region']
     zone_type = settings['skims_zone_type']
@@ -28,7 +28,7 @@ def get_taz_labels(settings,
     return gdf_labels
 
 def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
-                  data_dir='./tmp/'):
+                  data_dir='/pilates/postprocessing/data/'):
     region = settings['region']
     zone_type = settings['skims_zone_type']
 
@@ -43,9 +43,12 @@ def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
         logger.info("Downloading {} geoms".format(zone_type))
 
         if region == 'sfbay':
+#             url = (
+#                 'https://opendata.arcgis.com/datasets/'
+#                 '94e6e7107f0745b5b2aabd651340b739_0.geojson')
             url = (
-                'https://opendata.arcgis.com/datasets/'
-                '94e6e7107f0745b5b2aabd651340b739_0.geojson')
+                'https://opendata.mtc.ca.gov/datasets/MTC::san-francisco-bay-region-2020-census-block-groups/explore?location=37.862018%2C-122.497001%2C9.30/'
+                'San_Francisco_Bay_Region_2020_Census_Block_Groups.geojson')
 
         elif region == 'austin':
             url = (
