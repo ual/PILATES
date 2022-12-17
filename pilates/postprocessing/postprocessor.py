@@ -424,12 +424,11 @@ def _add_geometry_id_to_DataFrame(df, gdf, xcol, ycol, idColumn="geometry", df_g
     gdf_data = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df[xcol], df[ycol]))
     gdf_data.set_crs(df_geom, inplace=True)
     joined = gpd.sjoin(gdf_data.to_crs('epsg:26910'), gdf.to_crs('epsg:26910'))
-    gdf_data = gdf_data.merge(joined['zone_id'], left_index=True, right_index=True, how="left")
-    gdf_data.rename(columns={'zone_id': idColumn}, inplace=True)
+    gdf_data = gdf_data.merge(joined['blkgrpid'], left_index=True, right_index=True, how="left")
+    gdf_data.rename(columns={'blkgrpid': idColumn}, inplace=True)
     df = pd.DataFrame(gdf_data.drop(columns='geometry'))
     #df.drop(columns=[xcol, ycol], inplace=True)
     return df.loc[~df.index.duplicated(keep='first'), :]
-
 
 def _add_geometry_to_events(settings, events):
     if settings['region'] == 'austin':
