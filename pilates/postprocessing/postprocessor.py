@@ -547,9 +547,9 @@ def _process_person_trip_events(person_trip_events):
     person_trip_events['duration_door_to_door'] = person_trip_events['actStartTime'] - person_trip_events[
         'actEndTime']
     person_trip_events['waitTime_no_replanning'] = np.where(person_trip_events['replanning_status'] == 0,
-         person_trip_events['duration_door_to_door'] - Person_Trip_eventsSF['duration_travelling'], 0)
+         person_trip_events['duration_door_to_door'] - person_trip_events['duration_travelling'], 0)
     person_trip_events['waitTime_replanning'] = np.where(person_trip_events['replanning_status'] > 0,
-         person_trip_events['duration_door_to_door'] - Person_Trip_eventsSF['duration_travelling'], 0)
+         person_trip_events['duration_door_to_door'] - person_trip_events['duration_travelling'], 0)
     person_trip_events['actPurpose'] = person_trip_events['actEndType'].astype(str) + "_to_" + person_trip_events[
         'actStartType'].astype(str)
     person_trip_events.rename(columns={"legVehicleIds": "vehicleIds_estimate"}, inplace=True)
