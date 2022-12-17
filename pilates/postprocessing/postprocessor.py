@@ -443,6 +443,28 @@ def _add_geometry_to_events(settings, events):
         delayed(_add_geometry_id_to_DataFrame)(ev, taz, "endX", "endY", "BlockGroupEnd") for ev in
         processed_list)
     events = pd.concat(processed_list)
+
+
+    # Adding the block group information
+    if settings['region'] == 'sfbay':
+        gdf_labels = get_taz_labels(settings)
+        # Census block groups should have 12 digits so adding 0 to the start of it to be compatible with our block group ids
+        gdf_labels['bgid'] = '0' + gdf_labels['bgid'].astype(str)
+
+        events = pd.merge(events, gdf_labels,  how='left',  left_on = ['BlockGroupEnd'], right_on = 'bgid',)
+        events = pd.merge(events, gdf_labels,  how='left',  left_on = ['BlockGroupStart'], right_on = 'bgid',)
+
+        events.rename(columns={"bgid_x":"bgid_end"}, inplace=True)
+        events.rename(columns={"bgid_y":"bgid_start"}, inplace=True)
+        events.rename(columns={"tractid_x":"tractid_end"}, inplace=True)
+        events.rename(columns={"tractid_y":"tractid_start"}, inplace=True)
+        events.rename(columns={"juris_name_x":"juris_name_end"}, inplace=True)
+        events.rename(columns={"juris_name_y":"juris_name_start"}, inplace=True)
+        events.rename(columns={"county_name_x":"county_name_end"}, inplace=True)
+        events.rename(columns={"county_name_y":"county_name_start"}, inplace=True)
+        events.rename(columns={"mpo_x":"mpo_end"}, inplace=True)
+        events.rename(columns={"mpo_y":"mpo_start"}, inplace=True)
+
     return events
 
 
@@ -497,10 +519,10 @@ def _aggregate_on_trip(df, name):
                'BlockGroupEnd': 'last',
                'endX': 'last',
                'endY': 'last',
-               'bgid_end':'last',    
+               'bgid_end':'last',
                'tractid_end':'last',
-               'juris_name_end':'last',       
-               'county_name_end': 'last',   
+               'juris_name_end':'last',
+               'county_name_end': 'last',
                'mpo_end': 'last',
                'emissionFood': np.sum,
                'emissionElectricity': np.sum,
@@ -523,10 +545,10 @@ def _build_person_trip_events(events):
 def _process_person_trip_events(person_trip_events):
     person_trip_events['duration_door_to_door'] = person_trip_events['actStartTime'] - person_trip_events[
         'actEndTime']
-    person_trip_events['waitTime_no_replanning'] = np.where(person_trip_events['replanning_status'] == 0, 
+    person_trip_events['waitTime_no_replanning'] = np.where(person_trip_events['replanning_status'] == 0,
          person_trip_events['duration_door_to_door'] - Person_Trip_eventsSF['duration_travelling'], 0)
-    person_trip_events['waitTime_replanning'] = np.where(person_trip_events['replanning_status'] > 0, 
-         person_trip_events['duration_door_to_door'] - Person_Trip_eventsSF['duration_travelling'], 0) 
+    person_trip_events['waitTime_replanning'] = np.where(person_trip_events['replanning_status'] > 0,
+         person_trip_events['duration_door_to_door'] - Person_Trip_eventsSF['duration_travelling'], 0)
     person_trip_events['actPurpose'] = person_trip_events['actEndType'].astype(str) + "_to_" + person_trip_events[
         'actStartType'].astype(str)
     person_trip_events.rename(columns={"legVehicleIds": "vehicleIds_estimate"}, inplace=True)
@@ -595,6 +617,36 @@ def _merge_trips_with_utilities(asim_trips, asim_utilities, beam_trips):
     eventsASim.rename(columns={"tour_mode": "tour_mode_AS_tours"}, inplace=True)
     eventsASim.rename(columns={"mode_choice_logsum_x": "logsum_trip_Potential_INEXUS"}, inplace=True)
     eventsASim.rename(columns={"trip_mode": "trip_mode_AS_trips"}, inplace=True)
+
+    # Add a column of income quartiles
+    quartiles = eventsASim['income'].quantile([0,.25, .5, .75,1]).tolist()
+    # Add income deciles
+    conditions  = [(eventsASim['income'] >= quartiles[0]) & (eventsASim['income'] < quartiles[1]),
+                   (eventsASim['income'] >= quartiles[1]) & (eventsASim['income'] < quartiles[2]),
+                   (eventsASim['income'] >=  quartiles[2]) & (eventsASim['income'] < quartiles[3]),
+                   (eventsASim['income'] >= quartiles[3]) & (eventsASim['income'] <= quartiles[4])]
+
+    choices = [ '1stQ', '2ndQ', '3rdQ', '4thD']
+    eventsASim['income_quartiles'] = np.select(conditions, choices, default=None)
+    # Add a column of income deciles
+    deciles = eventsASim['income'].quantile([0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]).tolist()
+    # Add income deciles
+    conditions  = [(eventsASim['income'] >= deciles[0]) & (eventsASim['income'] < deciles[1]),
+                   (eventsASim['income'] >= deciles[1]) & (eventsASim['income'] < deciles[2]),
+                   (eventsASim['income'] >=  deciles[2]) & (eventsASim['income'] < deciles[3]),
+                   (eventsASim['income'] >= deciles[3]) & (eventsASim['income'] < deciles[4]),
+                   (eventsASim['income'] >=  deciles[4]) & (eventsASim['income'] < deciles[5]),
+                   (eventsASim['income'] >=  deciles[5]) & (eventsASim['income'] < deciles[6]),
+                   (eventsASim['income'] >=  deciles[6]) & (eventsASim['income'] < deciles[7]),
+                   (eventsASim['income'] >=  deciles[7]) & (eventsASim['income'] < deciles[8]),
+                   (eventsASim['income'] >=  deciles[8]) & (eventsASim['income'] < deciles[9]),
+                   (eventsASim['income'] >=  deciles[9]) & (eventsASim['income'] <= deciles[10])]
+
+    choices = [ '1stD', '2ndD', '3rdD',
+               '4thD', '5thD', '6thD', '7thD', '8thD', '9thD','10thD']
+
+    eventsASim['income_deciles'] = np.select(conditions, choices, default=None)
+
     return eventsASim
 
 

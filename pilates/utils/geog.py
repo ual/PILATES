@@ -10,6 +10,22 @@ from pilates.utils.io import read_datastore
 
 logger = logging.getLogger(__name__)
 
+def get_taz_labels(settings,
+                  data_dir='./tmp/'):
+
+    region = settings['region']
+    zone_type = settings['skims_zone_type']
+
+    file_name = '{0}_{1}_labels.csv'.format(zone_type, region)
+    taz_geoms_fpath = os.path.join(data_dir, file_name)
+
+    if os.path.exists(taz_geoms_fpath):
+        logger.info("Loading taz geoms labels from disk!")
+        gdf_labels = pd.read_csv(taz_geoms_fpath)
+    else:
+        logger.info("ERROR: there is not the taz geoms labels file on {}".format(data_dir))
+
+    return gdf_labels
 
 def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
                   data_dir='./tmp/'):
@@ -254,12 +270,12 @@ def get_zone_from_points(df, zones_gdf, local_crs):
 
 def geoid_to_zone_map(settings, year=None):
     """"
-    Maps the GEOID to a unique zone_id. 
+    Maps the GEOID to a unique zone_id.
 
     Returns
     --------
-    Returns a dictionary. Keys are GEOIDs and values are the 
-    corresponding zone_id where the GEOID belongs to. 
+    Returns a dictionary. Keys are GEOIDs and values are the
+    corresponding zone_id where the GEOID belongs to.
    """
     region = settings['region']
     zone_type = settings['skims_zone_type']
