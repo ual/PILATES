@@ -11,7 +11,7 @@ from pilates.utils.io import read_datastore
 logger = logging.getLogger(__name__)
 
 def get_taz_labels(settings,
-                  data_dir='/pilates/postprocessing/data/'):
+                  data_dir='./pilates/postprocessing/data/'):
 
     region = settings['region']
     zone_type = settings['skims_zone_type']
@@ -28,7 +28,7 @@ def get_taz_labels(settings,
     return gdf_labels
 
 def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
-                  data_dir='/pilates/postprocessing/data/'):
+                  data_dir='./pilates/postprocessing/data/'):
     region = settings['region']
     zone_type = settings['skims_zone_type']
 
