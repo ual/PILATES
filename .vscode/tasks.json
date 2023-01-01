@@ -6,7 +6,7 @@
         {
             "label": "Run it",
             "type": "shell",
-            "command": "./griffin_and_jamie_20221207.sh",
+            "command": "python3 setup_json.py",
             "problemMatcher": [],
             "group": {
                 "kind": "build",

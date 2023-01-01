@@ -697,7 +697,7 @@ if __name__ == '__main__':
         local_data_folder = settings['data_folder']
         usim_local_data_folder = local_data_folder / settings['usim_local_data_folder']
         polaris_local_data_folder = local_data_folder / settings['polaris_local_data_folder']
-        clean_and_init_data(usim_local_data_folder, polaris_local_data_folder)
+        # clean_and_init_data(usim_local_data_folder, polaris_local_data_folder)
 
     if not land_use_enabled:
         print("LAND USE MODEL DISABLED")

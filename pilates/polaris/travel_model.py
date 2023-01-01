@@ -3,6 +3,7 @@ import sys
 import subprocess
 import yaml
 import shutil
+from pilates.polaris.modify_scenario import apply_modification
 import pilates.polaris.preprocessor as preprocessor
 import pilates.polaris.postprocessor as postprocessor
 import logging
@@ -120,80 +121,79 @@ def run_polaris(forecast_year, settings, warm_start=False):
 	loop = 0
 
 	while loop < int(num_abm_runs):
-		scenario_file = ''
+		if forecast_year:
+			scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)
+			# set vehicle distribution file name based on forecast year
+			veh_file_name = vehicle_file_base + '_{0}.txt'.format(forecast_year)
+			fleet_veh_file_name = vehicle_file_fleet_base + '_{0}.txt'.format(forecast_year)
+		else:
+			scenario_file = scenario_init_file
+			veh_file_name = vehicle_file_base + '.txt'.format(forecast_year)
+			fleet_veh_file_name = vehicle_file_fleet_base + '.txt'.format(forecast_year)
 
-		# set vehicle distribution file name based on forecast year
-		veh_file_name = '"' + vehicle_file_base + '_{0}.txt"'.format(forecast_year)
-		fleet_veh_file_name = '"' + vehicle_file_fleet_base + '_{0}.txt"'.format(forecast_year)
-		if not forecast_year:
-			veh_file_name = '"' + vehicle_file_base + '.txt"'.format(forecast_year)
-			fleet_veh_file_name = '"' + vehicle_file_fleet_base + '.txt"'.format(forecast_year)
+		mods = {}
 
 		if loop == 0:
 			print(f"forecast year: {forecast_year}")
-			if forecast_year:
-				scenario_file = PR.update_scenario_file(scenario_init_file, forecast_year)
-			else:
-				scenario_file = scenario_init_file
 
-			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0)
-			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
+			mods["time_dependent_routing_weight_factor"] = 1.0
+			mods["read_population_from_database"] = True
 
 			# set warm_start specific settings (that are also modified by loop...)
 			if warm_start:
-				PR.modify_scenario(scenario_file, "percent_to_synthesize", 1.0)
-				PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'true')
-				PR.modify_scenario(scenario_file, "warm_start_mode", 'true')
-				PR.modify_scenario(scenario_file, "time_dependent_routing", 'false')
-				PR.modify_scenario(scenario_file, "multimodal_routing", 'false')
-				PR.modify_scenario(scenario_file, "use_tnc_system", 'false')
-				PR.modify_scenario(scenario_file, "output_moe_for_assignment_interval", 'false')
-				PR.modify_scenario(scenario_file, "output_link_moe_for_simulation_interval" , 'false')
-				PR.modify_scenario(scenario_file, "output_link_moe_for_assignment_interval" , 'false')
-				PR.modify_scenario(scenario_file, "output_turn_movement_moe_for_assignment_interval" , 'false')
-				PR.modify_scenario(scenario_file, "output_turn_movement_moe_for_simulation_interval" , 'false')
-				PR.modify_scenario(scenario_file, "output_network_moe_for_simulation_interval" , 'false')
-				PR.modify_scenario(scenario_file, "write_skim_tables" , 'false')
-				PR.modify_scenario(scenario_file, "write_vehicle_trajectory" , 'false')
-				PR.modify_scenario(scenario_file, "write_transit_trajectory" , 'false')
-				PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
-				PR.modify_scenario(scenario_file, "traffic_scale_factor", 1.0)
+				mods["percent_to_synthesize"] = 1.0
+				mods["read_population_from_urbansim"] = True
+				mods["warm_start_mode"] = True
+				mods["time_dependent_routing"] = False
+				mods["multimodal_routing"] = False
+				mods["use_tnc_system"] = False
+				mods["output_moe_for_assignment_interval"] = False
+				mods["output_link_moe_for_simulation_interval" ] = False
+				mods["output_link_moe_for_assignment_interval" ] = False
+				mods["output_turn_movement_moe_for_assignment_interval" ] = False
+				mods["output_turn_movement_moe_for_simulation_interval" ] = False
+				mods["output_network_moe_for_simulation_interval" ] = False
+				mods["write_skim_tables" ] = False
+				mods["write_vehicle_trajectory" ] = False
+				mods["write_transit_trajectory" ] = False
+				mods["read_trip_factors"] = { "External": 1.0 }
+				mods["traffic_scale_factor"] = 1.0
 			else:
-				PR.modify_scenario(scenario_file, "percent_to_synthesize", population_scale_factor)
-				PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'false')
-				PR.modify_scenario(scenario_file, "warm_start_mode", 'false')
-				PR.modify_scenario(scenario_file, "time_dependent_routing", 'false')
-				PR.modify_scenario(scenario_file, "multimodal_routing", 'true')
-				PR.modify_scenario(scenario_file, "use_tnc_system", 'true')
-				PR.modify_scenario(scenario_file, "output_link_moe_for_assignment_interval" , 'true')
-				PR.modify_scenario(scenario_file, "output_turn_movement_moe_for_assignment_interval" , 'true')
-				PR.modify_scenario(scenario_file, "write_skim_tables" , 'true')
-				PR.modify_scenario(scenario_file, "write_vehicle_trajectory" , 'true')
-				PR.modify_scenario(scenario_file, "demand_reduction_factor", population_scale_factor)
-				PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
+				mods["percent_to_synthesize"] = population_scale_factor
+				mods["read_population_from_urbansim"] = False
+				mods["warm_start_mode"] = False
+				mods["time_dependent_routing"] = False
+				mods["multimodal_routing"] = True
+				mods["use_tnc_system"] = True
+				mods["output_link_moe_for_assignment_interval" ] = True
+				mods["output_turn_movement_moe_for_assignment_interval" ] = True
+				mods["write_skim_tables" ] = True
+				mods["write_vehicle_trajectory" ] = True
+				# mods["demand_reduction_factor"] = population_scale_factor)
+				mods["read_trip_factors"] = { "External": population_scale_factor }
+				mods["traffic_scale_factor"] = population_scale_factor
 
 			if warm_start and not forecast_year:
-				PR.modify_scenario(scenario_file, "replan_workplaces", 'true')
+				mods["replan_workplaces"] = True
 			else:
-				PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
+				mods["replan_workplaces"] = False
 		else:
-			if forecast_year:
-				scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)
-			PR.modify_scenario(scenario_file, "time_dependent_routing_weight_factor", 1.0/int(loop))
-			PR.modify_scenario(scenario_file, "percent_to_synthesize", 1.0)
-			PR.modify_scenario(scenario_file, "demand_reduction_factor", 1.0)
-			PR.modify_scenario(scenario_file, "traffic_scale_factor", population_scale_factor)
-			PR.modify_scenario(scenario_file, "read_population_from_urbansim", 'false')
-			PR.modify_scenario(scenario_file, "read_population_from_database", 'true')
-			PR.modify_scenario(scenario_file, "replan_workplaces", 'false')
+			mods["time_dependent_routing_weight_factor"] = 1.0/int(loop)
+			mods["percent_to_synthesize"] = 1.0
+			mods["traffic_scale_factor"] = population_scale_factor
+			mods["read_trip_factors"] = { "External": 1.0 }
+			mods["read_population_from_urbansim"] = False
+			mods["read_population_from_database"] = True
+			mods["replan_workplaces"] = False
 
-		PR.modify_scenario(scenario_file, "vehicle_distribution_file_name", veh_file_name)
-		PR.modify_scenario(scenario_file, "fleet_vehicle_distribution_file_name", fleet_veh_file_name)
+		mods["vehicle_distribution_file_name"] = veh_file_name
+		mods["fleet_vehicle_distribution_file_name"] = fleet_veh_file_name
 
+		sc_file = apply_modification(scenario_file, mods)
 
 		# run executable
-		logger.info(f'Executing \'{polaris_exe} {scenario_file} {num_threads}\'')
-		success = PR.run_polaris_instance(model_dir, polaris_exe, scenario_file, num_threads, None)
+		logger.info(f'Executing \'{polaris_exe} {sc_file} {num_threads}\'')
+		success = PR.run_polaris_instance(model_dir, polaris_exe, sc_file, num_threads, None)
 
 		# get output directory and write files into working dir for next run
 		output_dir = PR.get_latest_polaris_output(out_name, model_dir)
