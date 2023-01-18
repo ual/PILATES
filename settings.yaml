@@ -50,6 +50,8 @@ skims_zone_type: block_group  # one of [taz, block_group, block]
 region_to_region_id:
   sfbay: "06197001"
   austin: "48197301"
+  detroit: "26197401"
+  chicago: "17196201"
 usim_local_data_folder: pilates/urbansim/data/
 usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
