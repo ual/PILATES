@@ -67,15 +67,14 @@ def run_polaris(forecast_year, settings, warm_start=False):
 	pilates_data_dir = Path(abspath(settings['data_folder']))
 	pilates_src_dir = settings['pilates_src_dir']
 
-	# read settings from config file
-	with open(pilates_src_dir / 'pilates' / 'polaris' / 'polaris_settings.yaml') as file:
+	# read data specific settings from config file in the data dir
+	with open(pilates_data_dir / 'pilates' / 'polaris' / 'polaris_settings.yaml') as file:
 		polaris_settings = yaml.load(file, Loader=yaml.FullLoader)
 	model_dir = pilates_data_dir / "austin" # TODO: No hardcode
 	backup_dir = pilates_data_dir / "backup"
 	scripts_dir = pilates_src_dir / "pilates" / 'polaris' / "conv_scripts"
 	db_name = polaris_settings['db_name']
 	out_name = polaris_settings['out_name']
-	polaris_exe = polaris_settings['polaris_exe']
 	scenario_init_file = polaris_settings['scenario_main_init']
 	scenario_main_file = polaris_settings['scenario_main']
 	vehicle_file_base = polaris_settings.get('vehicle_file_basename', 'vehicle_distribution')
@@ -90,6 +89,8 @@ def run_polaris(forecast_year, settings, warm_start=False):
 	block_loc_file = "{0}/{1}".format(str(model_dir), block_loc_file_name)
 	vot_level = polaris_settings.get('vot_level')
 
+	# Things which come from the main settings.yaml
+	polaris_exe = settings['polaris_exe']
 	usim_output_dir = pilates_data_dir / settings['usim_local_data_folder']
 
 	# store the original inputs
@@ -122,7 +123,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 
 	while loop < int(num_abm_runs):
 		if forecast_year:
-			scenario_file = PR.update_scenario_file(scenario_main_file, forecast_year)
+			scenario_file = update_scenario_file(scenario_main_file, forecast_year)
 			# set vehicle distribution file name based on forecast year
 			veh_file_name = vehicle_file_base + '_{0}.txt'.format(forecast_year)
 			fleet_veh_file_name = vehicle_file_fleet_base + '_{0}.txt'.format(forecast_year)
@@ -163,6 +164,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 				mods["read_population_from_urbansim"] = False
 				mods["warm_start_mode"] = False
 				mods["time_dependent_routing"] = False
+				mods["tnc_feedback"] = False
 				mods["multimodal_routing"] = True
 				mods["use_tnc_system"] = True
 				mods["output_link_moe_for_assignment_interval" ] = True
@@ -189,6 +191,8 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		mods["vehicle_distribution_file_name"] = veh_file_name
 		mods["fleet_vehicle_distribution_file_name"] = fleet_veh_file_name
 
+		print(f"Scenario file: {scenario_file}")
+		print(f"mods         : {mods}")
 		sc_file = apply_modification(scenario_file, mods)
 
 		# run executable

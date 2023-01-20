@@ -4,8 +4,8 @@
 #     POLARIS SETTINGS     #
 ############################
 
-data_dir : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/no_cacc_ref/PILATES/austin
-backup_dir : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/no_cacc_ref/PILATES/backup
+data_dir : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/jamie_setup/no_cacc_ref/austin
+backup_dir : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/jamie_setup/no_cacc_ref/backup
 db_name : campo
 out_name : campo
 polaris_exe : /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/Integrated_Model/Integrated_Model
@@ -26,4 +26,4 @@ vehicle_file_basename : vehicle_distribution_campo
 fleet_vehicle_file_basename : vehicle_distribution_campo_fleet
 
 # -- ENTER THE NUMBER OF MAIN RUNS AND DTA RUNS PER MAIN RUN
-num_abm_runs : 1  # = json_data["num_abm_runs"]
+num_abm_runs : 5  # = json_data["num_abm_runs"]

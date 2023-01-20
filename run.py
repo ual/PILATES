@@ -118,6 +118,8 @@ def parse_args_and_settings(settings_file='settings.yaml'):
 
     if args.config:
         settings_file = args.config
+    else:
+        raise RuntimeError("Please specify the settings/config file to use (--config)")
 
     # read settings from config file
     with open(settings_file) as file:
@@ -177,7 +179,11 @@ def parse_args_and_settings(settings_file='settings.yaml'):
     settings['pilates_src_dir'] = Path(__file__).parent.resolve()
     if args.data_dir is None:
         raise RuntimeError("Please specify the data directory (--data-dir)")
-    settings['data_folder'] = Path(args.data_dir).resolve()
+    settings['data_folder'] = Path(args.data_dir).resolve().absolute()
+
+    # Other data folders are relative to the main data folder
+    settings['polaris_local_data_folder'] = settings['data_folder'] / settings['polaris_local_data_folder']
+    settings['usim_local_data_folder']    = settings['data_folder'] / settings['usim_local_data_folder']
 
     return settings
 
@@ -696,8 +702,7 @@ if __name__ == '__main__':
     if not restart_from_polaris:
         local_data_folder = settings['data_folder']
         usim_local_data_folder = local_data_folder / settings['usim_local_data_folder']
-        polaris_local_data_folder = local_data_folder / settings['polaris_local_data_folder']
-        # clean_and_init_data(usim_local_data_folder, polaris_local_data_folder)
+        clean_and_init_data(usim_local_data_folder, settings['polaris_local_data_folder'])
 
     if not land_use_enabled:
         print("LAND USE MODEL DISABLED")

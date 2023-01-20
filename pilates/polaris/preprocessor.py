@@ -275,7 +275,7 @@ def clean_db(DbCon, clear_agents=True):
 	DbCon.execute('delete from Transit_Vehicle;')
 	DbCon.execute('delete from Transit_Vehicle_links;')
 	DbCon.execute('delete from Traveler;')
-	DbCon.execute('delete from Trip where person is not null;')
+	DbCon.execute('delete from Trip where type <> 22;')
 
 	DbCon.execute('drop table if exists act_wait_count;')
 	DbCon.execute('drop table if exists activity_Start_Distribution;')

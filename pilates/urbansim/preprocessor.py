@@ -49,8 +49,7 @@ def _load_raw_skims(settings, skim_format):
                 'destination': 'to_zone_id',
                 'TOTIVT_IVT_minutes': 'SOV_AM_IVT_mins'})
         elif skim_format == 'polaris':
-            path_to_skims = os.path.join(
-                settings['polaris_local_data_folder'], skims_fname)
+            path_to_skims = os.path.join(settings['polaris_local_data_folder'], skims_fname)
             f = h5py.File(path_to_skims, 'r')
             ivtt_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['ivtt']))
             cost_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['cost']))

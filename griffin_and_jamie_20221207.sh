@@ -1,16 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=land_use
-#SBATCH --account=POLARIS
-#SBATCH --partition=bdwall
+#SBATCH --account=TPS
+#SBATCH --partition=TPS
 #SBATCH --nodes=1
-#SBATCH --time=03:00:00
-#SBATCH --mail-user=james.cook@anl.gov
+#SBATCH --time=50:00:00
+#SBATCH --mail-user=jauld@anl.gov
 #SBATCH --mail-type=ALL
 
 set -eu
 
 main() {
-    cd /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/PILATES-SRC
+    cd /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/PILATES-SRC-JA
     module_load
     setup_venv
     . venv/bin/activate
@@ -28,9 +28,17 @@ setup_venv() {
 }
 
 module_load() {
-    module load gcc/10.2.0-z53hda3
-    module load python/3.8.10-6kl7zkj
-    module load singularity/3.6.4
+
+    # BEBOP
+    # module load gcc/10.2.0-z53hda3
+    # module load python/3.8.10-6kl7zkj
+    # module load singularity/3.6.4
+
+    # CROSSOVER
+    module load gcc/9.2.0-sjjvpmg
+    module load python/3.8.10-obsyt5i
+    module load singularity/3.10.2
+
     python3 -m ensurepip --upgrade
 }
 
