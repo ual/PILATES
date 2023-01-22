@@ -232,10 +232,6 @@ def run_polaris(forecast_year, settings, warm_start=False):
 	# find the latest output
 	#output_dir = PR.get_latest_polaris_output(out_name, model_dir)
 
-	# fing the best output by gap
-	conf = ConvergenceConfig(model_dir,db_name)
-	output_dir = get_best_iteration(conf, num_abm_runs)
-	
 	# db_supply = "{0}/{1}-Supply.sqlite".format(output_dir, db_name)
 	# db_demand = "{0}/{1}-Demand.sqlite".format(output_dir, db_name)
 	# db_result =  "{0}/{1}-Result.sqlite".format(output_dir, db_name)
@@ -250,6 +246,10 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		# store the updated full population demand database for the next warm start round
 		PR.copyreplacefile(model_dir / demand_db_name, backup_dir)
 	else:
+		# fing the best output by gap
+		conf = ConvergenceConfig(model_dir,db_name)
+		output_dir = get_best_iteration(conf, num_abm_runs)
+
 		archive_dir = postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, model_dir)
 		postprocessor.archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, output_dir, vot_level)
 		# only run the analysis script for the final iteration of the loop and process asynchronously to save time
