@@ -14,6 +14,10 @@ from pathlib import Path
 from os.path import join, abspath
 from threading import Thread
 
+from pilates.polaris.polarislib.convergence_config import ConvergenceConfig
+from pilates.polaris.polarislib.gap_reporting import generate_gap_report
+from pilates.polaris.file_utilities import get_best_iteration
+
 logger = logging.getLogger(__name__)
 
 def all_subdirs_of(out_name, b='.'):
@@ -212,6 +216,8 @@ def run_polaris(forecast_year, settings, warm_start=False):
 				PR.copyreplacefile(output_dir / result_db_name, model_dir)
 				PR.copyreplacefile(output_dir / highway_skim_file_name, model_dir)
 				PR.copyreplacefile(model_dir / supply_db_name, output_dir)
+				# JA- 1/22/23 - generate gap reports - replace with actual polarislib at some point...
+				generate_gap_report(None, output_dir)
 			loop += 1
 		else:
 			fail_count += 1
@@ -224,7 +230,12 @@ def run_polaris(forecast_year, settings, warm_start=False):
 
 
 	# find the latest output
-	output_dir = PR.get_latest_polaris_output(out_name, model_dir)
+	#output_dir = PR.get_latest_polaris_output(out_name, model_dir)
+
+	# fing the best output by gap
+	conf = ConvergenceConfig(model_dir,db_name)
+	output_dir = get_best_iteration(conf, num_abm_runs)
+	
 	# db_supply = "{0}/{1}-Supply.sqlite".format(output_dir, db_name)
 	# db_demand = "{0}/{1}-Demand.sqlite".format(output_dir, db_name)
 	# db_result =  "{0}/{1}-Result.sqlite".format(output_dir, db_name)
