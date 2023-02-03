@@ -27,8 +27,9 @@ def update_beam_config(settings, param, valueOverride=None):
         with open(beam_config_path, 'w') as file:
             for line in data:
                 if config_header in line:
+                    if ~modified:
+                        file.writelines(config_header + " = " + str(config_value) + "\n")
                     modified = True
-                    file.writelines(config_header + " = " + str(config_value) + "\n")
                 else:
                     file.writelines(line)
             if ~modified:
