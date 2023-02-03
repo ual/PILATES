@@ -760,7 +760,7 @@ def run_replanning_loop(settings, forecast_year):
             print(log)
 
         # e) run BEAM
-        if replanning_iteration_number < (replan_iters - 1):
+        if replanning_iteration_number < replan_iters:
             beam_pre.update_beam_config(settings, 'beam_replanning_portion')
             beam_pre.update_beam_config(settings, 'max_plans_memory')
         else:
