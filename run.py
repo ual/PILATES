@@ -762,7 +762,7 @@ def run_replanning_loop(settings, forecast_year):
         # e) run BEAM
         if replanning_iteration_number < (replan_iters - 1):
             beam_pre.update_beam_config(settings, 'beam_replanning_portion')
-            beam_pre.update_beam_config(settings, 'beam_max_plan_memory_size', settings['max_plans_memory'])
+            beam_pre.update_beam_config(settings, 'max_plans_memory')
         else:
             beam_pre.update_beam_config(settings, 'beam_replanning_portion', 1.0)
         run_traffic_assignment(
@@ -920,9 +920,9 @@ if __name__ == '__main__':
 
             # 4. RUN TRAFFIC ASSIGNMENT
             if settings['discard_plans_every_year']:
-                beam_pre.update_beam_config(settings, 'beam_max_plan_memory_size', 0)
+                beam_pre.update_beam_config(settings, 'max_plans_memory', 0)
             else:
-                beam_pre.update_beam_config(settings, 'beam_max_plan_memory_size', settings['max_plans_memory'])
+                beam_pre.update_beam_config(settings, 'max_plans_memory')
             beam_pre.update_beam_config(settings, 'beam_replanning_portion', 1.0)
             run_traffic_assignment(settings, year, forecast_year, client, -1)
 
