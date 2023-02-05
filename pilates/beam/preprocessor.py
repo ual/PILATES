@@ -16,7 +16,10 @@ beam_param_map = {'beam_sample': 'beam.agentsim.agentSampleSizeAsFractionOfPopul
 def update_beam_config(settings, param, valueOverride=None):
     if param in settings:
         config_header = beam_param_map[param]
-        config_value = valueOverride or settings[param]
+        if valueOverride is None:
+            config_value = settings[param]
+        else:
+            config_value = valueOverride
         beam_config_path = os.path.join(
             settings['beam_local_input_folder'],
             settings['region'],
@@ -32,8 +35,8 @@ def update_beam_config(settings, param, valueOverride=None):
                     modified = True
                 else:
                     file.writelines(line)
-            if ~modified:
-                file.writelines(config_header + " = " + str(config_value) + "\n")
+            if not modified:
+                file.writelines("\n" + config_header + " = " + str(config_value) + "\n")
     else:
         logger.warn("Tried to modify parameter {0} but couldn't find it in settings.yaml".format(param))
 
