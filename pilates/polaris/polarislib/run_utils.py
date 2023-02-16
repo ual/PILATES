@@ -31,13 +31,6 @@ def copy_replace_file(filename, dest_dir):
     copyfile(str(filename), str(dest_file))
 
 
-def get_latest_polaris_output(data_dir, db_name):
-    all_subdirs = all_subdirs_of(data_dir, db_name)
-    if len(all_subdirs) == 0:
-        return None
-    return Path(max(all_subdirs, key=os.path.getmtime))
-
-
 def all_subdirs_of(root_dir: Path, starts_with=None):
     filter = lambda x: x.stem.startswith(starts_with) if starts_with else lambda _: True
     return [p for p in root_dir.iterdir() if p.is_dir() and filter(p)]

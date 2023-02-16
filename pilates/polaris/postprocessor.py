@@ -11,17 +11,19 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def update_polaris_after_warmstart(new_db, source_db):
+	DbCon = sqlite3.connect ( new_db )
+	DbCon.execute ( "pragma foreign_keys = on;" )
+	DbCon.execute ( "attach database '" + str(source_db) + "' as a;" )
+	logger.info('Updating warm start DB with existing external trips...')
+	query =  "insert into trip select * from a.trip;"
+	DbCon.execute ( query )
+	DbCon.commit()
+
 def archive_polaris_output(database_name, forecast_year, output_dir, model_dir):
 	# build archive folder name
-	folder_name = '{0}-{1}'.format(database_name, forecast_year)
-	# Create archive Directory if don't exist
-	archive = Path(os.path.join(model_dir, folder_name))
-	# check if folder already exists
-	if not archive.exists():
-		os.mkdir(str(archive))
-		logger.info(f"Directory:  {archive} Created ")
-	else:
-		logger.info(f"Directory: {archive} already exists")
+	archive = Path(f'{model_dir}/archive/{database_name}-{forecast_year}')
+	archive.mkdir(parents=True, exist_ok=True)
 	# copy output folder to archive folder
 	tgt = os.path.join(archive, os.path.basename(output_dir))
 	shutil.copytree(output_dir, tgt)

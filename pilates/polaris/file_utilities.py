@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # Filename: run_convergence.py
 
+import shutil
 import sys
 import os
 import subprocess
@@ -15,33 +16,22 @@ import queue
 import traceback
 import logging
 
+from os.path import join
 from pilates.polaris.polarislib.run_utils import get_output_dirs, get_output_dir_index, merge_csvs
 from pilates.polaris.polarislib.convergence_config import ConvergenceConfig
 
 logger = logging.getLogger(__name__)
 
-def all_subdirs_of(out_name, b='.'):
-  result = []
-  search_path = '{0}/{1}'.format(b, out_name + '*/model_files')
-  result = glob.glob(search_path)
-  return result
+def all_subdirs_of(out_name, base_dir='.'):
+  model_file_dirs = Path(base_dir).glob(join(f"{out_name}*", 'model_files'))
+  return [e.parent for e in model_file_dirs]
 
 def get_latest_polaris_output(out_name, data_dir='.'):
 	all_subdirs = all_subdirs_of(out_name, data_dir)
 	if len(all_subdirs) == 0:
 		return None
 	else:
-		latest_subdir = Path(max(all_subdirs, key=os.path.getctime))
-		return latest_subdir.parents[0]
-
-def get_best_polaris_iteration(out_name, abm_runs, data_dir='.'):
-	all_subdirs = all_subdirs_of(out_name, data_dir)
-	if len(all_subdirs) <= 1:
-		return None
-	else:
-        # get the last batch of abm runs, less the first initialization run
-		latest_subdirs = sorted(all_subdirs, key=os.path.getctime)[-(abm_runs-1):]
-		return latest_subdir.parents[0]
+		return Path(max(all_subdirs, key=os.path.getctime))
 
 def get_best_iteration(config: ConvergenceConfig, abm_runs):
     """Determine the best iteration for a convergence run based on the minimum relative gap.
@@ -66,16 +56,24 @@ def get_best_iteration(config: ConvergenceConfig, abm_runs):
     logging.info(f"best iteration = {config.data_dir / iter_name}")
     return config.data_dir / iter_name
 
-	
+def delete_unneeded_results(config: ConvergenceConfig):
+    subdirs = all_subdirs_of(config.db_name, config.data_dir)
+    logger.info("Deleting sub-dirs:")
+    for d in subdirs:
+        logger.info(f"  -> {d}")
+        for r in d.glob("*-Result.sqlite"):
+            r.unlink(missing_ok=True)
+
 def copyreplacefile(filename, dest_dir):
+	logger.info(f"CopyReplace {filename} -> {dest_dir}")
 	dest_file = Path(dest_dir / filename.name)
 	if dest_file.exists():
 		os.remove(str(dest_file))
 	if filename.exists():
 		copyfile(str(filename), str(dest_file))
 	else:
-		logger.info(f'Copyreplacefile error; filename \'{str(filename)}\' does not exist\'')
-	
+		logger.info(f"Copyreplacefile error; filename '{str(filename)}' does not exist")
+
 def archive_polaris_output(output_dir, archive_dir):
 	# check if folder already exists
 	if not output_dir.exists():
@@ -149,3 +147,7 @@ def append_column(src, tgt, loop, column, header_text):
                 writer.writerows(all_data)
 
 
+if __name__ == "__main__":
+    model_dir = "/lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/runs/3_L4_cacc_ref/austin"
+    conf = ConvergenceConfig(model_dir, "campo")
+    delete_unneeded_iterations(conf)

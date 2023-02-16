@@ -5,9 +5,11 @@ import yaml
 import logging
 from logging import config
 from pathlib import Path
+from pilates.polaris.polarislib import *
 from pilates.polaris.modify_scenario import *
 from pilates.polaris.file_utilities import *
 from pilates.polaris.sqlite_utilities import *
+
 
 logger = logging.getLogger(__name__)
 

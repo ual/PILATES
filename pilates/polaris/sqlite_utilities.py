@@ -13,7 +13,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 def execute_sql_script(db_name, script):
-	logger.info('Executing Sqlite3 script: %s on database: %s' % (db_name, script))
+	logger.info('Executing Sqlite3 script: %s on database: %s' % (script, db_name))
 	with open(str(script), 'r') as sql_file:
 		sql_script = sql_file.read()
 
@@ -33,7 +33,7 @@ def execute_sql_script(db_name, script):
 
 def execute_sql_script_with_attach(db_name, script, attach_db_names, attach_db_aliases=None):
 	logger.info('Executing Sqlite3 script: %s on database: %s' % (db_name, script))
-	
+
 	attach_list = []
 	if isinstance(attach_db_names, list):
 		attach_list = attach_db_names
@@ -45,8 +45,8 @@ def execute_sql_script_with_attach(db_name, script, attach_db_names, attach_db_a
 	else:
 		if attach_db_aliases:
 			attach_aliases.append(attach_db_names)
-	
-			
+
+
 	with open(str(script), 'r') as sql_file:
 		sql_script = sql_file.read()
 
@@ -64,7 +64,7 @@ def execute_sql_script_with_attach(db_name, script, attach_db_names, attach_db_a
 			default_alias = chr(ord(default_alias) + 1)
 
 	db = sqlite3.connect(str(db_name))
-	cursor = db.cursor()	
+	cursor = db.cursor()
 	try:
 		for i, attach_name in enumerate(attach_names):
 			attach_alias = alias_names[i]
@@ -79,8 +79,8 @@ def execute_sql_script_with_attach(db_name, script, attach_db_names, attach_db_a
 		exc_type, exc_value, exc_tb = sys.exc_info()
 		logger.error(traceback.format_exception(exc_type, exc_value, exc_tb))
 	db.close()
-	
-	
+
+
 def dump_table_to_csv(db, table, csv_name, write_headers=True):
 	db_input = sqlite3.connect(str(db))
 	sql3_cursor = db_input.cursor()

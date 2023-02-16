@@ -16,24 +16,10 @@ from threading import Thread
 
 from pilates.polaris.polarislib.convergence_config import ConvergenceConfig
 from pilates.polaris.polarislib.gap_reporting import generate_gap_report
-from pilates.polaris.file_utilities import get_best_iteration
+from pilates.polaris.file_utilities import delete_unneeded_results, get_best_iteration
 
 logger = logging.getLogger(__name__)
 
-def all_subdirs_of(out_name, b='.'):
-  result = []
-  # for d in os.listdir(b):
-  #   bd = os.path.join(b, d)
-  #   if os.path.isdir(bd): result.append(bd)
-  search_path = '{0}/{1}'.format(b, out_name + '*')
-  result = glob.glob(search_path)
-  return result
-
-def get_latest_polaris_output(out_name, data_dir='.'):
-	# all_subdirs = [d for d in os.listdir(data_dir) if os.path.isdir(d)]
-	all_subdirs = all_subdirs_of(out_name, data_dir)
-	latest_subdir = Path(max(all_subdirs, key=os.path.getmtime))
-	return latest_subdir
 
 def update_scenario_file(base_scenario, forecast_year):
 	s = base_scenario.replace('.json', '_' + str(forecast_year) + '.json')
@@ -205,12 +191,17 @@ def run_polaris(forecast_year, settings, warm_start=False):
 
 		# get output directory and write files into working dir for next run
 		output_dir = PR.get_latest_polaris_output(out_name, model_dir)
+		logger.info(f"Model directory           : {model_dir}")
+		logger.info(f"Found output sub-directory: {output_dir}")
 
 		if success:
-			PR.copyreplacefile(output_dir / demand_db_name, model_dir)
-			PR.execute_sql_script(model_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
+			
 			# skip all of the file storage and analysis for warm start runs - only need the demand file
-			if not warm_start:
+			if warm_start:
+				# update the newly generated demand file with the external trips from the base model
+				# necessary as the external trips do not get created or written in warm start mode...
+				postprocessor.update_polaris_after_warmstart(output_dir / demand_db_name, model_dir/ demand_db_name)
+			else:
 				fail_count = 0
 				# copy the network outputs back to main data directory
 				PR.copyreplacefile(output_dir / result_db_name, model_dir)
@@ -218,6 +209,9 @@ def run_polaris(forecast_year, settings, warm_start=False):
 				PR.copyreplacefile(model_dir / supply_db_name, output_dir)
 				# JA- 1/22/23 - generate gap reports - replace with actual polarislib at some point...
 				generate_gap_report(None, output_dir)
+
+			PR.copyreplacefile(output_dir / demand_db_name, model_dir)
+			PR.execute_sql_script(model_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
 			loop += 1
 		else:
 			fail_count += 1
@@ -246,12 +240,16 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		# store the updated full population demand database for the next warm start round
 		PR.copyreplacefile(model_dir / demand_db_name, backup_dir)
 	else:
-		# fing the best output by gap
-		conf = ConvergenceConfig(model_dir,db_name)
+		# find the best output by gap
+		conf = ConvergenceConfig(model_dir, db_name)
 		output_dir = get_best_iteration(conf, num_abm_runs)
 
 		archive_dir = postprocessor.archive_polaris_output(db_name, forecast_year, output_dir, model_dir)
 		postprocessor.archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, output_dir, vot_level)
+
+		# remove all the iterations after processing is done..
+		delete_unneeded_results(conf)
+
 		# only run the analysis script for the final iteration of the loop and process asynchronously to save time
 		p1 = Thread(target=PR.execute_sql_script_with_attach, args=(archive_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", archive_dir / supply_db_name))
 		p1.start()

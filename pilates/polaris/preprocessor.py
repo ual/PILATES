@@ -277,6 +277,12 @@ def clean_db(DbCon, clear_agents=True):
 	DbCon.execute('delete from Traveler;')
 	DbCon.execute('delete from Trip where type <> 22;')
 
+	# Clean all FK references 
+	DbCon.execute('update Trip set vehicle = NULL;')
+	DbCon.execute('update Trip set person = NULL;')
+	DbCon.execute('update Trip set path = NULL;')
+	DbCon.execute('update Trip set path_multimodal = NULL;')
+
 	DbCon.execute('drop table if exists act_wait_count;')
 	DbCon.execute('drop table if exists activity_Start_Distribution;')
 	DbCon.execute('drop table if exists activity_distribution;')
@@ -573,15 +579,17 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 	# ==================== MODIFY THE ZONES in SUPPLY.SQLITE =======================================
 	logger.info('Reading jobs from Urbansim output...')
 	for id, j in usim_data.job_dict.items():
-		j.zone = block_to_zone[j.block_id]
+		if j.block_id in block_to_loc:
+			j.zone = block_to_zone[j.block_id]
 
 	for id, hh in usim_data.hh_dict.items():
 		hzone = zone_data[hh.zone]
 		hzone.Add_HH(hh)
 
 	for id, j in usim_data.job_dict.items():
-		jzone = zone_data[j.zone]
-		jzone.Add_Job(j)
+		if j.zone:
+			jzone = zone_data[j.zone]
+			jzone.Add_Job(j)
 
 	logger.info('Pushing zone data from Urbansim output...')
 	for id, z in zone_data.items():
