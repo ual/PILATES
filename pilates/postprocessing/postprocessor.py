@@ -159,7 +159,7 @@ def _load_events_file(settings, year, replanning_iteration_number, beam_iteratio
     iteration_output_dir = "year-{0}-iteration-{1}".format(year, replanning_iteration_number)
     events_dir = os.path.join("ITERS", "it.{0}".format(beam_iteration), "{0}.events.csv.gz".format(beam_iteration))
     path = os.path.join(beam_output_dir, region, iteration_output_dir, events_dir)
-    events = pd.read_csv(path, dtype=dtypes, nrows=2000000)
+    events = pd.read_csv(path, dtype=dtypes)
 
     # Adding scenario info
     scenario_defs = settings['scenario_definitions']
