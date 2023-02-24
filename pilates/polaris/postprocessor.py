@@ -3,7 +3,8 @@ import pandas as pd
 import sys
 import sqlite3
 import argparse
-import pilates.polaris.skim_file_reader as skim_reader
+from pilates.polaris.polarislib.skims import HighwaySkim
+# from pilates.polaris.polarislib.skims import TransitSkim
 from pilates.polaris.preprocessor import Usim_Data
 from pathlib import Path
 import shutil
@@ -34,8 +35,8 @@ def archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, ou
 
 	# rename existing h5 file
 	data_dir = pilates_data_dir / 'pilates/polaris/data'
-	old_name = '{0}/{1}_skims.hdf5'.format(data_dir, db_name)
-	new_name = '{0}/{1}_{2}_skims.hdf5'.format(data_dir, db_name, forecast_year)
+	old_name = '{0}/{1}_skims.omx'.format(data_dir, db_name)
+	new_name = '{0}/{1}_{2}_skims.omx'.format(data_dir, db_name, forecast_year)
 	os.rename(old_name,new_name)
 
 	# generate new h5 file
@@ -43,15 +44,17 @@ def archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, ou
 	NetworkDbPath = '{0}/{1}-Supply.sqlite'.format(output_dir, db_name)
 	DemandDbPath = '{0}/{1}-Demand.sqlite'.format(output_dir, db_name)
 	ResultDbPath = '{0}/{1}-Result.sqlite'.format(output_dir, db_name)
-	auto_skim_path = '{0}/highway_skim_file.bin'.format(output_dir)
-	transit_skim_path = '{0}/transit_skim_file.bin'.format(output_dir)
+	auto_skim_path = '{0}/highway_skim_file.omx'.format(output_dir)
+	#transit_skim_path = '{0}/transit_skim_file.omx'.format(output_dir)
 	#vot_level = 2
 	generate_polaris_skims_for_usim(data_dir, db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
 
 def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):
 
-	skims = skim_reader.Skim_Results(silent=True)
-	skim_reader.Main(skims,auto_skim_path, transit_skim_path)
+	skims = HighwaySkim()
+	skims.open(auto_skim_path)
+	#skim_transit = TransitSkim()
+	#skim_transit.open(transit_skim_path)
 
 	#******************************************************************************************************************************************************************
 	#standard db entry - do not modify
@@ -88,10 +91,10 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 			self.total += count
 
 		def set_congestion_and_highway_flags(self, skim):
-			o_idx = skim.zone_id_to_index_map[self.oid]
-			d_idx = skim.zone_id_to_index_map[self.did]
-			fft = skim.auto_ttime_skims[skim.intervals[0]][o_idx,d_idx]/60
-			dst = skim.auto_distance_skims[skim.intervals[0]][o_idx,d_idx]/1000
+			o_idx = skim.get_zone_idx(self.oid)
+			d_idx = skim.get_zone_idx(self.did)
+			fft = (skim.time[skim.intervals[0]][o_idx][d_idx])/60.0
+			dst = skim.distance[skim.intervals[0]][o_idx][d_idx]/1000.0
 			if fft == 0:
 				self.highway = 0
 			elif dst/fft > 80.0:
@@ -99,7 +102,7 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 
 			# get the congestion level for each timeperiod
 			for i in range(0,len(skim.intervals)):
-				tt = skim.auto_ttime_skims[skim.intervals[i]][o_idx,d_idx]/60
+				tt = skim.time[skim.intervals[i]][o_idx][d_idx]/60.0
 				if fft == 0:
 					self.congestion_level_by_time.append(0.0)
 				elif tt/fft > 1.5:
@@ -161,8 +164,8 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 
 		def calculate_gttime_factor(self, skim, wait_times):
 
-			o_idx = skim.zone_id_to_index_map[self.oid]
-			d_idx = skim.zone_id_to_index_map[self.did]
+			o_idx = skim.get_zone_idx(self.oid)
+			d_idx = skim.get_zone_idx(self.did)
 
 			if self.total > 0:
 				self.tnc = self.tnc/self.total
@@ -184,7 +187,7 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 
 			# for each skim_time period, calculate the gttime factor
 			for i in range(0,len(skim.intervals)):
-				tt = skim.auto_ttime_skims[skim.intervals[i]][o_idx,d_idx]
+				tt = skim.time[skim.intervals[i]][o_idx][d_idx]
 				l3_factor = self.get_factor(vot_level, self.congestion_level_by_time[i], 1,0,self.highway)
 				l5_factor = self.get_factor(vot_level, self.congestion_level_by_time[i], 0,1,self.highway)
 				tnc_factor = 1.0
@@ -264,10 +267,10 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 
 		#******************************************************************************************************************************************************************
 		# Add the missing OD pairs using the zonal average share values
-		for oid in skims.zone_id_to_index_map:
+		for oid in skims.index['zones'].tolist():
 			if oid in OD_info:
 				o_info = OD_info[oid]
-				for did in skims.zone_id_to_index_map:
+				for did in skims.index['zones'].tolist():
 					if did not in o_info.OD_records:
 						o_info.add_OD_record(oid, did, 0,0,0)
 						od_rec = o_info.OD_records[did]
@@ -284,22 +287,22 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 			#o.calculate_gttime_factor(skims)
 			for did, d in o.OD_records.items():
 				#print(oid, did, d.noAV, d.l3, d.l5, d.tnc, d.total)
-				o_idx = skims.zone_id_to_index_map[oid]
-				d_idx = skims.zone_id_to_index_map[did]
+				o_idx = skims.get_zone_idx(oid)
+				d_idx = skims.get_zone_idx(did)
 				# get the new factors
 				d.calculate_gttime_factor(skims, ZoneWaitTimes)
 				# update the skim values
 				for i in range(0,len(skims.intervals)):
-					tt = skims.auto_ttime_skims[skims.intervals[i]][o_idx,d_idx]
-					skims.auto_ttime_skims[skims.intervals[i]][o_idx,d_idx] = tt * d.gttime_factor[i]
+					tt = skims.time[skims.intervals[i]][o_idx][d_idx]
+					skims.time[skims.intervals[i]][o_idx,d_idx] = tt * d.gttime_factor[i]
 		print ('Done.')
 
 	#******************************************************************************************************************************************************************
 	# write the final updated skims to hdf5 and close...
 	#------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	print ('Writing HDF5 database...')
-	output_file = '{0}/{1}_skims.hdf5'.format(output_dir, database_name)
-	skim_reader.WriteSkimsHDF5(output_file, skims, False)
+	print ('Writing update skim omx file...')
+	output_file = '{0}/{1}_skims.omx'.format(output_dir, database_name)
+	skims.write(output_file)
 	print ('Done.')
 
 def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings):

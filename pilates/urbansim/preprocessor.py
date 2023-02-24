@@ -51,8 +51,8 @@ def _load_raw_skims(settings, skim_format):
         elif skim_format == 'polaris':
             path_to_skims = os.path.join(settings['polaris_local_data_folder'], skims_fname)
             f = h5py.File(path_to_skims, 'r')
-            ivtt_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['ivtt']))
-            cost_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['cost']))
+            ivtt_8_9 = pd.DataFrame(list(f['data']['auto_480_time']))
+            cost_8_9 = pd.DataFrame(list(f['data']['auto_480_cost']))
             f.close()
             ivtt_8_9 = pd.DataFrame(
                 ivtt_8_9.stack(), columns=['auto_ivtt_8_9_am'])
@@ -63,7 +63,7 @@ def _load_raw_skims(settings, skim_format):
             skims = skims.reset_index()
     except KeyError:
         raise KeyError(
-            "Couldn't find input skims named {0}".format(skims_fname))
+            "Couldn't find input skims named {0} in local data folder {1}".format(skims_fname, settings['polaris_local_data_folder']))
 
     logger.info("Converting skims to UrbanSim data format.")
     skims['from_zone_id'] = skims['from_zone_id'].astype('str')

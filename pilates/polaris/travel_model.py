@@ -164,6 +164,10 @@ def run_polaris(forecast_year, settings, warm_start=False):
 				# mods["demand_reduction_factor"] = population_scale_factor)
 				mods["read_trip_factors"] = { "External": population_scale_factor }
 				mods["traffic_scale_factor"] = population_scale_factor
+				# updating for the FDS piecewise FD
+				mods["piecewise_linear_fd"] = True,
+				mods["beta_piecewise_linear_fd"] = 2.0,
+				mods["gamma_piecewise_linear_fd"] = 0.25,
 
 			if warm_start and not forecast_year:
 				mods["replan_workplaces"] = True
@@ -200,6 +204,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 			if warm_start:
 				# update the newly generated demand file with the external trips from the base model
 				# necessary as the external trips do not get created or written in warm start mode...
+				logger.info(f"Copying external trips back into : {str(output_dir/demand_db_name)}")
 				postprocessor.update_polaris_after_warmstart(output_dir / demand_db_name, model_dir/ demand_db_name)
 			else:
 				fail_count = 0
