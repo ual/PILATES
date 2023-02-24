@@ -50,8 +50,8 @@ def clean_and_init_data(usim_path, polaris_path):
 
     if pol_backup.is_dir():
         logging.info(f"Clean and re-int *.hdf5 in {pol_backup}")
-        clean_data(polaris_path, '*.hdf5')
-        init_data(polaris_path, '*.hdf5')
+        clean_data(polaris_path, '*.omx')
+        init_data(polaris_path, '*.omx')
 
 def clean_data(path, wildcard):
     for filepath in path.glob(wildcard):
