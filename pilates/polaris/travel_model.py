@@ -87,8 +87,9 @@ def run_polaris(forecast_year, settings, warm_start=False):
 	supply_db_name = db_name + "-Supply.sqlite"
 	demand_db_name = db_name + "-Demand.sqlite"
 	result_db_name = db_name + "-Result.sqlite"
-	highway_skim_file_name = "highway_skim_file.bin"
-	transit_skim_file_name = "transit_skim_file.bin"
+	result_h5_name = db_name + "-Result.h5"
+	highway_skim_file_name = "highway_skim_file.omx"
+	transit_skim_file_name = "transit_skim_file.omx"
 
 	pwd = os.getcwd()
 	os.chdir(model_dir)
@@ -210,6 +211,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 				fail_count = 0
 				# copy the network outputs back to main data directory
 				PR.copyreplacefile(output_dir / result_db_name, model_dir)
+				PR.copyreplacefile(output_dir / result_h5_name, model_dir)
 				PR.copyreplacefile(output_dir / highway_skim_file_name, model_dir)
 				PR.copyreplacefile(model_dir / supply_db_name, output_dir)
 				# JA- 1/22/23 - generate gap reports - replace with actual polarislib at some point...
