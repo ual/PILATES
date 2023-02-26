@@ -45,7 +45,7 @@ def archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, ou
 	DemandDbPath = '{0}/{1}-Demand.sqlite'.format(output_dir, db_name)
 	ResultDbPath = '{0}/{1}-Result.sqlite'.format(output_dir, db_name)
 	auto_skim_path = '{0}/highway_skim_file.omx'.format(output_dir)
-	#transit_skim_path = '{0}/transit_skim_file.omx'.format(output_dir)
+	transit_skim_path = '{0}/transit_skim_file.omx'.format(output_dir)
 	#vot_level = 2
 	generate_polaris_skims_for_usim(data_dir, db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
 

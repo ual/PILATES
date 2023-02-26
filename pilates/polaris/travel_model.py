@@ -166,9 +166,9 @@ def run_polaris(forecast_year, settings, warm_start=False):
 				mods["read_trip_factors"] = { "External": population_scale_factor }
 				mods["traffic_scale_factor"] = population_scale_factor
 				# updating for the FDS piecewise FD
-				mods["piecewise_linear_fd"] = True,
-				mods["beta_piecewise_linear_fd"] = 2.0,
-				mods["gamma_piecewise_linear_fd"] = 0.25,
+				#mods["piecewise_linear_fd"] = True,
+				#mods["beta_piecewise_linear_fd"] = 2.0,
+				#mods["gamma_piecewise_linear_fd"] = 0.25,
 
 			if warm_start and not forecast_year:
 				mods["replan_workplaces"] = True
@@ -200,7 +200,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		logger.info(f"Found output sub-directory: {output_dir}")
 
 		if success:
-			
+
 			# skip all of the file storage and analysis for warm start runs - only need the demand file
 			if warm_start:
 				# update the newly generated demand file with the external trips from the base model
@@ -255,7 +255,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 		postprocessor.archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, output_dir, vot_level)
 
 		# remove all the iterations after processing is done..
-		delete_unneeded_results(conf)
+		#delete_unneeded_results(conf)
 
 		# only run the analysis script for the final iteration of the loop and process asynchronously to save time
 		p1 = Thread(target=PR.execute_sql_script_with_attach, args=(archive_dir / demand_db_name, scripts_dir / "wtf_baseline_analysis.sql", archive_dir / supply_db_name))

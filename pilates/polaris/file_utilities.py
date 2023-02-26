@@ -51,7 +51,8 @@ def get_best_iteration(config: ConvergenceConfig, abm_runs):
         logger.info(f"Could not find {abm_runs} valid iterations in search directory: {config.data_dir}")
         sys.exit()
 
-    iter_name = gaps.tail(abm_runs)["relative_gap_min0"].idxmin()
+    # ignore the first three abm runs to allow for convergence...
+    iter_name = gaps.tail(abm_runs-3)["relative_gap_min0"].idxmin()
 
     logging.info(f"best iteration = {config.data_dir / iter_name}")
     return config.data_dir / iter_name
