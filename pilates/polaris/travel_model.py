@@ -222,8 +222,7 @@ def run_polaris(forecast_year, settings, warm_start=False):
 				PR.copy_replace_file(output_dir / result_h5_name, model_dir)
 				PR.copy_replace_file(output_dir / highway_skim_file_name, model_dir)
 				PR.copy_replace_file(model_dir / supply_db_name, output_dir)
-				# JA- 1/22/23 - generate gap reports - replace with actual polarislib at some point...
-				PR.generate_gap_report(None, output_dir)
+				PR.generate_gap_report(PR.ConvergenceConfig.from_dir(model_dir, db_name), output_dir)
 
 			PR.copy_replace_file(output_dir / demand_db_name, model_dir)
 			PR.run_sql_file(conn=model_dir / demand_db_name, qry_file=scripts_dir / "clean_db_after_abm_for_abm.sql")

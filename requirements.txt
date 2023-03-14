@@ -8,3 +8,4 @@ h5py
 matplotlib
 spython
 sortedcontainers
+./wheels/polarislib-20230221.20230314-py3-none-any.whl

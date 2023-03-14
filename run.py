@@ -20,17 +20,6 @@ from pilates.urbansim import postprocessor as usim_post
 from pilates.beam import preprocessor as beam_pre
 from pilates.beam import postprocessor as beam_post
 
-# Optional Imports that are allowed to fail
-def run_delayed_imports(settings):
-    try:
-        import docker
-    except ImportError:
-        logger.warning('Warning: Unable to import Docker Module')
-    try:
-        from spython.main import Client
-    except ImportError:
-        logger.warning('Warning: Unable to import spython (Singularity) Module')
-
 
 
 
@@ -62,7 +51,7 @@ def main():
     restart_from_polaris = settings['restart_from_polaris']
     if restart_from_polaris: warm_start_acts = False
 
-    run_delayed_imports(settings)
+    check_container_manager(settings)
 
     logger.info("Initializing data...")
     if not restart_from_polaris:
@@ -157,6 +146,19 @@ def main():
 
     logger.info("Finished")
 
+def check_container_manager(settings):
+    if settings.get("container_manager", "") == "docker":
+        try:
+            import docker
+        except ImportError:
+            logger.error('Container manager set to docker, but can not import Docker module')
+            raise
+    elif settings.get("container_manager", "") == "singularity":
+        try:
+            from spython.main import Client
+        except ImportError:
+            logger.error('Container manager set to docker, but can not import Docker module')
+            raise
 
 def clean_and_init_data(usim_path, polaris_path):
     usim_backup, pol_backup =usim_path / 'backup', polaris_path / 'backup'
@@ -519,6 +521,7 @@ def generate_activity_plans(
     activity_demand_model = settings['activity_demand_model']
 
     if activity_demand_model == 'polaris':
+        from pilates.polaris.travel_model import run_polaris
         run_polaris(forecast_year, settings, warm_start=True)
         usim_post.create_next_iter_usim_data(settings, year, forecast_year)
 
@@ -601,6 +604,7 @@ def run_traffic_assignment(
     """
     travel_model = settings.get('travel_model', False)
     if travel_model == 'polaris':
+        from pilates.polaris.travel_model import run_polaris
         run_polaris(forecast_year, settings, warm_start=False)
 
     elif travel_model == 'beam':
@@ -672,6 +676,7 @@ def run_traffic_assignment(
 
 
 def initialize_docker_client(settings):
+    import docker
 
     land_use_model = settings.get('land_use_model', False)
     activity_demand_model = settings.get('activity_demand_model', False)
