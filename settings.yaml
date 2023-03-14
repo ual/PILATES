@@ -32,7 +32,7 @@ singularity_images:
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb:latest
   atlas: ghcr.io/lbnl-science-it/atlas:v1.0.7
-  beam: zaneedell/beam:0.8.6.10
+  beam: zaneedell/beam:0.9.1
   activitysim: zaneedell/activitysim:new-geoms.1
   polaris: tbd
   atlas:
@@ -96,6 +96,8 @@ skim_zone_source_id_col: objectid
 replan_iters: 5
 replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
+discard_plans_every_year: false
+max_plans_memory: 5
 final_asim_plans_folder: pilates/activitysim/output/final_plans
 beam_simulated_hwy_paths:
   - SOV

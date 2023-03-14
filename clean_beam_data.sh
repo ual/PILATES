@@ -17,3 +17,6 @@ sudo rm pilates/activitysim/data/*
 echo "Deleting interim urbansim data"
 sudo rm pilates/urbansim/data/input*
 sudo rm pilates/urbansim/data/model*
+
+echo "Deleting inexus output data"
+sudo rm pilates/postprocessing/output/*
