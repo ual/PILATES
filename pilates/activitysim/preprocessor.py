@@ -21,7 +21,7 @@ from pilates.utils.geog import get_block_geoms,\
 
 from pilates.utils.io import read_datastore
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("activitysim.pre")
 
 beam_skims_types = {'timePeriod': str,
                     'pathType': str,

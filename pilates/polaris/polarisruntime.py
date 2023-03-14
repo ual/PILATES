@@ -1,17 +1,22 @@
-import os
 import sys
 import subprocess
-import yaml
 import logging
-from logging import config
-from pathlib import Path
-from pilates.polaris.polarislib import *
-from pilates.polaris.modify_scenario import *
-from pilates.polaris.file_utilities import *
-from pilates.polaris.sqlite_utilities import *
+
+# We import polarislib functions here that we use elsewhere so that everything from
+# polarislib can be run as PR.method_name
+from polarislib.utils.database.db_utils import run_sql_file
+from polarislib.runs.scenario_file import apply_modification
+from polarislib.runs.run_utils import get_latest_polaris_output
+from polarislib.runs.polaris_inputs import PolarisInputs
+from polarislib.runs.convergence.convergence_config import ConvergenceConfig
+from polarislib.runs.gap_reporting import generate_gap_report
+from polarislib.skims import HighwaySkim
+
+# we define our own copy_replace_file in favour of the one from polarislib
+from pilates.polaris.file_utilities import copy_replace_file
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("polaris.utils")
 
 def run_polaris_instance(results_dir, exe_name, scenario_file, num_threads, tail_app):
 	# subprocess.call([exeName, arguments])
@@ -26,7 +31,7 @@ def run_polaris_instance(results_dir, exe_name, scenario_file, num_threads, tail
 	proc.wait()
 	out_file.close()
 	err_file.close()
-	
+
 	if proc.returncode != 0:
 		logger.critical("POLARIS did not execute correctly - {0}".format(proc.returncode))
 		return False

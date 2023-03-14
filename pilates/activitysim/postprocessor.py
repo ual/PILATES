@@ -2,7 +2,9 @@ import logging
 import pandas as pd
 import zipfile
 import os
-logger = logging.getLogger(__name__)
+
+from pilates.utils.io import read_datastore
+logger = logging.getLogger("activitysim.post")
 
 
 def _load_asim_outputs(settings):
@@ -155,17 +157,14 @@ def create_beam_input_data(settings, forecast_year, asim_output_dict):
     asim_output_data_dir = settings['asim_local_output_folder']
     archive_name = 'asim_outputs_{0}.zip'.format(forecast_year)
     outpath = os.path.join(asim_output_data_dir, archive_name)
-    logger.info(
-        'Merging results back into UrbanSim format and storing as .zip!')
+    logger.info('Merging results back into UrbanSim format and storing as .zip!')
 
     with zipfile.ZipFile(outpath, 'w') as csv_zip:
 
         # copy asim outputs into archive
         for table_name in asim_output_dict.keys():
-            logger.info(
-                "Zipping {0} asim table to output archive!".format(table_name))
-            csv_zip.writestr(
-                table_name + ".csv", asim_output_dict[table_name].to_csv())
+            logger.info("Zipping {0} asim table to output archive!".format(table_name))
+            csv_zip.writestr(table_name + ".csv", asim_output_dict[table_name].to_csv())
     logger.info("Done creating .zip archive!")
 
 

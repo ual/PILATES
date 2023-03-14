@@ -3,14 +3,13 @@ import pandas as pd
 import sys
 import sqlite3
 import argparse
-from pilates.polaris.polarislib.skims import HighwaySkim
-# from pilates.polaris.polarislib.skims import TransitSkim
+import pilates.polaris.polarisruntime as PR
 from pilates.polaris.preprocessor import Usim_Data
 from pathlib import Path
 import shutil
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("polaris.post")
 
 def update_polaris_after_warmstart(new_db, source_db):
 	DbCon = sqlite3.connect ( new_db )
@@ -35,23 +34,18 @@ def archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, ou
 
 	# rename existing h5 file
 	data_dir = pilates_data_dir / 'pilates/polaris/data'
-	old_name = '{0}/{1}_skims.omx'.format(data_dir, db_name)
-	new_name = '{0}/{1}_{2}_skims.omx'.format(data_dir, db_name, forecast_year)
+	old_name = data_dir / f'{db_name}_skims.omx'
+	new_name = data_dir / f'{db_name}_{forecast_year}_skims.omx'
 	os.rename(old_name,new_name)
 
 	# generate new h5 file
 	logger.info('Generating new UrbanSim skims')
-	NetworkDbPath = '{0}/{1}-Supply.sqlite'.format(output_dir, db_name)
-	DemandDbPath = '{0}/{1}-Demand.sqlite'.format(output_dir, db_name)
-	ResultDbPath = '{0}/{1}-Result.sqlite'.format(output_dir, db_name)
-	auto_skim_path = '{0}/highway_skim_file.omx'.format(output_dir)
-	transit_skim_path = '{0}/transit_skim_file.omx'.format(output_dir)
-	#vot_level = 2
-	generate_polaris_skims_for_usim(data_dir, db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
+	files = PR.PolarisInputs.from_dir(output_dir, db_name)
+	generate_polaris_skims_for_usim(data_dir, db_name, files.supply_db, files.demand_db, files.result_db, files.highway_skim, files.transit_skim, vot_level)
 
 def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):
 
-	skims = HighwaySkim()
+	skims = PR.HighwaySkim()
 	skims.open(auto_skim_path)
 	#skim_transit = TransitSkim()
 	#skim_transit.open(transit_skim_path)
@@ -306,8 +300,6 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 	print ('Done.')
 
 def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings):
-
-
 	if not os.path.exists(db_demand):
 		logger.critical("Error: input polaris demand db not found at: " + db_demand)
 		sys.exit()
@@ -323,7 +315,7 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 		usim_base = usim_base_fname.format(region_id=region_id)
 		usim_output = "{0}/{1}".format(usim_output_dir, usim_base)
 
-	logger.info(("Updating urbansim model, {0}, from polaris demand database...").format(usim_output))
+	logger.info(f"Updating urbansim model, {usim_output}, from polaris demand database...")
 
 	# load the polaris person table into a data frame - should be updated with work and school locations
 	dbcon = sqlite3.connect(db_demand)
@@ -364,6 +356,7 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Process the skim data for UrbanSim')
+	parser.add_argument('-data_dir', default='', help='The directory to process')
 	parser.add_argument('-auto_skim_file', default='', help='An input auto mode skim file to read, in polaris .bin V0 or V1 format')
 	parser.add_argument('-transit_skim_file', default='', help='An input transit mode skim file to read, in polaris .bin V0 or V1 format')
 	parser.add_argument('-database_name', default='', help='Database name/filepath with no extension or schema indicator, i.e. "chicago", not "chicago-Supply" or chicago-Supply.sqlite')
@@ -380,4 +373,4 @@ if __name__ == '__main__':
 	transit_skim_path = args.transit_skim_file
 	vot_level = args.vot_level if args.vot_level != 0 else 0  # use 0 for VOTT low (from Scenario settings file - i.e. long run) and 1 for VOTT high (short run/less impact)
 
-	postprocess_polaris_for_usim(args.database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
+	generate_polaris_skims_for_usim(args.data_dir, args.database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)

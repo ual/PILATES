@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 from pilates.utils.io import read_datastore
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("urbansim.post")
 
 
 def _get_usim_datastore_fname(settings, io, year=None):

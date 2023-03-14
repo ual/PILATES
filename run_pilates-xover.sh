@@ -1,41 +1,30 @@
 #!/bin/bash
-#SBATCH --job-name=land_use
-#SBATCH --account=TPS
-#SBATCH --partition=TPS
-#SBATCH --nodes=1
-#SBATCH --time=48:00:00
+#SBATCH --job-name=land_use --account=TPS --partition=TPS
+#SBATCH --nodes=1 --ntasks-per-node=64 --exclusive
+#SBATCH --time=11:00:00
 #SBATCH --mail-user=jauld@anl.gov
 #SBATCH --mail-type=ALL
-#SBATCH --ntasks-per-node=64
-#SBATCH --exclusive
 
 set -eu
 
 main() {
-    cd /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/PILATES-SRC-JA
+    cd /lcrc/project/POLARIS/crossover/PILATES
     module_load
     setup_venv
-    . venv/bin/activate
     python3 ./run.py "$@"
 }
 
 setup_venv() {
-    python3 -m pip install --user virtualenv
-    [[ -d venv ]] || virtualenv venv
-    . venv/bin/activate
+    set +u; eval "$(conda shell.bash hook)"; set -u
+    conda activate pilates
     # python3 -m pip install -r requirements.txt
 }
 
 module_load() {
-
-    # XOVER
-    #module load gcc/9.2.0-sjjvpmg
     module load gcc/10.4.0-ckeolqi
-   # module load python/3.8.10-obsyt5i
     module load anaconda3
-    module load singularity/3.10.2    
+    module load singularity/3.10.2
     module load hdf5/1.12.1-l4cjxhb
-    python3 -m ensurepip --upgrade
 }
 
 main "$@"

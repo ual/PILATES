@@ -5,7 +5,7 @@ import h5py
 
 from pilates.utils.geog import geoid_to_zone_map
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("urbansim.pre")
 
 skim_dtypes = {
     'timePeriod': str,
@@ -109,7 +109,7 @@ def add_skims_to_model_data(settings):
     # note: should only have to be run the first time the
     # the base year urbansim data is touched by pilates
     zone_id_col = 'zone_id'
-    print(f"{model_data_fpath} has the following keys: {store.keys()}")
+    logger.debug(f"{model_data_fpath} has the following keys: {store.keys()}")
     if zone_id_col not in store['blocks'].columns:
 
         blocks = store['blocks'].copy()

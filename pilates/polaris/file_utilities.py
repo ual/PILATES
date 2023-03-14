@@ -1,26 +1,12 @@
 #!/usr/bin/python
-# Filename: run_convergence.py
-
-import shutil
-import sys
-import os
-import subprocess
-import glob
-from shutil import copyfile
-from shutil import copytree
+import os,csv,queue,logging
+from shutil import copyfile, copytree
 from pathlib import Path
-import json
-import sqlite3
-import csv
-import queue
-import traceback
-import logging
-
 from os.path import join
-from pilates.polaris.polarislib.run_utils import get_output_dirs, get_output_dir_index, merge_csvs
-from pilates.polaris.polarislib.convergence_config import ConvergenceConfig
+from polarislib.runs.run_utils import merge_csvs
+from polarislib.runs.convergence.convergence_config import ConvergenceConfig
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("polaris.utils")
 
 def all_subdirs_of(out_name, base_dir='.'):
   model_file_dirs = Path(base_dir).glob(join(f"{out_name}*", 'model_files'))
@@ -65,20 +51,18 @@ def delete_unneeded_results(config: ConvergenceConfig):
         for r in d.glob("*-Result.sqlite"):
             r.unlink(missing_ok=True)
 
-def copyreplacefile(filename, dest_dir):
-	logger.info(f"CopyReplace {filename} -> {dest_dir}")
-	dest_file = Path(dest_dir / filename.name)
-	if dest_file.exists():
-		os.remove(str(dest_file))
-	if filename.exists():
-		copyfile(str(filename), str(dest_file))
-	else:
-		logger.info(f"Copyreplacefile error; filename '{str(filename)}' does not exist")
+def copy_replace_file(filename, dest_dir):
+    dest_file = Path(dest_dir) / Path(filename).name
+    logger.info(f"CopyReplace from {filename}")
+    logger.info(f"CopyReplace to   {dest_file}")
+    dest_file.unlink(missing_ok=True)
+    copyfile(str(filename), str(dest_file))
+
 
 def archive_polaris_output(output_dir, archive_dir):
 	# check if folder already exists
 	if not output_dir.exists():
-		logger.info(f'archive_polaris_output error; source output directory \'{str(output_dir)}\' does not exist\'')
+		logger.info(f'archive_polaris_output error; source output directory \'{output_dir}\' does not exist\'')
 		return
 	if not archive_dir.exists():
 		os.mkdir(str(archive_dir))
@@ -151,4 +135,4 @@ def append_column(src, tgt, loop, column, header_text):
 if __name__ == "__main__":
     model_dir = "/lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/runs/3_L4_cacc_ref/austin"
     conf = ConvergenceConfig(model_dir, "campo")
-    delete_unneeded_iterations(conf)
+    delete_unneeded_results(conf)

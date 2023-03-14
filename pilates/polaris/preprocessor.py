@@ -10,7 +10,7 @@ import random
 import logging
 from sortedcontainers import SortedDict
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("polaris.pre")
 
 # ======================= Settings for the run =======================
 # usim_output = 'model_data_2011.h5'
@@ -277,7 +277,7 @@ def clean_db(DbCon, clear_agents=True):
 	DbCon.execute('delete from Traveler;')
 	DbCon.execute('delete from Trip where type <> 22;')
 
-	# Clean all FK references 
+	# Clean all FK references
 	DbCon.execute('update Trip set vehicle = NULL;')
 	DbCon.execute('update Trip set person = NULL;')
 	DbCon.execute('update Trip set path = NULL;')
