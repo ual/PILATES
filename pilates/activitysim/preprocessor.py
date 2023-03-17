@@ -190,6 +190,9 @@ def _load_raw_beam_skims(settings):
     path_to_beam_skims = os.path.join(
         settings['beam_local_output_folder'], skims_fname)
 
+    if not os.path.exists(path_to_beam_skims):
+        return None
+
     try:
         if '.csv' in path_to_beam_skims:
             skims = read_skim(path_to_beam_skims)
@@ -472,6 +475,8 @@ def impute_distances(zones, origin, destination):
     orig = gdf.loc[origin].reset_index(drop=True).geometry.centroid
     dest = gdf.loc[destination].reset_index(drop=True).geometry.centroid
 
+    # Distance in Miles
+
     return orig.distance(dest).replace({0: 100}).values * (0.621371 / 1000)
 
 
@@ -492,11 +497,15 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
     # TO DO: Include walk and bike distances,
     # for now walk and bike are the same as drive.
     dist_column = settings['beam_asim_hwy_measure_map']['DIST']
-    dist_df = auto_df[[dist_column]].groupby(level=[2, 3]).agg('first')
-    mx_dist, useDefaults = _build_od_matrix(dist_df, dist_column, order, fill_na=np.nan)
-    if useDefaults:
-        logger.warning(
-            "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(dist_column))
+    if auto_df is not None:
+        dist_df = auto_df[[dist_column]].groupby(level=[2, 3]).agg('first')
+        mx_dist, useDefaults = _build_od_matrix(dist_df, dist_column, order, fill_na=np.nan)
+        if useDefaults:
+            logger.warning(
+                "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
+                    dist_column))
+    else:
+        mx_dist = np.full((len(order), len(order)), np.nan, dtype=np.float32)
     # Impute missing distances 
     missing = np.isnan(mx_dist)
     if missing.any():
@@ -707,21 +716,25 @@ def create_skims_from_beam(settings, year,
     if new:
         order = zone_order(settings, year)
         skims_df = _load_raw_beam_skims(settings)
-        skims_df = skims_df.loc[skims_df.origin.isin(order) & skims_df.destination.isin(order), :]
-        skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
-        auto_df, transit_df = _create_skims_by_mode(settings, skims_df)
-        ridehail_df = _load_raw_beam_origin_skims(settings)
-        ridehail_df = _raw_beam_origin_skims_preprocess(settings, year, ridehail_df)
+        if skims_df is not None:
+            skims_df = skims_df.loc[skims_df.origin.isin(order) & skims_df.destination.isin(order), :]
+            skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
+            auto_df, transit_df = _create_skims_by_mode(settings, skims_df)
+            ridehail_df = _load_raw_beam_origin_skims(settings)
+            ridehail_df = _raw_beam_origin_skims_preprocess(settings, year, ridehail_df)
 
-        # Create skims
-        _distance_skims(settings, year, auto_df, order, data_dir=output_dir)
-        _auto_skims(settings, auto_df, order, data_dir=output_dir)
-        _transit_skims(settings, transit_df, order, data_dir=output_dir)
-        _ridehail_skims(settings, ridehail_df, order, data_dir=output_dir)
+            # Create skims
+            _distance_skims(settings, year, auto_df, order, data_dir=output_dir)
+            _auto_skims(settings, auto_df, order, data_dir=output_dir)
+            _transit_skims(settings, transit_df, order, data_dir=output_dir)
+            _ridehail_skims(settings, ridehail_df, order, data_dir=output_dir)
 
-        # Create offset
-        _create_offset(settings, order, data_dir=output_dir)
-        del auto_df, transit_df
+            # Create offset
+            _create_offset(settings, order, data_dir=output_dir)
+            del auto_df, transit_df
+        else:
+            _distance_skims(settings, year, None, order, data_dir=output_dir)
+            print('here we are')
 
     if validation:
         order = zone_order(settings, year)

@@ -112,11 +112,15 @@ def setup_beam_skims(settings):
 
     # TODO: Handle exception when these dont exist
 
-    logger.info("Copying input skims from {0} to {1}".format(
-        input_skims_location,
-        mutable_skims_location))
-
-    shutil.copyfile(input_skims_location, mutable_skims_location)
+    if os.path.exists(input_skims_location):
+        logger.info("Copying input skims from {0} to {1}".format(
+            input_skims_location,
+            mutable_skims_location))
+        shutil.copyfile(input_skims_location, mutable_skims_location)
+    else:
+        logger.info("No input skims at {0}. Proceeding with defaults at {1}".format(
+            input_skims_location,
+            mutable_skims_location))
 
     input_skims_location = os.path.join(beam_input_dir, region, origin_skims_fname)
     mutable_skims_location = os.path.join(beam_output_dir, origin_skims_fname)
