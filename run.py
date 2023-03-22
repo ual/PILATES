@@ -621,7 +621,13 @@ def run_traffic_assignment(
 
         # remember the last produced skims in order to detect that
         # beam didn't work properly during this run
-        previous_od_skims = beam_post.find_produced_od_skims(beam_local_output_folder)
+        if skims_fname.endwith(".csv.gz"):
+            skimFormat = "csv.gz"
+        elif skims_fname.endswith(".omx"):
+            skimFormat = "omx"
+        else:
+            logger.error("Invalid skim format {0}".format(skims_fname))
+        previous_od_skims = beam_post.find_produced_od_skims(beam_local_output_folder, skimFormat)
         previous_origin_skims = beam_post.find_produced_origin_skims(beam_local_output_folder)
         logger.info("Found skims from the previous beam run: %s", previous_od_skims)
 
@@ -657,17 +663,25 @@ def run_traffic_assignment(
 
         # 4. POSTPROCESS
         path_to_od_skims = os.path.join(abs_beam_output, skims_fname)
-        current_od_skims = beam_post.merge_current_od_skims(
-            path_to_od_skims, previous_od_skims, beam_local_output_folder)
-        if current_od_skims == previous_od_skims:
-            logger.error(
-                "BEAM hasn't produced the new skims at {0} for some reason. "
-                "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
-            )
-            sys.exit(1)
         path_to_origin_skims = os.path.join(abs_beam_output, origin_skims_fname)
-        beam_post.merge_current_origin_skims(
-            path_to_origin_skims, previous_origin_skims, beam_local_output_folder)
+
+        if skimFormat == "csv.gz":
+            current_od_skims = beam_post.merge_current_od_skims(
+                path_to_od_skims, previous_od_skims, beam_local_output_folder)
+            if current_od_skims == previous_od_skims:
+                logger.error(
+                    "BEAM hasn't produced the new skims at {0} for some reason. "
+                    "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
+                )
+                sys.exit(1)
+
+            beam_post.merge_current_origin_skims(
+                path_to_origin_skims, previous_origin_skims, beam_local_output_folder)
+        else:
+            asim_data_dir = settings['asim_local_input_folder']
+            skims_path = os.path.join(asim_data_dir, 'skims.omx')
+            current_od_skims = beam_post.merge_current_omx_skims(skims_path, previous_od_skims,
+                                                                 beam_local_output_folder)
         beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
 
     return

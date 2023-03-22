@@ -30,11 +30,11 @@ def rename_beam_output_directory(settings, year, replanning_iteration_number=0):
     os.rename(beam_run_output_dir, new_iteration_output_directory)
 
 
-def find_produced_od_skims(beam_output_dir):
+def find_produced_od_skims(beam_output_dir, suffix="csv.gz"):
     iteration_dir, it_num = find_latest_beam_iteration(beam_output_dir)
     if iteration_dir is None:
         return None
-    od_skims_path = os.path.join(iteration_dir, f"{it_num}.activitySimODSkims_current.csv.gz")
+    od_skims_path = os.path.join(iteration_dir, "{0}.activitySimODSkims_current.{1}".format(it_num, suffix))
     logger.info("expecting skims at {0}".format(od_skims_path))
     return od_skims_path
 
@@ -46,6 +46,11 @@ def find_produced_origin_skims(beam_output_dir):
     ridehail_skims_path = os.path.join(iteration_dir, f"{it_num}.skimsRidehail.csv.gz")
     logger.info("expecting skims at {0}".format(ridehail_skims_path))
     return ridehail_skims_path
+
+
+def merge_current_omx_skims(all_skims_path, previous_skims_path, beam_output_dir):
+    skims = omx.open_file(all_skims_path, 'a')
+    current_skims_path = find_produced_od_skims(beam_output_dir, "omx")
 
 
 def merge_current_od_skims(all_skims_path, previous_skims_path, beam_output_dir):
