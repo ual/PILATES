@@ -1,4 +1,9 @@
 import warnings
+import pickle
+import cloudpickle
+import dill
+
+pickle.ForkingPickler = cloudpickle.Pickler
 
 from pilates.activitysim.preprocessor import copy_beam_geoms
 from pilates.utils.geog import geoid_to_zone_map
@@ -680,8 +685,10 @@ def run_traffic_assignment(
         else:
             asim_data_dir = settings['asim_local_input_folder']
             skims_path = os.path.join(asim_data_dir, 'skims.omx')
-            current_od_skims = beam_post.merge_current_omx_skims(skims_path, previous_od_skims,
-                                                                 beam_local_output_folder)
+            current_od_skims = beam_post.merge_current_omx_od_skims(skims_path, previous_od_skims,
+                                                                    beam_local_output_folder)
+            beam_post.merge_current_origin_skims(
+                skims_path, previous_origin_skims, beam_local_output_folder)
         beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
 
     return
@@ -865,6 +872,19 @@ if __name__ == '__main__':
         client = initialize_docker_client(settings)
     else:
         client = None
+
+    # # DELETE ME:
+    # skimFormat = "omx"
+    # asim_data_dir = settings['asim_local_input_folder']
+    # beam_local_output_folder = settings['beam_local_output_folder']
+    # previous_od_skims = beam_post.find_produced_od_skims(beam_local_output_folder, skimFormat)
+    # skims_path = os.path.join(asim_data_dir, 'skims.omx')
+    # previous_origin_skims = beam_post.find_produced_origin_skims(beam_local_output_folder)
+    # measure_map = settings['beam_asim_ridehail_measure_map']
+    # beam_post.merge_current_omx_origin_skims(
+    #     skims_path, previous_origin_skims, beam_local_output_folder, measure_map)
+    # current_od_skims = beam_post.merge_current_omx_od_skims(skims_path, previous_od_skims,
+    #                                                         beam_local_output_folder)
 
     #################################
     #  RUN THE SIMULATION WORKFLOW  #

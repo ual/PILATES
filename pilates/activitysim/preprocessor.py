@@ -538,22 +538,25 @@ def _distance_skims(settings, year, input_skims, order, data_dir=None):
         logger.info("Imputing all missing distance skims.")
         zones = read_zone_geoms(settings, year)
         mx_dist = impute_distances(zones)
+        input_skims['DIST'] = mx_dist
     elif missing.any():
         orig, dest = np.where(missing == True)
         logger.info("Imputing {} missing distance skims.".format(len(orig)))
         zones = read_zone_geoms(settings, year)
         imputed_dist = impute_distances(zones, orig, dest)
         mx_dist[orig, dest] = imputed_dist
+        input_skims['DIST'] = mx_dist
     else:
         logger.info("No need to impute missing distance skims.")
-        return
-
-    assert not np.isnan(mx_dist).any()
+        mx_dist = np.array(input_skims['DIST'])
 
     # Distance matrices
-    input_skims['DIST'] = mx_dist
-    input_skims['DISTBIKE'] = mx_dist
-    input_skims['DISTWALK'] = mx_dist
+    input_skims['DISTBIKE'][:] = mx_dist
+    input_skims['DISTWALK'][:] = mx_dist
+    if 'BIKE_TRIPS' not in input_skims.list_matrices():
+        input_skims['BIKE_TRIPS'] = np.zeros_like(mx_dist)
+    if 'WALK_TRIPS' not in input_skims.list_matrices():
+        input_skims['WALK_TRIPS'] = np.zeros_like(mx_dist)
 
 
 def _build_od_matrix_parallel(tup):
@@ -675,9 +678,9 @@ def _fill_ridehail_skims(settings, skims, order, data_dir=None):
     num_taz = len(order)
 
     # NOTE: time is in units of minutes
-
-    for period in periods:
-        for path, skimPath in ridehail_path_map.items():
+    for path, skimPath in ridehail_path_map.items():
+        logger.info("Writing tables for path type {0}".format(path))
+        for period in periods:
             completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
             failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
 
@@ -687,9 +690,16 @@ def _fill_ridehail_skims(settings, skims, order, data_dir=None):
             if createdTemp:
                 skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
                 skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                skims[completed_measure].attrs.mode = path
+                skims[failed_measure].attrs.mode = path
+                skims[completed_measure].attrs.measure = "TRIPS"
+                skims[failed_measure].attrs.measure = "FAILURES"
+                skims[completed_measure].attrs.timePeriod = period
+                skims[failed_measure].attrs.timePeriod = period
 
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
+
                 temp, createdTemp = _get_field_or_else_empty(skims, name, num_taz)
                 missing_values = np.isnan(temp)
                 if measure == "WAIT":
@@ -697,11 +707,11 @@ def _fill_ridehail_skims(settings, skims, order, data_dir=None):
                 elif measure == "REJECTIONPROB":
                     temp[missing_values] = 0.5
 
-                logger.info(
-                    "Writing table {0} to output skims with {1} filled in observations".format(name,
-                                                                                               missing_values.sum()))
                 if createdTemp:
                     skims[name] = temp
+                skims[name].attrs.mode = path
+                skims[name].attrs.measure = measure
+                skims[name].attrs.timePeriod = period
 
 
 def _fill_transit_skims(settings, skims, order, data_dir=None):
@@ -717,8 +727,9 @@ def _fill_transit_skims(settings, skims, order, data_dir=None):
 
     # NOTE: time is in units of minutes
 
-    for period in periods:
-        for path in transit_paths:
+    for path in transit_paths:
+        logger.info("Writing tables for path type {0}".format(path))
+        for period in periods:
             completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
             failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
 
@@ -728,6 +739,12 @@ def _fill_transit_skims(settings, skims, order, data_dir=None):
             if createdTemp:
                 skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
                 skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                skims[completed_measure].attrs.mode = path
+                skims[failed_measure].attrs.mode = path
+                skims[completed_measure].attrs.measure = "TRIPS"
+                skims[failed_measure].attrs.measure = "FAILURES"
+                skims[completed_measure].attrs.timePeriod = period
+                skims[failed_measure].attrs.timePeriod = period
 
             # tooManyFailures = temp_failed > temp_completed
             for measure in measure_map.keys():
@@ -753,11 +770,11 @@ def _fill_transit_skims(settings, skims, order, data_dir=None):
                         temp[missing_values] = 500.0
                     else:
                         temp[missing_values] = 0.0
-                logger.info(
-                    "Writing table {0} to output skims with {1} filled in observations".format(name,
-                                                                                               missing_values.sum()))
                 if createdTemp:
                     skims[name] = temp
+                skims[name].attrs.mode = path
+                skims[name].attrs.measure = measure
+                skims[name].attrs.timePeriod = period
 
 
 def _fill_auto_skims(settings, skims, order, data_dir=None):
@@ -774,8 +791,9 @@ def _fill_auto_skims(settings, skims, order, data_dir=None):
 
     # NOTE: time is in units of minutes
 
-    for period in periods:
-        for path in paths:
+    for path in paths:
+        logger.info("Writing tables for path type {0}".format(path))
+        for period in periods:
             completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
             failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
 
@@ -785,6 +803,12 @@ def _fill_auto_skims(settings, skims, order, data_dir=None):
             if createdTemp:
                 skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
                 skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                skims[completed_measure].attrs.mode = path
+                skims[failed_measure].attrs.mode = path
+                skims[completed_measure].attrs.measure = "TRIPS"
+                skims[failed_measure].attrs.measure = "FAILURES"
+                skims[completed_measure].attrs.timePeriod = period
+                skims[failed_measure].attrs.timePeriod = period
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 temp, createdTemp = _get_field_or_else_empty(skims, name, num_taz)
@@ -804,11 +828,12 @@ def _fill_auto_skims(settings, skims, order, data_dir=None):
                         temp[missing_values] = toll
                     else:
                         logger.error("Trying to read unknown measure {0} from BEAM skims".format(measure))
-                logger.info(
-                    "Writing table {0} to output skims with {1} filled in observations".format(name,
-                                                                                               missing_values.sum()))
+
                 if createdTemp:
                     skims[name] = temp
+                skims[name].attrs.mode = path
+                skims[name].attrs.measure = measure
+                skims[name].attrs.timePeriod = period
 
 
 def _auto_skims(settings, auto_df, order, data_dir=None):
