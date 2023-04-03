@@ -1,12 +1,11 @@
-import warnings
 import pickle
+import warnings
+
 import cloudpickle
-import dill
 
 pickle.ForkingPickler = cloudpickle.Pickler
 
 from pilates.activitysim.preprocessor import copy_beam_geoms
-from pilates.utils.geog import geoid_to_zone_map
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -14,8 +13,6 @@ import shutil
 import subprocess
 import multiprocessing
 import psutil
-
-import yaml
 
 try:
     import docker
@@ -27,7 +24,6 @@ except ImportError:
     print('Warning: Unable to import spython (Singularity) Module')
 
 import os
-import argparse
 import logging
 import sys
 import glob

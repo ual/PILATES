@@ -1,26 +1,22 @@
-import os
 import glob
+import logging
+import os
 import shutil
-
+import time
+from multiprocessing import Pool, cpu_count
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
 import openmatrix as omx
 import pandas as pd
-from pandas.api.types import is_string_dtype
-from pandas.api.types import is_numeric_dtype
-import geopandas as gpd
-from shapely import wkt
-import numpy as np
-import logging
 import requests
+from pandas.api.types import is_string_dtype
+from shapely import wkt
 from tqdm import tqdm
-import time
-import yaml
-import matplotlib.pyplot as plt
-from multiprocessing import Pool, cpu_count
 
 from pilates.utils.geog import get_block_geoms, \
-    map_block_to_taz, get_zone_from_points, \
-    get_taz_geoms, get_county_block_geoms, geoid_to_zone_map
-
+    get_zone_from_points, \
+    get_taz_geoms, geoid_to_zone_map
 from pilates.utils.io import read_datastore
 
 logger = logging.getLogger(__name__)

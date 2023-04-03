@@ -3,19 +3,19 @@ import os
 import logging
 import openmatrix as omx
 import numpy as np
-import pickle
-import cloudpickle
-import dill
+# import pickle
+# import cloudpickle
+# import dill
+#
+# np.seterr(divide='ignore')
+#
+# dill.settings['recurse'] = True
+#
+# pickle.ForkingPickler = cloudpickle.Pickler
+#
+# import multiprocessing as mp
 
-np.seterr(divide='ignore')
-
-dill.settings['recurse'] = True
-
-pickle.ForkingPickler = cloudpickle.Pickler
-
-import multiprocessing as mp
-
-mp.set_start_method('spawn', True)
+# mp.set_start_method('spawn', True)
 # from multiprocessing import Pool, cpu_count
 from joblib import Parallel, delayed
 
@@ -113,7 +113,7 @@ def _merge_skim(inputSkim, outputSkim, path, timePeriod, measures):
                     outputMats[outputKey][failed > 0] += inputMats[inputKey][failed > 0]
                 elif measure == "DIST":
                     outputMats[outputKey][completed > 0] = 0.5 * (
-                                outputMats[outputKey][completed > 0] + inputMats[inputKey][failed > 0])
+                            outputMats[outputKey][completed > 0] + inputMats[inputKey][failed > 0])
                 elif measure in ["IWAIT", "XWAIT", "WACC", "WAUX", "WEGR", "DTIM", "DDIST", "KEYIVT", "FERRYIVT"]:
                     # NOTE: remember the mtc asim implementation has scaled units for these variables
                     outputMats[outputKey][completed > 0] = inputMats[inputKey][completed > 0] * 100.0
