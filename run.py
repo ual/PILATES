@@ -683,7 +683,14 @@ def run_traffic_assignment(
             skims_path = os.path.join(asim_data_dir, 'skims.omx')
             current_od_skims = beam_post.merge_current_omx_od_skims(skims_path, previous_od_skims,
                                                                     beam_local_output_folder)
-            beam_post.merge_current_origin_skims(
+            if current_od_skims == previous_od_skims:
+                logger.error(
+                    "BEAM hasn't produced the new skims at {0} for some reason. "
+                    "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
+                )
+                sys.exit(1)
+
+            beam_post.merge_current_omx_od_skims(
                 skims_path, previous_origin_skims, beam_local_output_folder)
         beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
 
