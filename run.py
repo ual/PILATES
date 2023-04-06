@@ -622,7 +622,7 @@ def run_traffic_assignment(
 
         # remember the last produced skims in order to detect that
         # beam didn't work properly during this run
-        if skims_fname.endwith(".csv.gz"):
+        if skims_fname.endswith(".csv.gz"):
             skimFormat = "csv.gz"
         elif skims_fname.endswith(".omx"):
             skimFormat = "omx"
