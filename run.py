@@ -689,7 +689,7 @@ def run_traffic_assignment(
                     "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
                 )
                 sys.exit(1)
-
+            beam_asim_ridehail_measure_map = settings['beam_asim_ridehail_measure_map']
             beam_post.merge_current_omx_origin_skims(
                 skims_path, previous_origin_skims, beam_local_output_folder, beam_asim_ridehail_measure_map)
         beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
