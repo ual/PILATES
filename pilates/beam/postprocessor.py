@@ -215,6 +215,7 @@ def merge_current_omx_od_skims(all_skims_path, previous_skims_path, beam_output_
     skims.close()
     partialSkims.close()
     print('done')
+    return current_skims_path
 
 
 def discover_impossible_ods(result, skims):
