@@ -4,6 +4,8 @@ import os
 import shutil
 import time
 from multiprocessing import Pool, cpu_count
+from typing import Optional
+
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -48,6 +50,21 @@ beam_origin_skims_types = {"origin": str,
                            "unmatchedRequestPortion": np.float32,
                            "observations": int
                            }
+
+default_speed_mph = {
+    "COM": 25.0,
+    "HVY": 20.0,
+    "LRF": 15.0,
+    "LOC": 15.0,
+    "EXP": 17.0
+}
+default_fare_dollars = {
+    "COM": 10.0,
+    "HVY": 4.0,
+    "LRF": 2.5,
+    "LOC": 2.5,
+    "EXP": 4.0
+}
 
 
 #########################
@@ -173,7 +190,7 @@ def read_skim(filename):
     return df
 
 
-def _load_raw_beam_skims(settings):
+def _load_raw_beam_skims(settings, convertFromCsv=True, blank=False):
     """ Read BEAM skims (csv format) from local storage. 
     Parameters: 
     ------------
@@ -188,17 +205,17 @@ def _load_raw_beam_skims(settings):
     path_to_beam_skims = os.path.join(
         settings['beam_local_output_folder'], skims_fname)
 
-    if not os.path.exists(path_to_beam_skims):
+    if (not os.path.exists(path_to_beam_skims)) & (not convertFromCsv):
+        return None
+    if blank:
         return None
 
     try:
         if '.csv' in path_to_beam_skims:
             skims = read_skim(path_to_beam_skims)
         elif path_to_beam_skims.endswith('.omx'):
-            # We've gotten a head start by already copying over the file
-            output_dir = settings['asim_local_input_folder']
-            skims_path = os.path.join(output_dir, 'skims.omx')
-            skims = omx.open_file(skims_path, mode='a')
+            # We've gotten a head start
+            skims = omx.open_file(path_to_beam_skims, mode='a')
         else:  # path is a folder with multiple files
             all_files = glob.glob(path_to_beam_skims + "/*")
             agents = len(all_files)
@@ -230,7 +247,8 @@ def _load_raw_beam_origin_skims(settings):
 
 
 def _create_skim_object(settings, overwrite=True, output_dir=None):
-    """ Creates OMX file to store skim matrices
+    """ Creates mutable OMX file to store skim matrices in the beam_output directory.
+    This later needs to be copied over to the asim input directory
     Parameters: 
     -----------
     - settings: 
@@ -244,30 +262,37 @@ def _create_skim_object(settings, overwrite=True, output_dir=None):
     if output_dir is None:
         output_dir = settings['asim_local_input_folder']
     skims_path = os.path.join(output_dir, 'skims.omx')
-    skims_exist = os.path.exists(skims_path)
+    final_skims_exist = os.path.exists(skims_path)
 
-    omx_skims_exist = settings.get('skims_fname', False).endswith('.omx')
+    skims_fname = settings.get('skims_fname', False)
+    omx_skim_output = skims_fname.endswith('.omx')
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    mutable_skims_exist = os.path.exists(mutable_skims_location)
+    should_use_csv_input_skims = mutable_skims_exist & (not omx_skim_output)
 
-    if skims_exist:
-        if (overwrite):
+    if final_skims_exist:
+        if overwrite:
             logger.info("Found existing skims, removing.")
             os.remove(skims_path)
+            return True, should_use_csv_input_skims, False
         else:
+            if not mutable_skims_exist:
+                shutil.copyfile(skims_path, mutable_skims_location)
             logger.info("Found existing skims, no need to re-create.")
-            return False
+            return False, False, False
 
-    if (~skims_exist | overwrite) & omx_skims_exist:
-        skims_fname = settings.get('skims_fname', False)
-        beam_output_dir = settings['beam_local_output_folder']
-        mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
-        logger.info("Copying input skims {0} to asim data directory {1}".format(mutable_skims_location, skims_path))
-        shutil.copyfile(mutable_skims_location, skims_path)
-        return True
+    if (~final_skims_exist | overwrite) & omx_skim_output:
+        if mutable_skims_exist:
+            return True, should_use_csv_input_skims, False
+        else:
+            logger.info("Creating skims.omx")
+            skims = omx.open_file(mutable_skims_location, 'w')
+            skims.close()
+            return True, should_use_csv_input_skims, True
 
-    logger.info("Creating skims.omx from BEAM skims")
-    skims = omx.open_file(skims_path, 'w')
-    skims.close()
-    return True
+    logger.exception("We should not be here")
+    return False, False, False
 
 
 def _raw_beam_skims_preprocess(settings, year, skims_df):
@@ -514,6 +539,16 @@ def _distance_skims(settings, year, input_skims, order, data_dir=None):
     """
     logger.info("Creating distance skims.")
 
+    skims_fname = settings.get('skims_fname', False)
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    needToClose = True
+    if input_skims is not None:
+        output_skims = input_skims
+        needToClose = False
+    else:
+        output_skims = omx.open_file(mutable_skims_location, mode='a')
+
     # TO DO: Include walk and bike distances,
     # for now walk and bike are the same as drive.
     dist_column = settings['beam_asim_hwy_measure_map']['DIST']
@@ -525,7 +560,10 @@ def _distance_skims(settings, year, input_skims, order, data_dir=None):
                 "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
                     dist_column))
     elif isinstance(input_skims, omx.File):
-        mx_dist = np.array(input_skims['DIST'])
+        if 'DIST' in input_skims.list_matrices():
+            mx_dist = np.array(input_skims['DIST'])
+        else:
+            mx_dist = np.full((len(order), len(order)), np.nan, dtype=np.float32)
     else:
         mx_dist = np.full((len(order), len(order)), np.nan, dtype=np.float32)
     # Impute missing distances 
@@ -534,25 +572,30 @@ def _distance_skims(settings, year, input_skims, order, data_dir=None):
         logger.info("Imputing all missing distance skims.")
         zones = read_zone_geoms(settings, year)
         mx_dist = impute_distances(zones)
-        input_skims['DIST'] = mx_dist
+        output_skims['DIST'] = mx_dist
     elif missing.any():
         orig, dest = np.where(missing == True)
         logger.info("Imputing {} missing distance skims.".format(len(orig)))
         zones = read_zone_geoms(settings, year)
         imputed_dist = impute_distances(zones, orig, dest)
         mx_dist[orig, dest] = imputed_dist
-        input_skims['DIST'] = mx_dist
+        output_skims['DIST'] = mx_dist
     else:
         logger.info("No need to impute missing distance skims.")
         mx_dist = np.array(input_skims['DIST'])
 
     # Distance matrices
-    input_skims['DISTBIKE'][:] = mx_dist
-    input_skims['DISTWALK'][:] = mx_dist
-    if 'BIKE_TRIPS' not in input_skims.list_matrices():
-        input_skims['BIKE_TRIPS'] = np.zeros_like(mx_dist)
-    if 'WALK_TRIPS' not in input_skims.list_matrices():
-        input_skims['WALK_TRIPS'] = np.zeros_like(mx_dist)
+    if 'DISTBIKE' not in output_skims.list_matrices():
+        output_skims['DISTBIKE'] = mx_dist
+    if 'DISTWALK' not in output_skims.list_matrices():
+        output_skims['DISTWALK'] = mx_dist
+    if 'BIKE_TRIPS' not in output_skims.list_matrices():
+        output_skims['BIKE_TRIPS'] = np.zeros_like(mx_dist)
+    if 'WALK_TRIPS' not in output_skims.list_matrices():
+        output_skims['WALK_TRIPS'] = np.zeros_like(mx_dist)
+
+    if needToClose:
+        output_skims.close()
 
 
 def _build_od_matrix_parallel(tup):
@@ -657,14 +700,16 @@ def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
     del df, df_
 
 
-def _get_field_or_else_empty(skims: omx.File, field: str, num_taz: int):
+def _get_field_or_else_empty(skims: Optional[omx.File], field: str, num_taz: int):
+    if skims is None:
+        return np.full((num_taz, num_taz), np.nan, dtype=float), True
     if field in skims.list_matrices():
-        return skims[field], False
+        return np.array(skims[field]), False
     else:
         return np.full((num_taz, num_taz), np.nan, dtype=float), True
 
 
-def _fill_ridehail_skims(settings, skims, order, data_dir=None):
+def _fill_ridehail_skims(settings, input_skims, order, data_dir=None):
     logger.info("Merging transit omx skims.")
 
     ridehail_path_map = settings['ridehail_path_map']
@@ -673,6 +718,18 @@ def _fill_ridehail_skims(settings, skims, order, data_dir=None):
 
     num_taz = len(order)
 
+    skims_fname = settings.get('skims_fname', False)
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    needToClose = True
+    if input_skims is not None:
+        output_skims = input_skims
+        needToClose = False
+    else:
+        output_skims = omx.open_file(mutable_skims_location, mode='a')
+
+    output_skim_tables = output_skims.list_matrices()
+
     # NOTE: time is in units of minutes
     for path, skimPath in ridehail_path_map.items():
         logger.info("Writing tables for path type {0}".format(path))
@@ -680,37 +737,43 @@ def _fill_ridehail_skims(settings, skims, order, data_dir=None):
             completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
             failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
 
-            temp_completed, createdTemp = _get_field_or_else_empty(skims, completed_measure, num_taz)
-            temp_failed, createdTemp = _get_field_or_else_empty(skims, failed_measure, num_taz)
+            temp_completed, createdTemp = _get_field_or_else_empty(output_skims, completed_measure, num_taz)
+            temp_failed, createdTemp = _get_field_or_else_empty(output_skims, failed_measure, num_taz)
 
             if createdTemp:
-                skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
-                skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
-                skims[completed_measure].attrs.mode = path
-                skims[failed_measure].attrs.mode = path
-                skims[completed_measure].attrs.measure = "TRIPS"
-                skims[failed_measure].attrs.measure = "FAILURES"
-                skims[completed_measure].attrs.timePeriod = period
-                skims[failed_measure].attrs.timePeriod = period
+                output_skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
+                output_skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                output_skims[completed_measure].attrs.mode = path
+                output_skims[failed_measure].attrs.mode = path
+                output_skims[completed_measure].attrs.measure = "TRIPS"
+                output_skims[failed_measure].attrs.measure = "FAILURES"
+                output_skims[completed_measure].attrs.timePeriod = period
+                output_skims[failed_measure].attrs.timePeriod = period
 
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
+                inOutputSkims = name in output_skim_tables
+                if not inOutputSkims:
+                    temp, createdTemp = _get_field_or_else_empty(input_skims, name, num_taz)
+                    missing_values = np.isnan(temp)
+                    if measure == "WAIT":
+                        temp[missing_values] = 6.0
+                    elif measure == "REJECTIONPROB":
+                        temp[missing_values] = 0.5
 
-                temp, createdTemp = _get_field_or_else_empty(skims, name, num_taz)
-                missing_values = np.isnan(temp)
-                if measure == "WAIT":
-                    temp[missing_values] = 6.0
-                elif measure == "REJECTIONPROB":
-                    temp[missing_values] = 0.5
-
-                if createdTemp:
-                    skims[name] = temp
-                skims[name].attrs.mode = path
-                skims[name].attrs.measure = measure
-                skims[name].attrs.timePeriod = period
+                    if not inOutputSkims:
+                        output_skims[name] = temp
+                        output_skims[name].attrs.mode = path
+                        output_skims[name].attrs.measure = measure
+                        output_skims[name].attrs.timePeriod = period
+                    else:
+                        if np.any(missing_values):
+                            output_skims[name][:] = temp
+    if needToClose:
+        output_skims.close()
 
 
-def _fill_transit_skims(settings, skims, order, data_dir=None):
+def _fill_transit_skims(settings, input_skims, order, data_dir=None):
     logger.info("Merging transit omx skims.")
 
     transit_paths = settings['transit_paths']
@@ -719,7 +782,18 @@ def _fill_transit_skims(settings, skims, order, data_dir=None):
 
     num_taz = len(order)
 
-    distance_miles = np.array(skims['DIST'])
+    skims_fname = settings.get('skims_fname', False)
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    needToClose = True
+    if input_skims is not None:
+        output_skims = input_skims
+        needToClose = False
+    else:
+        output_skims = omx.open_file(mutable_skims_location, mode='a')
+
+    distance_miles = np.array(output_skims['DIST'])
+    output_skim_tables = output_skims.list_matrices()
 
     # NOTE: time is in units of minutes
 
@@ -729,51 +803,58 @@ def _fill_transit_skims(settings, skims, order, data_dir=None):
             completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
             failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
 
-            temp_completed, createdTemp = _get_field_or_else_empty(skims, completed_measure, num_taz)
-            temp_failed, createdTemp = _get_field_or_else_empty(skims, failed_measure, num_taz)
+            temp_completed, createdTemp = _get_field_or_else_empty(output_skims, completed_measure, num_taz)
+            temp_failed, createdTemp = _get_field_or_else_empty(output_skims, failed_measure, num_taz)
 
             if createdTemp:
-                skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
-                skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
-                skims[completed_measure].attrs.mode = path
-                skims[failed_measure].attrs.mode = path
-                skims[completed_measure].attrs.measure = "TRIPS"
-                skims[failed_measure].attrs.measure = "FAILURES"
-                skims[completed_measure].attrs.timePeriod = period
-                skims[failed_measure].attrs.timePeriod = period
+                output_skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
+                output_skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                output_skims[completed_measure].attrs.mode = path
+                output_skims[failed_measure].attrs.mode = path
+                output_skims[completed_measure].attrs.measure = "TRIPS"
+                output_skims[failed_measure].attrs.measure = "FAILURES"
+                output_skims[completed_measure].attrs.timePeriod = period
+                output_skims[failed_measure].attrs.timePeriod = period
 
             # tooManyFailures = temp_failed > temp_completed
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
-                temp, createdTemp = _get_field_or_else_empty(skims, name, num_taz)
-                missing_values = np.isnan(temp)
-                if np.any(missing_values):
-                    if (measure == "IVT") | (measure == "TOTIVT") | (measure == "KEYIVT"):
-                        temp[missing_values] = distance_miles[
-                                                   missing_values] / 20 * 60 * 100  # Assume 20 mph average, with 100x multiplier
-                        # temp[tooManyFailures] = 0
-                    elif measure == "DIST":
-                        temp[missing_values] = distance_miles[missing_values]
-                    elif (measure == "WAIT") | (measure == "WACC") | (measure == "WEGR") | (measure == "IWAIT"):
-                        temp[missing_values] = 500.0
-                    elif measure == "FAR":
-                        temp[missing_values] = 2.5
-                    elif measure == "BOARDS":
-                        temp[missing_values] = 1.0
-                    elif (measure == "DDIST") & (path.endswith("DRV") | path.startswith("DRV")):
-                        temp[missing_values] = 2.0
-                    elif (measure == "DTIME") & (path.endswith("DRV") | path.startswith("DRV")):
-                        temp[missing_values] = 500.0
-                    else:
-                        temp[missing_values] = 0.0
-                if createdTemp:
-                    skims[name] = temp
-                skims[name].attrs.mode = path
-                skims[name].attrs.measure = measure
-                skims[name].attrs.timePeriod = period
+                inOutputSkims = name in output_skim_tables
+                if not inOutputSkims:
+                    temp, createdTemp = _get_field_or_else_empty(input_skims, name, num_taz)
+                    missing_values = np.isnan(temp)
+                    if np.any(missing_values):
+                        if (measure == "IVT") | (measure == "TOTIVT") | (measure == "KEYIVT"):
+                            temp[missing_values] = distance_miles[
+                                                       missing_values] / default_speed_mph[
+                                                       path.split("_")[
+                                                           1]] * 60 * 100  # Assume 20 mph average, with 100x multiplier
+                            # temp[tooManyFailures] = 0
+                        elif measure == "DIST":
+                            temp[missing_values] = distance_miles[missing_values]
+                        elif (measure == "WAIT") | (measure == "WACC") | (measure == "WEGR") | (measure == "IWAIT"):
+                            temp[missing_values] = 500.0
+                        elif measure == "FAR":
+                            temp[missing_values] = default_fare_dollars[path.split("_")[1]]
+                        elif measure == "BOARDS":
+                            temp[missing_values] = 1.0
+                        elif (measure == "DDIST") & (path.endswith("DRV") | path.startswith("DRV")):
+                            temp[missing_values] = 2.0
+                        elif (measure == "DTIME") & (path.endswith("DRV") | path.startswith("DRV")):
+                            temp[missing_values] = 500.0
+                        else:
+                            temp[missing_values] = 0.0
+
+                    output_skims[name] = temp
+                    output_skims[name].attrs.mode = path
+                    output_skims[name].attrs.measure = measure
+                    output_skims[name].attrs.timePeriod = period
+
+    if needToClose:
+        output_skims.close()
 
 
-def _fill_auto_skims(settings, skims, order, data_dir=None):
+def _fill_auto_skims(settings, input_skims, order, data_dir=None):
     logger.info("Merging drive omx skims.")
 
     # Open skims object
@@ -783,7 +864,18 @@ def _fill_auto_skims(settings, skims, order, data_dir=None):
 
     num_taz = len(order)
 
-    distance_miles = np.array(skims['DIST'])
+    skims_fname = settings.get('skims_fname', False)
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    needToClose = True
+    if input_skims is not None:
+        output_skims = input_skims
+        needToClose = False
+    else:
+        output_skims = omx.open_file(mutable_skims_location, mode='a')
+
+    distance_miles = np.array(output_skims['DIST'])
+    output_skim_tables = output_skims.list_matrices()
 
     # NOTE: time is in units of minutes
 
@@ -793,43 +885,47 @@ def _fill_auto_skims(settings, skims, order, data_dir=None):
             completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
             failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
 
-            temp_completed, createdTemp = _get_field_or_else_empty(skims, completed_measure, num_taz)
-            temp_failed, createdTemp = _get_field_or_else_empty(skims, failed_measure, num_taz)
+            temp_completed, createdTemp = _get_field_or_else_empty(output_skims, completed_measure, num_taz)
+            temp_failed, createdTemp = _get_field_or_else_empty(output_skims, failed_measure, num_taz)
 
             if createdTemp:
-                skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
-                skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
-                skims[completed_measure].attrs.mode = path
-                skims[failed_measure].attrs.mode = path
-                skims[completed_measure].attrs.measure = "TRIPS"
-                skims[failed_measure].attrs.measure = "FAILURES"
-                skims[completed_measure].attrs.timePeriod = period
-                skims[failed_measure].attrs.timePeriod = period
+                output_skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
+                output_skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                output_skims[completed_measure].attrs.mode = path
+                output_skims[failed_measure].attrs.mode = path
+                output_skims[completed_measure].attrs.measure = "TRIPS"
+                output_skims[failed_measure].attrs.measure = "FAILURES"
+                output_skims[completed_measure].attrs.timePeriod = period
+                output_skims[failed_measure].attrs.timePeriod = period
             for measure in measure_map.keys():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
-                temp, createdTemp = _get_field_or_else_empty(skims, name, num_taz)
-                missing_values = np.isnan(temp)
-                if np.any(missing_values):
-                    if measure == "TIME":
-                        temp[missing_values] = distance_miles[missing_values] / 35 * 60  # Assume 35 mph average
-                    elif measure == "DIST":
-                        temp[missing_values] = distance_miles[missing_values]
-                    elif measure == "BTOLL":
-                        temp[missing_values] = 0.0
-                    elif measure == "VTOLL":
-                        if path.endswith('TOLL'):
-                            toll = 5.0
+                inOutputSkims = name in output_skim_tables
+                if not inOutputSkims:
+                    temp, createdTemp = _get_field_or_else_empty(input_skims, name, num_taz)
+                    missing_values = np.isnan(temp)
+                    if np.any(missing_values):
+                        if measure == "TIME":
+                            temp[missing_values] = distance_miles[missing_values] / 35 * 60  # Assume 35 mph average
+                        elif measure == "DIST":
+                            temp[missing_values] = distance_miles[missing_values]
+                        elif measure == "BTOLL":
+                            temp[missing_values] = 0.0
+                        elif measure == "VTOLL":
+                            if path.endswith('TOLL'):
+                                toll = 5.0
+                            else:
+                                toll = 0.0
+                            temp[missing_values] = toll
                         else:
-                            toll = 0.0
-                        temp[missing_values] = toll
-                    else:
-                        logger.error("Trying to read unknown measure {0} from BEAM skims".format(measure))
+                            logger.error("Trying to read unknown measure {0} from BEAM skims".format(measure))
 
-                if createdTemp:
-                    skims[name] = temp
-                skims[name].attrs.mode = path
-                skims[name].attrs.measure = measure
-                skims[name].attrs.timePeriod = period
+                    output_skims[name] = temp
+                    output_skims[name].attrs.mode = path
+                    output_skims[name].attrs.measure = measure
+                    output_skims[name].attrs.timePeriod = period
+
+    if needToClose:
+        output_skims.close()
 
 
 def _auto_skims(settings, auto_df, order, data_dir=None):
@@ -917,12 +1013,12 @@ def create_skims_from_beam(settings, year,
     if static_skims:
         overwrite = False
 
-    new = _create_skim_object(settings, overwrite, output_dir=output_dir)
+    new, convertFromCsv, blankSkims = _create_skim_object(settings, overwrite, output_dir=output_dir)
     validation = settings.get('asim_validation', False)
 
     if new:
         order = zone_order(settings, year)
-        tempSkims = _load_raw_beam_skims(settings)
+        tempSkims = _load_raw_beam_skims(settings, convertFromCsv, blankSkims)
         if isinstance(tempSkims, pd.DataFrame):
             skims = tempSkims.loc[skims.origin.isin(order) & tempSkims.destination.isin(order), :]
             skims = _raw_beam_skims_preprocess(settings, year, skims)
@@ -947,6 +1043,11 @@ def create_skims_from_beam(settings, year,
             if isinstance(tempSkims, omx.File):
                 tempSkims.close()
             _create_offset(settings, order, data_dir=output_dir)
+            final_skims_path = os.path.join(settings['asim_local_input_folder'], 'skims.omx')
+            skims_fname = settings.get('skims_fname', False)
+            beam_output_dir = settings['beam_local_output_folder']
+            mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+            shutil.copyfile(mutable_skims_location, final_skims_path)
 
     if validation:
         order = zone_order(settings, year)

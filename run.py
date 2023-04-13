@@ -119,18 +119,28 @@ def setup_beam_skims(settings):
             mutable_skims_location))
         shutil.copyfile(input_skims_location, mutable_skims_location)
     else:
-        logger.info("No input skims at {0}. Proceeding with defaults at {1}".format(
-            input_skims_location,
-            mutable_skims_location))
+        if os.path.exists(mutable_skims_location):
+            logger.info("No input skims at {0}. Proceeding with defaults at {1}".format(
+                input_skims_location,
+                mutable_skims_location))
+        else:
+            logger.info("No default skims found anywhere. We will generate defaults instead")
 
     input_skims_location = os.path.join(beam_input_dir, region, origin_skims_fname)
     mutable_skims_location = os.path.join(beam_output_dir, origin_skims_fname)
 
-    logger.info("Copying input origin skims from {0} to {1}".format(
-        input_skims_location,
-        mutable_skims_location))
-
-    shutil.copyfile(input_skims_location, mutable_skims_location)
+    if os.path.exists(input_skims_location):
+        logger.info("Copying input origin skims from {0} to {1}".format(
+            input_skims_location,
+            mutable_skims_location))
+        shutil.copyfile(input_skims_location, mutable_skims_location)
+    else:
+        if os.path.exists(mutable_skims_location):
+            logger.info("No input skims at {0}. Proceeding with defaults at {1}".format(
+                input_skims_location,
+                mutable_skims_location))
+        else:
+            logger.info("No default input skims found anywhere. We will generate defaults instead")
 
     logger.info("Copying beam zone geoms from {0} to {1}".format(
         beam_geoms_location,
