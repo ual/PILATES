@@ -622,7 +622,7 @@ def run_traffic_assignment(
 
         # remember the last produced skims in order to detect that
         # beam didn't work properly during this run
-        if skims_fname.endwith(".csv.gz"):
+        if skims_fname.endswith(".csv.gz"):
             skimFormat = "csv.gz"
         elif skims_fname.endswith(".omx"):
             skimFormat = "omx"
@@ -683,8 +683,15 @@ def run_traffic_assignment(
             skims_path = os.path.join(asim_data_dir, 'skims.omx')
             current_od_skims = beam_post.merge_current_omx_od_skims(skims_path, previous_od_skims,
                                                                     beam_local_output_folder)
-            beam_post.merge_current_origin_skims(
-                skims_path, previous_origin_skims, beam_local_output_folder)
+            if current_od_skims == previous_od_skims:
+                logger.error(
+                    "BEAM hasn't produced the new skims at {0} for some reason. "
+                    "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
+                )
+                sys.exit(1)
+            beam_asim_ridehail_measure_map = settings['beam_asim_ridehail_measure_map']
+            beam_post.merge_current_omx_origin_skims(
+                skims_path, previous_origin_skims, beam_local_output_folder, beam_asim_ridehail_measure_map)
         beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
 
     return

@@ -113,7 +113,7 @@ def _merge_skim(inputSkim, outputSkim, path, timePeriod, measures):
                     outputMats[outputKey][failed > 0] += inputMats[inputKey][failed > 0]
                 elif measure == "DIST":
                     outputMats[outputKey][completed > 0] = 0.5 * (
-                            outputMats[outputKey][completed > 0] + inputMats[inputKey][failed > 0])
+                            outputMats[outputKey][completed > 0] + inputMats[inputKey][completed > 0])
                 elif measure in ["IWAIT", "XWAIT", "WACC", "WAUX", "WEGR", "DTIM", "DDIST", "KEYIVT", "FERRYIVT"]:
                     # NOTE: remember the mtc asim implementation has scaled units for these variables
                     outputMats[outputKey][completed > 0] = inputMats[inputKey][completed > 0] * 100.0
@@ -215,6 +215,7 @@ def merge_current_omx_od_skims(all_skims_path, previous_skims_path, beam_output_
     skims.close()
     partialSkims.close()
     print('done')
+    return current_skims_path
 
 
 def discover_impossible_ods(result, skims):
