@@ -157,6 +157,7 @@ def read_zone_geoms(settings, year,
         else:
             mapping = geoid_to_zone_map(settings, year)
             zones = get_block_geoms(settings)
+            zones['GEOID'] = zones['GEOID'].astype(str)
             assert is_string_dtype(zones['GEOID']), "GEOID dtype should be str"
             zones[default_zone_id_col] = zones['GEOID'].replace(mapping)
             zones.set_index(default_zone_id_col, inplace=True)
