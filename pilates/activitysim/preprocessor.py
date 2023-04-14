@@ -1672,7 +1672,7 @@ def copy_beam_geoms(settings, beam_geoms_location, asim_geoms_location):
 
     if 'TAZ' not in beam_geoms_file.columns:
 
-        mapping = geoid_to_zone_map(settings)
+        mapping = geoid_to_zone_map(settings, settings['start_year'])
 
         if zone_type == 'block':
             logger.info("Mapping block IDs")
