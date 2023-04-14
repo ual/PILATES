@@ -62,6 +62,7 @@ beam_geoms_fname: clipped_tazs.csv
 region_to_region_id:
   sfbay: "06197001"
   austin: "48197301"
+  seattle: "53199100"
 usim_local_data_folder: pilates/urbansim/data/
 usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
@@ -129,10 +130,12 @@ region_to_asim_subdir:
   austin: austin
   detroit: detroit
   sfbay: bay_area
+  seattle: seattle
 region_to_asim_bucket:
   austin: austin-activitysim
   detroit: detroit-activitysim
   sfbay: bayarea-activitysim
+  seattle: seattle-activitysim
 periods:
   - EA
   - AM
@@ -260,9 +263,17 @@ FIPS:
       - "209"
       - "453"
       - "491"
+  seattle:
+    state: "53"
+    counties:
+      - "061"
+      - "035"
+      - "033"
+      - "053"
 local_crs:
   sfbay: EPSG:7131
   austin: EPSG:32140
+  seattle: EPSG:32048
 
 # VALIDATION METRIC LIBRARY
 validation_metrics:
