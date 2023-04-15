@@ -96,7 +96,7 @@ def _merge_skim(inputSkim, outputSkim, path, timePeriod, measures):
         logger.info("Adding {0} valid trips and {1} impossible trips to skim {2}".format(np.nan_to_num(completed).sum(),
                                                                                          np.nan_to_num(failed).sum(),
                                                                                          complete_key))
-
+        toPenalize = np.array([0])
         for measure in measures:
             inputKey = '_'.join([path, measure, '', timePeriod])
             if path in ["WALK", "BIKE"]:
