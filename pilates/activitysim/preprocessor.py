@@ -56,14 +56,16 @@ default_speed_mph = {
     "HVY": 20.0,
     "LRF": 15.0,
     "LOC": 15.0,
-    "EXP": 17.0
+    "EXP": 17.0,
+    "TRN": 15.0
 }
 default_fare_dollars = {
     "COM": 10.0,
     "HVY": 4.0,
     "LRF": 2.5,
     "LOC": 2.5,
-    "EXP": 4.0
+    "EXP": 4.0,
+    "TRN": 15.0
 }
 
 
@@ -827,16 +829,15 @@ def _fill_transit_skims(settings, input_skims, order, data_dir=None):
                     if np.any(missing_values):
                         if (measure == "IVT") | (measure == "TOTIVT") | (measure == "KEYIVT"):
                             temp[missing_values] = distance_miles[
-                                                       missing_values] / default_speed_mph[
-                                                       path.split("_")[
-                                                           1]] * 60 * 100  # Assume 20 mph average, with 100x multiplier
+                                                       missing_values] / default_speed_mph.get(
+                                path.split("_")[1], 10.0) * 60 * 100  # Assume 20 mph average, with 100x multiplier
                             # temp[tooManyFailures] = 0
                         elif measure == "DIST":
                             temp[missing_values] = distance_miles[missing_values]
                         elif (measure == "WAIT") | (measure == "WACC") | (measure == "WEGR") | (measure == "IWAIT"):
                             temp[missing_values] = 500.0
                         elif measure == "FAR":
-                            temp[missing_values] = default_fare_dollars[path.split("_")[1]]
+                            temp[missing_values] = default_fare_dollars.get(path.split("_")[1], 4.0)
                         elif measure == "BOARDS":
                             temp[missing_values] = 1.0
                         elif (measure == "DDIST") & (path.endswith("DRV") | path.startswith("DRV")):
