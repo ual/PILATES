@@ -1581,8 +1581,12 @@ def _create_land_use_table(
         zones['COUNTY'] = '1'
         try:
             zones['TRACT'] = zones['TRACT'].astype(str)
+        except:
+            print("Skipping TRACT")
         try:
             zones['BLKGRP'] = zones['BLKGRP'].astype(str)
+        except:
+            print("Skipping BLKGRP")
 
     zones['TOTHH'] = households[asim_zone_id_col].groupby(households[asim_zone_id_col]).count().reindex(
         zones.index).fillna(0)
