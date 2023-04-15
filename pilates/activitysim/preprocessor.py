@@ -1578,7 +1578,7 @@ def _create_land_use_table(
             zones['STATE'] = zones['STATE'].astype(str)
         else:
             zones['STATE'] = settings['FIPS'][settings['region']]['state']
-        zones['COUNTY'] = zones['COUNTY'].astype(str)
+        zones['COUNTY'] = '1'
         zones['TRACT'] = zones['TRACT'].astype(str)
         zones['BLKGRP'] = zones['BLKGRP'].astype(str)
 
