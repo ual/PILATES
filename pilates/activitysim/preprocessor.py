@@ -1579,8 +1579,10 @@ def _create_land_use_table(
         else:
             zones['STATE'] = settings['FIPS'][settings['region']]['state']
         zones['COUNTY'] = '1'
-        zones['TRACT'] = zones['TRACT'].astype(str)
-        zones['BLKGRP'] = zones['BLKGRP'].astype(str)
+        try:
+            zones['TRACT'] = zones['TRACT'].astype(str)
+        try:
+            zones['BLKGRP'] = zones['BLKGRP'].astype(str)
 
     zones['TOTHH'] = households[asim_zone_id_col].groupby(households[asim_zone_id_col]).count().reindex(
         zones.index).fillna(0)
