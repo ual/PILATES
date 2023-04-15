@@ -1574,7 +1574,10 @@ def _create_land_use_table(
     # create new column variables
     logger.info("Creating new columns in the land use table.")
     if zone_type != 'taz':
-        zones['STATE'] = zones['STATE'].astype(str)
+        if 'STATE' in zones.columns:
+            zones['STATE'] = zones['STATE'].astype(str)
+        else:
+            zones['STATE'] = settings['FIPS'][settings['region']]['state']
         zones['COUNTY'] = zones['COUNTY'].astype(str)
         zones['TRACT'] = zones['TRACT'].astype(str)
         zones['BLKGRP'] = zones['BLKGRP'].astype(str)
