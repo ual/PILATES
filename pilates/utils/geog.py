@@ -323,7 +323,8 @@ def geoid_to_zone_map(settings, year=None):
         elif zone_type == 'block_group':
             store, table_prefix_yr = read_datastore(settings, year)
             blocks = store[os.path.join(table_prefix_yr, 'blocks')]
-            order = blocks.index.str[:12].unique()
+            bgs = store['block_group_zone_geoms']
+            order = blocks.index.str[:12].unique().intersection(bgs['geoid10'])
             store.close()
 
         elif zone_type == 'block':
