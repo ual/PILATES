@@ -564,7 +564,7 @@ def _distance_skims(settings, year, input_skims, order, data_dir=None):
                     dist_column))
     elif isinstance(input_skims, omx.File):
         if 'DIST' in input_skims.list_matrices():
-            mx_dist = np.array(input_skims['DIST'])
+            mx_dist = np.array(input_skims['DIST'], dtype=np.float32)
         else:
             mx_dist = np.full((len(order), len(order)), np.nan, dtype=np.float32)
     else:
@@ -705,11 +705,11 @@ def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
 
 def _get_field_or_else_empty(skims: Optional[omx.File], field: str, num_taz: int):
     if skims is None:
-        return np.full((num_taz, num_taz), np.nan, dtype=float), True
+        return np.full((num_taz, num_taz), np.nan, dtype=np.float32), True
     if field in skims.list_matrices():
-        return np.array(skims[field]), False
+        return np.array(skims[field], dtype=np.float32), False
     else:
-        return np.full((num_taz, num_taz), np.nan, dtype=float), True
+        return np.full((num_taz, num_taz), np.nan, dtype=np.float32), True
 
 
 def _fill_ridehail_skims(settings, input_skims, order, data_dir=None):
@@ -795,7 +795,7 @@ def _fill_transit_skims(settings, input_skims, order, data_dir=None):
     else:
         output_skims = omx.open_file(mutable_skims_location, mode='a')
 
-    distance_miles = np.array(output_skims['DIST'])
+    distance_miles = np.array(output_skims['DIST'], dtype=np.float32)
     output_skim_tables = output_skims.list_matrices()
 
     # NOTE: time is in units of minutes
