@@ -762,7 +762,7 @@ def _fill_ridehail_skims(settings, input_skims, order, data_dir=None):
                     if measure == "WAIT":
                         temp[missing_values] = 6.0
                     elif measure == "REJECTIONPROB":
-                        temp[missing_values] = 0.5
+                        temp[missing_values] = 0.2
 
                     if not inOutputSkims:
                         output_skims[name] = temp
