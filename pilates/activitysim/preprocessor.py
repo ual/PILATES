@@ -1646,10 +1646,10 @@ def _create_land_use_table(
     zones['HSENROLL'] = schools[['enrollment', asim_zone_id_col]].groupby(asim_zone_id_col)['enrollment'].sum().reindex(
         zones.index).fillna(0)
     zones['TOPOLOGY'] = 1  # FIXME
-    zones['employment_density'] = zones.TOTEMP / zones.TOTACRE
-    zones['pop_density'] = zones.TOTPOP / zones.TOTACRE
-    zones['hh_density'] = zones.TOTHH / zones.TOTACRE
-    zones['hq1_density'] = zones.HHINCQ1 / zones.TOTACRE
+    zones['employment_density'] = (zones.TOTEMP / zones.TOTACRE).fillna(0.0)
+    zones['pop_density'] = (zones.TOTPOP / zones.TOTACRE).fillna(0.0)
+    zones['hh_density'] = (zones.TOTHH / zones.TOTACRE).fillna(0.0)
+    zones['hq1_density'] = (zones.HHINCQ1 / zones.TOTACRE).fillna(0.0)
     zones['PRKCST'] = _get_park_cost(
         zones, [-1.92168743, 4.89511403, 4.2772001, 0.65784643],
         ['pop_density', 'hh_density', 'hq1_density', 'employment_density'],
