@@ -80,22 +80,18 @@ def find_produced_origin_skims(beam_output_dir):
     return ridehail_skims_path
 
 
-def _merge_skim(inputSkim, outputSkim, path, timePeriod, measures):
-    # inputSkim, outputSkim, path, timePeriod, measures = everything
-    # outputSkim = omx.open_file(outputSkimPath, 'a')
-    # inputSkim = omx.open_file(inputSkimPath, 'a')
-    inputMats = inputSkim  # {sk.name: sk for sk in inputSkim}
-    outputMats = outputSkim  # {sk.name: sk for sk in outputSkim}
-
+def _merge_skim(inputMats, outputMats, path, timePeriod, measures):
     complete_key = '_'.join([path, 'TRIPS', '', timePeriod])
     failed_key = '_'.join([path, 'FAILURES', '', timePeriod])
     completed, failed = None, None
     if complete_key in inputMats.keys():
         completed = np.array(inputMats[complete_key])
         failed = np.array(inputMats[failed_key])
-        logger.info("Adding {0} valid trips and {1} impossible trips to skim {2}".format(np.nan_to_num(completed).sum(),
-                                                                                         np.nan_to_num(failed).sum(),
-                                                                                         complete_key))
+        logger.info("Adding {0} valid trips and {1} impossible trips to skim {2}, where {3} had existed before".format(
+            np.nan_to_num(completed).sum(),
+            np.nan_to_num(failed).sum(),
+            complete_key),
+            np.nan_to_num(np.array(outputMats[complete_key])).sum())
         toPenalize = np.array([0])
         for measure in measures:
             inputKey = '_'.join([path, measure, '', timePeriod])
@@ -198,8 +194,6 @@ def merge_current_omx_od_skims(all_skims_path, previous_skims_path, beam_output_
 
     # results = Parallel(n_jobs=-1)(delayed(_merge_skim)(x) for x in iterable)
     # p = mp.Pool(4)
-    before = np.array(skims['WLK_LOC_WLK_TRIPS__AM']).sum()
-    print("Before: ", before)
     # result = [p.apply_async(_merge_skim, args=((simplify(partialSkims, timePeriod, path, True),
     #                                             simplify(skims, timePeriod, path, False), path,
     #                                             timePeriod, vals))) for (path, timePeriod, vals) in iterable]
@@ -207,14 +201,11 @@ def merge_current_omx_od_skims(all_skims_path, previous_skims_path, beam_output_
                           simplify(skims, timePeriod, path, False), path,
                           timePeriod, vals) for (path, timePeriod, vals) in iterable]
 
-    after = np.array(skims['WLK_LOC_WLK_TRIPS__AM']).sum()
-    print("After: ", after)
     discover_impossible_ods(result, skims)
     mapping = {"SOV": ["SOVTOLL", "HOV2", "HOV2TOLL", "HOV3", "HOV3TOLL"]}
     copy_skims_for_unobserved_modes(mapping, skims)
     skims.close()
     partialSkims.close()
-    print('done')
     return current_skims_path
 
 

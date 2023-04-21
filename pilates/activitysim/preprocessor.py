@@ -878,6 +878,7 @@ def _fill_auto_skims(settings, input_skims, order, data_dir=None):
 
     distance_miles = np.array(output_skims['DIST'])
     output_skim_tables = output_skims.list_matrices()
+    nSkimsCreated = 0
 
     # NOTE: time is in units of minutes
 
@@ -891,6 +892,7 @@ def _fill_auto_skims(settings, input_skims, order, data_dir=None):
             temp_failed, createdTemp = _get_field_or_else_empty(output_skims, failed_measure, num_taz)
 
             if createdTemp:
+                nSkimsCreated += 1
                 output_skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
                 output_skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
                 output_skims[completed_measure].attrs.mode = path
@@ -903,6 +905,7 @@ def _fill_auto_skims(settings, input_skims, order, data_dir=None):
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 inOutputSkims = name in output_skim_tables
                 if not inOutputSkims:
+                    nSkimsCreated += 1
                     temp, createdTemp = _get_field_or_else_empty(input_skims, name, num_taz)
                     missing_values = np.isnan(temp)
                     if np.any(missing_values):
@@ -925,7 +928,7 @@ def _fill_auto_skims(settings, input_skims, order, data_dir=None):
                     output_skims[name].attrs.mode = path
                     output_skims[name].attrs.measure = measure
                     output_skims[name].attrs.timePeriod = period
-
+    logger.info("Created {0} new skims in the omx object")
     if needToClose:
         output_skims.close()
 
