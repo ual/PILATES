@@ -90,8 +90,8 @@ def _merge_skim(inputMats, outputMats, path, timePeriod, measures):
         logger.info("Adding {0} valid trips and {1} impossible trips to skim {2}, where {3} had existed before".format(
             np.nan_to_num(completed).sum(),
             np.nan_to_num(failed).sum(),
-            complete_key),
-            np.nan_to_num(np.array(outputMats[complete_key])).sum())
+            complete_key,
+            np.nan_to_num(np.array(outputMats[complete_key])).sum()))
         toPenalize = np.array([0])
         for measure in measures:
             inputKey = '_'.join([path, measure, '', timePeriod])
