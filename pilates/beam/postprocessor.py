@@ -148,11 +148,22 @@ def _merge_skim(inputMats, outputMats, path, timePeriod, measures):
 
 
 def simplify(input, timePeriod, mode, utf=False, expand=False):
-    if utf:
-        hdf = input[{"mode": mode.encode('utf-8'), "timePeriod": timePeriod.encode('utf-8')}]
+    # TODO: This is a hack
+    hdf_utf = input[{"mode": mode.encode('utf-8'), "timePeriod": timePeriod.encode('utf-8')}]
+    hdf = input[{"mode": mode, "timePeriod": timePeriod}]
+    originalDictUtf = {sk.name: sk for sk in hdf}
+    originalDict = {sk.name: sk for sk in hdf_utf}
+    bruteForceDict = {name: input[name] for name in input.list_matrices() if
+                      (name.startswith(mode) & name.endswith(timePeriod))}
+    if originalDict is None:
+        if originalDictUtf is None:
+            originalDict = bruteForceDict
+        else:
+            originalDict = originalDictUtf.update(originalDictUtf)
     else:
-        hdf = input[{"mode": mode, "timePeriod": timePeriod}]
-    originalDict = {sk.name: sk for sk in hdf}
+        originalDict.update(bruteForceDict)
+        if originalDictUtf is not None:
+            originalDict.update(originalDictUtf)
     newDict = dict()
     if expand:
         for key, item in originalDict.items():
