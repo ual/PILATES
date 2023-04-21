@@ -133,6 +133,10 @@ def _merge_skim(inputMats, outputMats, path, timePeriod, measures):
                                 np.nan_to_num(completed).sum(),
                                 np.nan_to_num(failed).sum(),
                                 newKey))
+            elif outputKey in outputMats:
+                logger.warning("Target skims are missing key {0}".format(outputKey))
+            else:
+                logger.warning("BEAM skims are missing key {0}".format(outputKey))
 
         if ("TOTIVT" in measures) & ("IWAIT" in measures):
             if toPenalize.sum() > 0:
