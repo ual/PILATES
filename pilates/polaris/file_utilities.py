@@ -3,8 +3,7 @@ import os,csv,queue,logging
 from shutil import copyfile, copytree
 from pathlib import Path
 from os.path import join
-from polarislib.runs.run_utils import merge_csvs
-from polarislib.runs.convergence.convergence_config import ConvergenceConfig
+import polarisruntime as PR
 
 logger = logging.getLogger("polaris.utils")
 
@@ -19,7 +18,7 @@ def get_latest_polaris_output(out_name, data_dir='.'):
 	else:
 		return Path(max(all_subdirs, key=os.path.getctime))
 
-def get_best_iteration(config: ConvergenceConfig, abm_runs):
+def get_best_iteration(config: PR.ConvergenceConfig, abm_runs):
     """Determine the best iteration for a convergence run based on the minimum relative gap.
 
     Args:
@@ -30,7 +29,7 @@ def get_best_iteration(config: ConvergenceConfig, abm_runs):
     """
 
     # select lowest gap iteration
-    gaps = merge_csvs(config, "gap_calculations.csv", save_merged=False)
+    gaps = PR.merge_csvs(config, "gap_calculations.csv", save_merged=False)
 
     # verify that subdirs found
     if len(gaps.axes[0]) < abm_runs:
@@ -43,7 +42,7 @@ def get_best_iteration(config: ConvergenceConfig, abm_runs):
     logging.info(f"best iteration = {config.data_dir / iter_name}")
     return config.data_dir / iter_name
 
-def delete_unneeded_results(config: ConvergenceConfig):
+def delete_unneeded_results(config: PR.ConvergenceConfig):
     subdirs = all_subdirs_of(config.db_name, config.data_dir)
     logger.info("Deleting sub-dirs:")
     for d in subdirs:
@@ -134,5 +133,5 @@ def append_column(src, tgt, loop, column, header_text):
 
 if __name__ == "__main__":
     model_dir = "/lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/runs/3_L4_cacc_ref/austin"
-    conf = ConvergenceConfig(model_dir, "campo")
+    conf = PR.ConvergenceConfig(model_dir, "campo")
     delete_unneeded_results(conf)

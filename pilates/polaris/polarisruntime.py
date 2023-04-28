@@ -6,7 +6,7 @@ import logging
 # polarislib can be run as PR.method_name
 from polarislib.utils.database.db_utils import run_sql_file
 from polarislib.runs.scenario_file import apply_modification
-from polarislib.runs.run_utils import get_latest_polaris_output
+from polarislib.runs.run_utils import get_latest_polaris_output, merge_csvs
 from polarislib.runs.polaris_inputs import PolarisInputs
 from polarislib.runs.convergence.convergence_config import ConvergenceConfig
 from polarislib.runs.gap_reporting import generate_gap_report
