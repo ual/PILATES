@@ -199,5 +199,9 @@ dependencies:
   - pip:
     - h5py==3.4.0
     - openmatrix==0.3.5.0
+    - docker
+    - spython
+    - sortedcontainers
+    - ./wheels/polarislib-20230221.20230314-py3-none-any.whl
 prefix: /home/ubuntu/anaconda3/envs/pilates
 
