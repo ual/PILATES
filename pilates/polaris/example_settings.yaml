@@ -8,18 +8,18 @@
 region: austin
 scenario: base
 start_year: 2010
-end_year: 2020
+end_year: 2040
 land_use_freq: 1
 travel_model_freq: 5
 restart_from_polaris: False
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
-travel_model: beam
-activity_demand_model: activitysim
+travel_model: polaris
+activity_demand_model: polaris
 
 # docker or singularity
-container_manager: docker
+container_manager: singularity
 #singularity settings
 singularity_images:
   # urbansim: /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/block_model_v2_pb.sif
@@ -31,16 +31,20 @@ singularity_images:
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb:latest
-  beam: dimaopen/beam:0.8.6.3
-  activitysim: mxndrwgrdnr/activitysim:latest
-  polaris: tbd
+  beam:
+  activitysim:
+  activity_cemand_model:
+  polaris:
   atlas:
 docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_fname: austin-skims-res-full-new.csv.gz
-skims_zone_type: block_group  # one of [taz, block_group, block]
+skims_fname: campo_skims.hdf5
+skim_format: polaris
+skims_zone_type: taz  # one of [taz, block_group, block]
+region_zone_type:
+  austin: taz # one of [taz, block_groups, block]
 
 #########################################################################################################
 
@@ -57,7 +61,7 @@ usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
 usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
-warm_start_activities: False
+warm_start_activities: True
 
 
 # BEAM
@@ -73,6 +77,7 @@ replan_after: trip_scheduling  # resume asim after this step
 final_asim_plans_folder:
 
 # POLARIS
+polaris_exe: /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/Integrated_Model_crossover/Integrated_Model
 polaris_local_data_folder: pilates/polaris/data
 polaris_skim_keys:
   base: 'auto_skims'
