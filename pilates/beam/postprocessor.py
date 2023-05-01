@@ -110,19 +110,29 @@ def _merge_skim(inputMats, outputMats, path, timePeriod, measures):
                 elif measure == "DIST":
                     outputMats[outputKey][completed > 0] = 0.5 * (
                             outputMats[outputKey][completed > 0] + inputMats[inputKey][completed > 0])
-                elif measure in ["IWAIT", "XWAIT", "WACC", "WAUX", "WEGR", "DTIM", "DDIST", "KEYIVT", "FERRYIVT"]:
+                elif measure in ["IWAIT", "XWAIT", "WACC", "WAUX", "WEGR", "DTIM", "DDIST", "FERRYIVT"]:
                     # NOTE: remember the mtc asim implementation has scaled units for these variables
                     outputMats[outputKey][completed > 0] = inputMats[inputKey][completed > 0] * 100.0
                 elif measure == "TOTIVT":
-                    toCancel = (failed > 5) & (failed > 2 * completed) & (outputMats[outputKey][:] > 0)
+                    inputKeyKEYIVT = '_'.join([path, 'KEYIVT', '', timePeriod])
+                    outputKeyKEYIVT = inputKeyKEYIVT
+
+                    toCancel = (failed > 10) & (failed > 2 * completed) & (
+                            (outputMats[outputKey][:] > 0) | (outputMats[outputKeyKEYIVT][:] > 0))
                     # save this for later so it doesn't get overwritten
-                    toPenalize = (failed > completed) & ~toCancel & (outputMats[outputKey][:] > 0)
+                    toPenalize = (failed > completed) & ~toCancel & (
+                            (outputMats[outputKey][:] > 0) | (outputMats[outputKeyKEYIVT][:] > 0))
                     if toCancel.sum() > 0:
-                        logger.info("Marking {0} {1} trips completely impossible in {2}".format(toCancel.sum(), path,
-                                                                                                timePeriod))
+                        logger.info(
+                            "Marking {0} {1} trips completely impossible in {2}. There were {3} completed trips but {4}"
+                            " failed trips in these ODs".format(
+                                toCancel.sum(), path, completed[toCancel].sum(), failed[toCancel].sum(), timePeriod))
                     toAllow = ~toCancel & ~toPenalize
                     outputMats[outputKey][toCancel] = 0.0
                     outputMats[outputKey][toAllow] = inputMats[inputKey][toAllow] * 100
+
+                    outputMats[outputKeyKEYIVT][toCancel] = 0.0
+                    outputMats[outputKeyKEYIVT][toAllow] = inputMats[inputKeyKEYIVT][toAllow] * 100
                 elif ~measure.endswith("TOLL"):  # hack to avoid overwriting initial tolls
                     outputMats[outputKey][completed > 0] = inputMats[inputKey][completed > 0]
                     if path.startswith('SOV_'):
@@ -138,7 +148,7 @@ def _merge_skim(inputMats, outputMats, path, timePeriod, measures):
             else:
                 logger.warning("BEAM skims are missing key {0}".format(outputKey))
 
-        if ("TOTIVT" in measures) & ("IWAIT" in measures):
+        if ("TOTIVT" in measures) & ("IWAIT" in measures) & ("KEYIVT" in measures):
             if toPenalize.sum() > 0:
                 inputKey = '_'.join([path, 'IWAIT', '', timePeriod])
                 outputMats[inputKey][toPenalize] = inputMats[inputKey][toPenalize] * (failed[toPenalize] + 1) / (

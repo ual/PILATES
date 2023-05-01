@@ -41,7 +41,7 @@ pull_latest: False
 
 # skim settings
 skims_zone_type: block_group # one of [taz, block_group, block]
-skims_fname: as-base-skims-seattle-bg.csv.gz
+skims_fname: as-base-skims-seattle-bg.omx
 # skims_fname: as-base-skims-austin-bg.csv.gz
 origin_skims_fname: as-origin-skims-sfbay-taz.csv.gz #file or folder name.
 beam_router_directory: r5
@@ -188,7 +188,6 @@ beam_asim_transit_measure_map:
   IWAIT: IWAIT_minutes
   XWAIT: XWAIT_minutes
   BOARDS: BOARDS
-  IVT: TOTIVT_IVT_minutes
 beam_asim_ridehail_measure_map:
   WAIT: waitTimeInMinutes
   REJECTIONPROB: unmatchedRequestPortion
