@@ -116,12 +116,16 @@ def _merge_skim(inputMats, outputMats, path, timePeriod, measures):
                 elif measure == "TOTIVT":
                     inputKeyKEYIVT = '_'.join([path, 'KEYIVT', '', timePeriod])
                     outputKeyKEYIVT = inputKeyKEYIVT
+                    if (inputKeyKEYIVT in inputMats.keys()) & (outputKeyKEYIVT in outputMats.keys()):
+                        additionalFilter = (outputMats[outputKeyKEYIVT][:] > 0)
+                    else:
+                        additionalFilter = False
 
                     toCancel = (failed > 10) & (failed > 2 * completed) & (
-                            (outputMats[outputKey][:] > 0) | (outputMats[outputKeyKEYIVT][:] > 0))
+                            (outputMats[outputKey][:] > 0) | additionalFilter)
                     # save this for later so it doesn't get overwritten
                     toPenalize = (failed > completed) & ~toCancel & (
-                            (outputMats[outputKey][:] > 0) | (outputMats[outputKeyKEYIVT][:] > 0))
+                            (outputMats[outputKey][:] > 0) | additionalFilter)
                     if toCancel.sum() > 0:
                         logger.info(
                             "Marking {0} {1} trips completely impossible in {2}. There were {3} completed trips but {4}"
@@ -130,9 +134,9 @@ def _merge_skim(inputMats, outputMats, path, timePeriod, measures):
                     toAllow = ~toCancel & ~toPenalize
                     outputMats[outputKey][toCancel] = 0.0
                     outputMats[outputKey][toAllow] = inputMats[inputKey][toAllow] * 100
-
-                    outputMats[outputKeyKEYIVT][toCancel] = 0.0
-                    outputMats[outputKeyKEYIVT][toAllow] = inputMats[inputKeyKEYIVT][toAllow] * 100
+                    if (inputKeyKEYIVT in inputMats.keys()) & (outputKeyKEYIVT in outputMats.keys()):
+                        outputMats[outputKeyKEYIVT][toCancel] = 0.0
+                        outputMats[outputKeyKEYIVT][toAllow] = inputMats[inputKeyKEYIVT][toAllow] * 100
                 elif ~measure.endswith("TOLL"):  # hack to avoid overwriting initial tolls
                     outputMats[outputKey][completed > 0] = inputMats[inputKey][completed > 0]
                     if path.startswith('SOV_'):
