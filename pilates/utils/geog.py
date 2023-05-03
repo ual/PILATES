@@ -10,9 +10,9 @@ from pilates.utils.io import read_datastore
 
 logger = logging.getLogger(__name__)
 
-def get_taz_labels(settings,
-                  data_dir='./pilates/postprocessing/data/'):
 
+def get_taz_labels(settings,
+                   data_dir='./pilates/postprocessing/data/'):
     region = settings['region']
     zone_type = settings['skims_zone_type']
 
@@ -26,6 +26,7 @@ def get_taz_labels(settings,
         logger.info("ERROR: there is not the taz geoms labels file on {}".format(data_dir))
 
     return gdf_labels
+
 
 def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
                   data_dir='./pilates/postprocessing/data/'):
@@ -43,9 +44,9 @@ def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
         logger.info("Downloading {} geoms".format(zone_type))
 
         if region == 'sfbay':
-#             url = (
-#                 'https://opendata.arcgis.com/datasets/'
-#                 '94e6e7107f0745b5b2aabd651340b739_0.geojson')
+            #             url = (
+            #                 'https://opendata.arcgis.com/datasets/'
+            #                 '94e6e7107f0745b5b2aabd651340b739_0.geojson')
             url = (
                 'https://opendata.mtc.ca.gov/datasets/MTC::san-francisco-bay-region-2020-census-block-groups/explore?location=37.862018%2C-122.497001%2C9.30/'
                 'San_Francisco_Bay_Region_2020_Census_Block_Groups.geojson')
@@ -53,10 +54,17 @@ def get_taz_geoms(settings, taz_id_col_in='taz1454', zone_id_col_out='zone_id',
         elif region == 'austin':
             url = (
                 'https://beam-outputs.s3.amazonaws.com/pilates-outputs/geometries/block_groups_austin.geojson')
+        elif region == 'seattle':
+            url = (
+                'https://github.com/LBNL-UCB-STI/beam-data-seattle/raw/develop/shape/block_groups_seattle_4326.geojson')
 
         ## FIX ME: other regions taz should be here - only sfbay for now
         gdf = gpd.read_file(url, crs="EPSG:4326")
         if region == 'austin':
+            mapping = geoid_to_zone_map(settings)
+            logger.info("Mapping block group IDs to TAZ ids")
+            gdf[zone_id_col_out] = gdf[taz_id_col_in].astype(str).replace(mapping)
+        if region == 'seattle':
             mapping = geoid_to_zone_map(settings)
             logger.info("Mapping block group IDs to TAZ ids")
             gdf[zone_id_col_out] = gdf[taz_id_col_in].astype(str).replace(mapping)
@@ -315,7 +323,8 @@ def geoid_to_zone_map(settings, year=None):
         elif zone_type == 'block_group':
             store, table_prefix_yr = read_datastore(settings, year)
             blocks = store[os.path.join(table_prefix_yr, 'blocks')]
-            order = blocks.index.str[:12].unique()
+            bgs = store['block_group_zone_geoms']
+            order = blocks.index.str[:12].unique().intersection(bgs['geoid10'])
             store.close()
 
         elif zone_type == 'block':

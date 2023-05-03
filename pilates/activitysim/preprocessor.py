@@ -1,24 +1,24 @@
-import os
 import glob
+import logging
+import os
+import shutil
+import time
+from multiprocessing import Pool, cpu_count
+from typing import Optional
+
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
 import openmatrix as omx
 import pandas as pd
-from pandas.api.types import is_string_dtype
-from pandas.api.types import is_numeric_dtype
-import geopandas as gpd
-from shapely import wkt
-import numpy as np
-import logging
 import requests
+from pandas.api.types import is_string_dtype
+from shapely import wkt
 from tqdm import tqdm
-import time
-import yaml
-import matplotlib.pyplot as plt
-from multiprocessing import Pool, cpu_count
 
 from pilates.utils.geog import get_block_geoms, \
-    map_block_to_taz, get_zone_from_points, \
-    get_taz_geoms, get_county_block_geoms, geoid_to_zone_map
-
+    get_zone_from_points, \
+    get_taz_geoms, geoid_to_zone_map
 from pilates.utils.io import read_datastore
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,23 @@ beam_origin_skims_types = {"origin": str,
                            "observations": int
                            }
 
+default_speed_mph = {
+    "COM": 25.0,
+    "HVY": 20.0,
+    "LRF": 15.0,
+    "LOC": 15.0,
+    "EXP": 17.0,
+    "TRN": 15.0
+}
+default_fare_dollars = {
+    "COM": 10.0,
+    "HVY": 4.0,
+    "LRF": 2.5,
+    "LOC": 2.5,
+    "EXP": 4.0,
+    "TRN": 15.0
+}
+
 
 #########################
 #### Common functions ###
@@ -76,7 +93,7 @@ def zone_order(settings, year):
     return order
 
 
-def read_skims(settings, mode='a', data_dir=None):
+def read_skims(settings, mode='a', data_dir=None, file_name='skims.omx'):
     """
     Opens skims OMX file. 
     Parameters:
@@ -89,7 +106,7 @@ def read_skims(settings, mode='a', data_dir=None):
     """
     if data_dir is None:
         data_dir = settings['asim_local_input_folder']
-    path = os.path.join(data_dir, 'skims.omx')
+    path = os.path.join(data_dir, file_name)
     skims = omx.open_file(path, mode=mode)
     return skims
 
@@ -142,6 +159,7 @@ def read_zone_geoms(settings, year,
         else:
             mapping = geoid_to_zone_map(settings, year)
             zones = get_block_geoms(settings)
+            # zones['GEOID'] = zones['GEOID'].astype(str)
             assert is_string_dtype(zones['GEOID']), "GEOID dtype should be str"
             zones[default_zone_id_col] = zones['GEOID'].replace(mapping)
             zones.set_index(default_zone_id_col, inplace=True)
@@ -175,7 +193,7 @@ def read_skim(filename):
     return df
 
 
-def _load_raw_beam_skims(settings):
+def _load_raw_beam_skims(settings, convertFromCsv=True, blank=False):
     """ Read BEAM skims (csv format) from local storage. 
     Parameters: 
     ------------
@@ -190,9 +208,17 @@ def _load_raw_beam_skims(settings):
     path_to_beam_skims = os.path.join(
         settings['beam_local_output_folder'], skims_fname)
 
+    if (not os.path.exists(path_to_beam_skims)) & (not convertFromCsv):
+        return None
+    if blank:
+        return None
+
     try:
         if '.csv' in path_to_beam_skims:
             skims = read_skim(path_to_beam_skims)
+        elif path_to_beam_skims.endswith('.omx'):
+            # We've gotten a head start
+            skims = omx.open_file(path_to_beam_skims, mode='a')
         else:  # path is a folder with multiple files
             all_files = glob.glob(path_to_beam_skims + "/*")
             agents = len(all_files)
@@ -224,7 +250,8 @@ def _load_raw_beam_origin_skims(settings):
 
 
 def _create_skim_object(settings, overwrite=True, output_dir=None):
-    """ Creates OMX file to store skim matrices
+    """ Creates mutable OMX file to store skim matrices in the beam_output directory.
+    This later needs to be copied over to the asim input directory
     Parameters: 
     -----------
     - settings: 
@@ -238,20 +265,37 @@ def _create_skim_object(settings, overwrite=True, output_dir=None):
     if output_dir is None:
         output_dir = settings['asim_local_input_folder']
     skims_path = os.path.join(output_dir, 'skims.omx')
-    skims_exist = os.path.exists(skims_path)
+    final_skims_exist = os.path.exists(skims_path)
 
-    if skims_exist:
-        if (overwrite):
+    skims_fname = settings.get('skims_fname', False)
+    omx_skim_output = skims_fname.endswith('.omx')
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    mutable_skims_exist = os.path.exists(mutable_skims_location)
+    should_use_csv_input_skims = mutable_skims_exist & (not omx_skim_output)
+
+    if final_skims_exist:
+        if overwrite:
             logger.info("Found existing skims, removing.")
             os.remove(skims_path)
+            return True, should_use_csv_input_skims, False
         else:
+            if not mutable_skims_exist:
+                shutil.copyfile(skims_path, mutable_skims_location)
             logger.info("Found existing skims, no need to re-create.")
-            return False
+            return False, False, False
 
-    logger.info("Creating skims.omx from BEAM skims")
-    skims = omx.open_file(skims_path, 'w')
-    skims.close()
-    return True
+    if (~final_skims_exist | overwrite) & omx_skim_output:
+        if mutable_skims_exist:
+            return True, should_use_csv_input_skims, False
+        else:
+            logger.info("Creating skims.omx")
+            skims = omx.open_file(mutable_skims_location, 'w')
+            skims.close()
+            return True, should_use_csv_input_skims, True
+
+    logger.exception("We should not be here")
+    return False, False, False
 
 
 def _raw_beam_skims_preprocess(settings, year, skims_df):
@@ -433,7 +477,7 @@ def _build_od_matrix(df, metric, order, fill_na=0.0):
     return out.fillna(fill_na).values, useDefaults
 
 
-def impute_distances(zones, origin, destination):
+def impute_distances(zones, origin=None, destination=None):
     """
     impute distances in miles for missing OD pairs by calculating 
     the cartesian distance between origin and destination zone. 
@@ -443,20 +487,16 @@ def impute_distances(zones, origin, destination):
     - zones: geoPandas or Pandas DataFrame,
         Dataframe with the zones information. If Pandas DataFrame, it expects a geometry column 
         for which wkt.loads can be read. 
-    - origin: list, array-like. 
+    - origin: list, array-like (Optional).
         list of origins. Origins should correspond to the zone identifier in zones. 
         Origin should be the same lenght as destination. 
-    - destination: list, array-like,
+    - destination: list, array-like (Optional),
         list of destination. Destinations should correspond to the zone identifier in zones
     
     Returns
     --------
     numpy array of shape (len(origin),). Imputed distance for all OD pairs
     """
-    assert len(origin) == len(destination), 'parameters "origin" and "destination" should have the same lenght'
-    origin = (origin + 1).astype(str)
-    destination = (destination + 1).astype(str)
-
     if isinstance(zones, pd.core.frame.DataFrame):
         zones.geometry = zones.geometry.astype(str).apply(wkt.loads)
         zones = gpd.GeoDataFrame(zones, geometry='geometry', crs='EPSG:4326')
@@ -468,14 +508,28 @@ def impute_distances(zones, origin, destination):
     # Tranform gdf to CRS in meters
     gdf = gdf.to_crs('EPSG:3857')
 
-    # Select origin and destination pairs 
-    orig = gdf.loc[origin].reset_index(drop=True).geometry.centroid
-    dest = gdf.loc[destination].reset_index(drop=True).geometry.centroid
+    if (origin is None) and (destination is None):
+        gdf = gdf.reset_index(drop=True).geometry.centroid
+        x, y = gdf.geometry.x.values, gdf.geometry.y.values
+        distInMeters = np.linalg.norm([x[:, None] - x[None, :], y[:, None] - y[None, :]], axis=0)
+        np.fill_diagonal(distInMeters, 400)
+        return distInMeters * (0.621371 / 1000)
 
-    return orig.distance(dest).replace({0: 100}).values * (0.621371 / 1000)
+    else:
+        assert len(origin) == len(destination), 'parameters "origin" and "destination" should have the same lenght'
+        origin = (origin + 1).astype(str)
+        destination = (destination + 1).astype(str)
+
+        # Select origin and destination pairs
+        orig = gdf.loc[origin].reset_index(drop=True).geometry.centroid
+        dest = gdf.loc[destination].reset_index(drop=True).geometry.centroid
+
+        # Distance in Miles
+
+        return orig.distance(dest).replace({0: 100}).values * (0.621371 / 1000)
 
 
-def _distance_skims(settings, year, auto_df, order, data_dir=None):
+def _distance_skims(settings, year, input_skims, order, data_dir=None):
     """
     Generates distance matrices for drive, walk and bike modes.
     Parameters:
@@ -487,31 +541,64 @@ def _distance_skims(settings, year, auto_df, order, data_dir=None):
         zone_id order to create the num_zones x num_zones skim matrix.
     """
     logger.info("Creating distance skims.")
-    skims = read_skims(settings, mode='a', data_dir=data_dir)
+
+    skims_fname = settings.get('skims_fname', False)
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    needToClose = True
+    if input_skims is not None:
+        output_skims = input_skims
+        needToClose = False
+    else:
+        output_skims = omx.open_file(mutable_skims_location, mode='a')
 
     # TO DO: Include walk and bike distances,
     # for now walk and bike are the same as drive.
     dist_column = settings['beam_asim_hwy_measure_map']['DIST']
-    dist_df = auto_df[[dist_column]].groupby(level=[2, 3]).agg('first')
-    mx_dist, useDefaults = _build_od_matrix(dist_df, dist_column, order, fill_na=np.nan)
-    if useDefaults:
-        logger.warning(
-            "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(dist_column))
+    if isinstance(input_skims, pd.DataFrame):
+        dist_df = input_skims[[dist_column]].groupby(level=[2, 3]).agg('first')
+        mx_dist, useDefaults = _build_od_matrix(dist_df, dist_column, order, fill_na=np.nan)
+        if useDefaults:
+            logger.warning(
+                "Filling in default skim values for measure {0} because they're not in BEAM outputs".format(
+                    dist_column))
+    elif isinstance(input_skims, omx.File):
+        if 'DIST' in input_skims.list_matrices():
+            mx_dist = np.array(input_skims['DIST'], dtype=np.float32)
+        else:
+            mx_dist = np.full((len(order), len(order)), np.nan, dtype=np.float32)
+    else:
+        mx_dist = np.full((len(order), len(order)), np.nan, dtype=np.float32)
     # Impute missing distances 
     missing = np.isnan(mx_dist)
-    if missing.any():
+    if missing.all():
+        logger.info("Imputing all missing distance skims.")
+        zones = read_zone_geoms(settings, year)
+        mx_dist = impute_distances(zones)
+        output_skims['DIST'] = mx_dist
+    elif missing.any():
         orig, dest = np.where(missing == True)
         logger.info("Imputing {} missing distance skims.".format(len(orig)))
         zones = read_zone_geoms(settings, year)
         imputed_dist = impute_distances(zones, orig, dest)
         mx_dist[orig, dest] = imputed_dist
-    assert not np.isnan(mx_dist).any()
+        output_skims['DIST'] = mx_dist
+    else:
+        logger.info("No need to impute missing distance skims.")
+        mx_dist = np.array(input_skims['DIST'])
 
     # Distance matrices
-    skims['DIST'] = mx_dist
-    skims['DISTBIKE'] = mx_dist
-    skims['DISTWALK'] = mx_dist
-    skims.close()
+    if 'DISTBIKE' not in output_skims.list_matrices():
+        output_skims['DISTBIKE'] = mx_dist
+    if 'DISTWALK' not in output_skims.list_matrices():
+        output_skims['DISTWALK'] = mx_dist
+    if 'BIKE_TRIPS' not in output_skims.list_matrices():
+        output_skims['BIKE_TRIPS'] = np.zeros_like(mx_dist)
+    if 'WALK_TRIPS' not in output_skims.list_matrices():
+        output_skims['WALK_TRIPS'] = np.zeros_like(mx_dist)
+
+    if needToClose:
+        output_skims.close()
 
 
 def _build_od_matrix_parallel(tup):
@@ -616,6 +703,236 @@ def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
     del df, df_
 
 
+def _get_field_or_else_empty(skims: Optional[omx.File], field: str, num_taz: int):
+    if skims is None:
+        return np.full((num_taz, num_taz), np.nan, dtype=np.float32), True
+    if field in skims.list_matrices():
+        return np.array(skims[field], dtype=np.float32), False
+    else:
+        return np.full((num_taz, num_taz), np.nan, dtype=np.float32), True
+
+
+def _fill_ridehail_skims(settings, input_skims, order, data_dir=None):
+    logger.info("Merging transit omx skims.")
+
+    ridehail_path_map = settings['ridehail_path_map']
+    periods = settings['periods']
+    measure_map = settings['beam_asim_ridehail_measure_map']
+
+    num_taz = len(order)
+
+    skims_fname = settings.get('skims_fname', False)
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    needToClose = True
+    if input_skims is not None:
+        output_skims = input_skims
+        needToClose = False
+    else:
+        output_skims = omx.open_file(mutable_skims_location, mode='a')
+
+    output_skim_tables = output_skims.list_matrices()
+
+    # NOTE: time is in units of minutes
+    for path, skimPath in ridehail_path_map.items():
+        logger.info("Writing tables for path type {0}".format(path))
+        for period in periods:
+            completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
+            failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
+
+            temp_completed, createdTemp = _get_field_or_else_empty(output_skims, completed_measure, num_taz)
+            temp_failed, createdTemp = _get_field_or_else_empty(output_skims, failed_measure, num_taz)
+
+            if createdTemp:
+                output_skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
+                output_skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                output_skims[completed_measure].attrs.mode = path
+                output_skims[failed_measure].attrs.mode = path
+                output_skims[completed_measure].attrs.measure = "TRIPS"
+                output_skims[failed_measure].attrs.measure = "FAILURES"
+                output_skims[completed_measure].attrs.timePeriod = period
+                output_skims[failed_measure].attrs.timePeriod = period
+
+            for measure in measure_map.keys():
+                name = '{0}_{1}__{2}'.format(path, measure, period)
+                inOutputSkims = name in output_skim_tables
+                if not inOutputSkims:
+                    temp, createdTemp = _get_field_or_else_empty(input_skims, name, num_taz)
+                    missing_values = np.isnan(temp)
+                    if measure == "WAIT":
+                        temp[missing_values] = 6.0
+                    elif measure == "REJECTIONPROB":
+                        temp[missing_values] = 0.2
+
+                    if not inOutputSkims:
+                        output_skims[name] = temp
+                        output_skims[name].attrs.mode = path
+                        output_skims[name].attrs.measure = measure
+                        output_skims[name].attrs.timePeriod = period
+                    else:
+                        if np.any(missing_values):
+                            output_skims[name][:] = temp
+    if needToClose:
+        output_skims.close()
+
+
+def _fill_transit_skims(settings, input_skims, order, data_dir=None):
+    logger.info("Merging transit omx skims.")
+
+    transit_paths = settings['transit_paths']
+    periods = settings['periods']
+    measure_map = settings['beam_asim_transit_measure_map']
+
+    num_taz = len(order)
+
+    skims_fname = settings.get('skims_fname', False)
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    needToClose = True
+    if input_skims is not None:
+        output_skims = input_skims
+        needToClose = False
+    else:
+        output_skims = omx.open_file(mutable_skims_location, mode='a')
+
+    distance_miles = np.array(output_skims['DIST'], dtype=np.float32)
+    output_skim_tables = output_skims.list_matrices()
+
+    # NOTE: time is in units of minutes
+
+    for path in transit_paths:
+        logger.info("Writing tables for path type {0}".format(path))
+        for period in periods:
+            completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
+            failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
+
+            temp_completed, createdTemp = _get_field_or_else_empty(output_skims, completed_measure, num_taz)
+            temp_failed, createdTemp = _get_field_or_else_empty(output_skims, failed_measure, num_taz)
+
+            if createdTemp:
+                output_skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
+                output_skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                output_skims[completed_measure].attrs.mode = path
+                output_skims[failed_measure].attrs.mode = path
+                output_skims[completed_measure].attrs.measure = "TRIPS"
+                output_skims[failed_measure].attrs.measure = "FAILURES"
+                output_skims[completed_measure].attrs.timePeriod = period
+                output_skims[failed_measure].attrs.timePeriod = period
+
+            # tooManyFailures = temp_failed > temp_completed
+            for measure in measure_map.keys():
+                name = '{0}_{1}__{2}'.format(path, measure, period)
+                inOutputSkims = name in output_skim_tables
+                if not inOutputSkims:
+                    temp, createdTemp = _get_field_or_else_empty(input_skims, name, num_taz)
+                    missing_values = np.isnan(temp)
+                    if np.any(missing_values):
+                        if (measure == "IVT") | (measure == "TOTIVT") | (measure == "KEYIVT"):
+                            temp[missing_values] = distance_miles[
+                                                       missing_values] / default_speed_mph.get(
+                                path.split("_")[1], 10.0) * 60 * 100  # Assume 20 mph average, with 100x multiplier
+                            # temp[tooManyFailures] = 0
+                        elif measure == "DIST":
+                            temp[missing_values] = distance_miles[missing_values]
+                        elif (measure == "WAIT") | (measure == "WACC") | (measure == "WEGR") | (measure == "IWAIT"):
+                            temp[missing_values] = 500.0
+                        elif measure == "FAR":
+                            temp[missing_values] = default_fare_dollars.get(path.split("_")[1], 4.0)
+                        elif measure == "BOARDS":
+                            temp[missing_values] = 1.0
+                        elif (measure == "DDIST") & (path.endswith("DRV") | path.startswith("DRV")):
+                            temp[missing_values] = 2.0
+                        elif (measure == "DTIME") & (path.endswith("DRV") | path.startswith("DRV")):
+                            temp[missing_values] = 500.0
+                        else:
+                            temp[missing_values] = 0.0
+
+                    output_skims[name] = temp
+                    output_skims[name].attrs.mode = path
+                    output_skims[name].attrs.measure = measure
+                    output_skims[name].attrs.timePeriod = period
+
+    if needToClose:
+        output_skims.close()
+
+
+def _fill_auto_skims(settings, input_skims, order, data_dir=None):
+    logger.info("Merging drive omx skims.")
+
+    # Open skims object
+    periods = settings['periods']
+    paths = settings['hwy_paths']
+    measure_map = settings['beam_asim_hwy_measure_map']
+
+    num_taz = len(order)
+
+    skims_fname = settings.get('skims_fname', False)
+    beam_output_dir = settings['beam_local_output_folder']
+    mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+    needToClose = True
+    if input_skims is not None:
+        output_skims = input_skims
+        needToClose = False
+    else:
+        output_skims = omx.open_file(mutable_skims_location, mode='a')
+
+    distance_miles = np.array(output_skims['DIST'])
+    output_skim_tables = output_skims.list_matrices()
+    nSkimsCreated = 0
+
+    # NOTE: time is in units of minutes
+
+    for path in paths:
+        logger.info("Writing tables for path type {0}".format(path))
+        for period in periods:
+            completed_measure = '{0}_{1}__{2}'.format(path, "TRIPS", period)
+            failed_measure = '{0}_{1}__{2}'.format(path, "FAILURES", period)
+
+            temp_completed, createdTemp = _get_field_or_else_empty(output_skims, completed_measure, num_taz)
+            temp_failed, createdTemp = _get_field_or_else_empty(output_skims, failed_measure, num_taz)
+
+            if createdTemp:
+                nSkimsCreated += 1
+                output_skims[completed_measure] = np.nan_to_num(np.array(temp_completed))
+                output_skims[failed_measure] = np.nan_to_num(np.array(temp_failed))
+                output_skims[completed_measure].attrs.mode = path
+                output_skims[failed_measure].attrs.mode = path
+                output_skims[completed_measure].attrs.measure = "TRIPS"
+                output_skims[failed_measure].attrs.measure = "FAILURES"
+                output_skims[completed_measure].attrs.timePeriod = period
+                output_skims[failed_measure].attrs.timePeriod = period
+            for measure in measure_map.keys():
+                name = '{0}_{1}__{2}'.format(path, measure, period)
+                inOutputSkims = name in output_skim_tables
+                if not inOutputSkims:
+                    nSkimsCreated += 1
+                    temp, createdTemp = _get_field_or_else_empty(input_skims, name, num_taz)
+                    missing_values = np.isnan(temp)
+                    if np.any(missing_values):
+                        if measure == "TIME":
+                            temp[missing_values] = distance_miles[missing_values] / 35 * 60  # Assume 35 mph average
+                        elif measure == "DIST":
+                            temp[missing_values] = distance_miles[missing_values]
+                        elif measure == "BTOLL":
+                            temp[missing_values] = 0.0
+                        elif measure == "VTOLL":
+                            if path.endswith('TOLL'):
+                                toll = 5.0
+                            else:
+                                toll = 0.0
+                            temp[missing_values] = toll
+                        else:
+                            logger.error("Trying to read unknown measure {0} from BEAM skims".format(measure))
+
+                    output_skims[name] = temp
+                    output_skims[name].attrs.mode = path
+                    output_skims[name].attrs.measure = measure
+                    output_skims[name].attrs.timePeriod = period
+    logger.info("Created {0} new skims in the omx object")
+    if needToClose:
+        output_skims.close()
+
+
 def _auto_skims(settings, auto_df, order, data_dir=None):
     logger.info("Creating drive skims.")
 
@@ -685,7 +1002,7 @@ def _create_offset(settings, order, data_dir=None):
     zone_id = np.arange(1, len(order) + 1)
 
     # Generint offset
-    skims.create_mapping('zone_id', zone_id)
+    skims.create_mapping('zone_id', zone_id, overwrite=True)
     skims.close()
 
 
@@ -701,27 +1018,41 @@ def create_skims_from_beam(settings, year,
     if static_skims:
         overwrite = False
 
-    new = _create_skim_object(settings, overwrite, output_dir=output_dir)
+    new, convertFromCsv, blankSkims = _create_skim_object(settings, overwrite, output_dir=output_dir)
     validation = settings.get('asim_validation', False)
 
     if new:
         order = zone_order(settings, year)
-        skims_df = _load_raw_beam_skims(settings)
-        skims_df = skims_df.loc[skims_df.origin.isin(order) & skims_df.destination.isin(order), :]
-        skims_df = _raw_beam_skims_preprocess(settings, year, skims_df)
-        auto_df, transit_df = _create_skims_by_mode(settings, skims_df)
-        ridehail_df = _load_raw_beam_origin_skims(settings)
-        ridehail_df = _raw_beam_origin_skims_preprocess(settings, year, ridehail_df)
+        tempSkims = _load_raw_beam_skims(settings, convertFromCsv, blankSkims)
+        if isinstance(tempSkims, pd.DataFrame):
+            skims = tempSkims.loc[skims.origin.isin(order) & tempSkims.destination.isin(order), :]
+            skims = _raw_beam_skims_preprocess(settings, year, skims)
+            auto_df, transit_df = _create_skims_by_mode(settings, skims)
+            ridehail_df = _load_raw_beam_origin_skims(settings)
+            ridehail_df = _raw_beam_origin_skims_preprocess(settings, year, ridehail_df)
 
-        # Create skims
-        _distance_skims(settings, year, auto_df, order, data_dir=output_dir)
-        _auto_skims(settings, auto_df, order, data_dir=output_dir)
-        _transit_skims(settings, transit_df, order, data_dir=output_dir)
-        _ridehail_skims(settings, ridehail_df, order, data_dir=output_dir)
+            # Create skims
+            _distance_skims(settings, year, auto_df, order, data_dir=output_dir)
+            _auto_skims(settings, auto_df, order, data_dir=output_dir)
+            _transit_skims(settings, transit_df, order, data_dir=output_dir)
+            _ridehail_skims(settings, ridehail_df, order, data_dir=output_dir)
 
-        # Create offset
-        _create_offset(settings, order, data_dir=output_dir)
-        del auto_df, transit_df
+            # Create offset
+            _create_offset(settings, order, data_dir=output_dir)
+            del auto_df, transit_df
+        else:
+            _distance_skims(settings, year, tempSkims, order, data_dir=output_dir)
+            _fill_auto_skims(settings, tempSkims, order, data_dir=output_dir)
+            _fill_transit_skims(settings, tempSkims, order, data_dir=output_dir)
+            _fill_ridehail_skims(settings, tempSkims, order, data_dir=output_dir)
+            if isinstance(tempSkims, omx.File):
+                tempSkims.close()
+            _create_offset(settings, order, data_dir=output_dir)
+            final_skims_path = os.path.join(settings['asim_local_input_folder'], 'skims.omx')
+            skims_fname = settings.get('skims_fname', False)
+            beam_output_dir = settings['beam_local_output_folder']
+            mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
+            shutil.copyfile(mutable_skims_location, final_skims_path)
 
     if validation:
         order = zone_order(settings, year)
@@ -1246,10 +1577,19 @@ def _create_land_use_table(
     # create new column variables
     logger.info("Creating new columns in the land use table.")
     if zone_type != 'taz':
-        zones['STATE'] = zones['STATE'].astype(str)
-        zones['COUNTY'] = zones['COUNTY'].astype(str)
-        zones['TRACT'] = zones['TRACT'].astype(str)
-        zones['BLKGRP'] = zones['BLKGRP'].astype(str)
+        if 'STATE' in zones.columns:
+            zones['STATE'] = zones['STATE'].astype(str)
+        else:
+            zones['STATE'] = settings['FIPS'][settings['region']]['state']
+        zones['COUNTY'] = '1'
+        try:
+            zones['TRACT'] = zones['TRACT'].astype(str)
+        except:
+            print("Skipping TRACT")
+        try:
+            zones['BLKGRP'] = zones['BLKGRP'].astype(str)
+        except:
+            print("Skipping BLKGRP")
 
     zones['TOTHH'] = households[asim_zone_id_col].groupby(households[asim_zone_id_col]).count().reindex(
         zones.index).fillna(0)
@@ -1309,10 +1649,10 @@ def _create_land_use_table(
     zones['HSENROLL'] = schools[['enrollment', asim_zone_id_col]].groupby(asim_zone_id_col)['enrollment'].sum().reindex(
         zones.index).fillna(0)
     zones['TOPOLOGY'] = 1  # FIXME
-    zones['employment_density'] = zones.TOTEMP / zones.TOTACRE
-    zones['pop_density'] = zones.TOTPOP / zones.TOTACRE
-    zones['hh_density'] = zones.TOTHH / zones.TOTACRE
-    zones['hq1_density'] = zones.HHINCQ1 / zones.TOTACRE
+    zones['employment_density'] = (zones.TOTEMP / zones.TOTACRE).fillna(0.0)
+    zones['pop_density'] = (zones.TOTPOP / zones.TOTACRE).fillna(0.0)
+    zones['hh_density'] = (zones.TOTHH / zones.TOTACRE).fillna(0.0)
+    zones['hq1_density'] = (zones.HHINCQ1 / zones.TOTACRE).fillna(0.0)
     zones['PRKCST'] = _get_park_cost(
         zones, [-1.92168743, 4.89511403, 4.2772001, 0.65784643],
         ['pop_density', 'hh_density', 'hq1_density', 'employment_density'],
@@ -1346,7 +1686,7 @@ def copy_beam_geoms(settings, beam_geoms_location, asim_geoms_location):
 
     if 'TAZ' not in beam_geoms_file.columns:
 
-        mapping = geoid_to_zone_map(settings)
+        mapping = geoid_to_zone_map(settings, settings['start_year'])
 
         if zone_type == 'block':
             logger.info("Mapping block IDs")

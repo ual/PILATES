@@ -5,10 +5,10 @@
 ############################
 
 # scenario defs
-region: sfbay
+region: seattle
 scenario: base
 start_year: 2010
-end_year: 2018
+end_year: 2014
 land_use_freq: 1
 travel_model_freq: 1
 vehicle_ownership_freq: 1
@@ -32,7 +32,7 @@ singularity_images:
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb:latest
   atlas: ghcr.io/lbnl-science-it/atlas:v1.0.7
-  beam: zaneedell/beam:0.9.1
+  beam: zaneedell/beam:0.9.3-omx
   activitysim: zaneedell/activitysim:new-geoms.1
   polaris: tbd
   atlas:
@@ -40,11 +40,11 @@ docker_stdout: False
 pull_latest: False
 
 # skim settings
-skims_zone_type: taz # one of [taz, block_group, block]
-skims_fname: as-base-skims-sfbay-taz.csv.gz # for SF Bay
+skims_zone_type: block_group # one of [taz, block_group, block]
+skims_fname: as-base-skims-seattle-bg.omx
 # skims_fname: as-base-skims-austin-bg.csv.gz
 origin_skims_fname: as-origin-skims-sfbay-taz.csv.gz #file or folder name.
-beam_router_directory: r5-simple-no-local
+beam_router_directory: r5
 beam_geoms_fname: clipped_tazs.csv
 
 # region_zone_type:
@@ -62,6 +62,7 @@ beam_geoms_fname: clipped_tazs.csv
 region_to_region_id:
   sfbay: "06197001"
   austin: "48197301"
+  seattle: "53199100"
 usim_local_data_folder: pilates/urbansim/data/
 usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
@@ -85,7 +86,7 @@ atlas_formattable_command: "--freq {0} --outyear {1} --npe {2} --nsample {3} --b
 
 
 # BEAM 
-beam_config: sfbay-pilates-base.conf # OR austin-pilates-base.conf
+beam_config: seattle.conf # OR austin-pilates-base.conf
 beam_sample: 1.0
 beam_replanning_portion: 0.4
 beam_local_input_folder: pilates/beam/production/
@@ -93,11 +94,11 @@ beam_local_output_folder: pilates/beam/beam_output/
 beam_scenario_folder: urbansim/
 #beam_memory: "650g"
 skim_zone_source_id_col: objectid
-replan_iters: 5
+replan_iters: 2
 replan_hh_samp_size: 0
 replan_after: trip_scheduling  # resume asim after this step
-discard_plans_every_year: false
-max_plans_memory: 5
+discard_plans_every_year: True
+max_plans_memory: 3
 final_asim_plans_folder: pilates/activitysim/output/final_plans
 beam_simulated_hwy_paths:
   - SOV
@@ -129,10 +130,12 @@ region_to_asim_subdir:
   austin: austin
   detroit: detroit
   sfbay: bay_area
+  seattle: seattle
 region_to_asim_bucket:
   austin: austin-activitysim
   detroit: detroit-activitysim
   sfbay: bayarea-activitysim
+  seattle: seattle-activitysim
 periods:
   - EA
   - AM
@@ -185,7 +188,6 @@ beam_asim_transit_measure_map:
   IWAIT: IWAIT_minutes
   XWAIT: XWAIT_minutes
   BOARDS: BOARDS
-  IVT: TOTIVT_IVT_minutes
 beam_asim_ridehail_measure_map:
   WAIT: waitTimeInMinutes
   REJECTIONPROB: unmatchedRequestPortion
@@ -260,9 +262,17 @@ FIPS:
       - "209"
       - "453"
       - "491"
+  seattle:
+    state: "53"
+    counties:
+      - "061"
+      - "035"
+      - "033"
+      - "053"
 local_crs:
   sfbay: EPSG:7131
   austin: EPSG:32140
+  seattle: EPSG:32048
 
 # VALIDATION METRIC LIBRARY
 validation_metrics:

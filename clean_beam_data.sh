@@ -5,6 +5,7 @@ for d in pilates/beam/beam_output/*/ ; do
     echo "deleting $d";
     sudo rm -rf "$d"*
 done
+sudo rm pilates/beam/beam_output/*.omx
 
 echo "Deleting activitysim output"
 

@@ -1,7 +1,11 @@
+import pickle
 import warnings
 
+import cloudpickle
+
+pickle.ForkingPickler = cloudpickle.Pickler
+
 from pilates.activitysim.preprocessor import copy_beam_geoms
-from pilates.utils.geog import geoid_to_zone_map
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -9,8 +13,6 @@ import shutil
 import subprocess
 import multiprocessing
 import psutil
-
-import yaml
 
 try:
     import docker
@@ -22,7 +24,6 @@ except ImportError:
     print('Warning: Unable to import spython (Singularity) Module')
 
 import os
-import argparse
 import logging
 import sys
 import glob
@@ -112,20 +113,34 @@ def setup_beam_skims(settings):
 
     # TODO: Handle exception when these dont exist
 
-    logger.info("Copying input skims from {0} to {1}".format(
-        input_skims_location,
-        mutable_skims_location))
-
-    shutil.copyfile(input_skims_location, mutable_skims_location)
+    if os.path.exists(input_skims_location):
+        logger.info("Copying input skims from {0} to {1}".format(
+            input_skims_location,
+            mutable_skims_location))
+        shutil.copyfile(input_skims_location, mutable_skims_location)
+    else:
+        if os.path.exists(mutable_skims_location):
+            logger.info("No input skims at {0}. Proceeding with defaults at {1}".format(
+                input_skims_location,
+                mutable_skims_location))
+        else:
+            logger.info("No default skims found anywhere. We will generate defaults instead")
 
     input_skims_location = os.path.join(beam_input_dir, region, origin_skims_fname)
     mutable_skims_location = os.path.join(beam_output_dir, origin_skims_fname)
 
-    logger.info("Copying input origin skims from {0} to {1}".format(
-        input_skims_location,
-        mutable_skims_location))
-
-    shutil.copyfile(input_skims_location, mutable_skims_location)
+    if os.path.exists(input_skims_location):
+        logger.info("Copying input origin skims from {0} to {1}".format(
+            input_skims_location,
+            mutable_skims_location))
+        shutil.copyfile(input_skims_location, mutable_skims_location)
+    else:
+        if os.path.exists(mutable_skims_location):
+            logger.info("No input skims at {0}. Proceeding with defaults at {1}".format(
+                input_skims_location,
+                mutable_skims_location))
+        else:
+            logger.info("No default input skims found anywhere. We will generate defaults instead")
 
     logger.info("Copying beam zone geoms from {0} to {1}".format(
         beam_geoms_location,
@@ -617,7 +632,13 @@ def run_traffic_assignment(
 
         # remember the last produced skims in order to detect that
         # beam didn't work properly during this run
-        previous_od_skims = beam_post.find_produced_od_skims(beam_local_output_folder)
+        if skims_fname.endswith(".csv.gz"):
+            skimFormat = "csv.gz"
+        elif skims_fname.endswith(".omx"):
+            skimFormat = "omx"
+        else:
+            logger.error("Invalid skim format {0}".format(skims_fname))
+        previous_od_skims = beam_post.find_produced_od_skims(beam_local_output_folder, skimFormat)
         previous_origin_skims = beam_post.find_produced_origin_skims(beam_local_output_folder)
         logger.info("Found skims from the previous beam run: %s", previous_od_skims)
 
@@ -653,17 +674,34 @@ def run_traffic_assignment(
 
         # 4. POSTPROCESS
         path_to_od_skims = os.path.join(abs_beam_output, skims_fname)
-        current_od_skims = beam_post.merge_current_od_skims(
-            path_to_od_skims, previous_od_skims, beam_local_output_folder)
-        if current_od_skims == previous_od_skims:
-            logger.error(
-                "BEAM hasn't produced the new skims at {0} for some reason. "
-                "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
-            )
-            sys.exit(1)
         path_to_origin_skims = os.path.join(abs_beam_output, origin_skims_fname)
-        beam_post.merge_current_origin_skims(
-            path_to_origin_skims, previous_origin_skims, beam_local_output_folder)
+
+        if skimFormat == "csv.gz":
+            current_od_skims = beam_post.merge_current_od_skims(
+                path_to_od_skims, previous_od_skims, beam_local_output_folder)
+            if current_od_skims == previous_od_skims:
+                logger.error(
+                    "BEAM hasn't produced the new skims at {0} for some reason. "
+                    "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
+                )
+                sys.exit(1)
+
+            beam_post.merge_current_origin_skims(
+                path_to_origin_skims, previous_origin_skims, beam_local_output_folder)
+        else:
+            asim_data_dir = settings['asim_local_input_folder']
+            skims_path = os.path.join(asim_data_dir, 'skims.omx')
+            current_od_skims = beam_post.merge_current_omx_od_skims(skims_path, previous_od_skims,
+                                                                    beam_local_output_folder)
+            if current_od_skims == previous_od_skims:
+                logger.error(
+                    "BEAM hasn't produced the new skims at {0} for some reason. "
+                    "Please check beamLog.out for errors in the directory {1}".format(current_od_skims, abs_beam_output)
+                )
+                sys.exit(1)
+            beam_asim_ridehail_measure_map = settings['beam_asim_ridehail_measure_map']
+            beam_post.merge_current_omx_origin_skims(
+                skims_path, previous_origin_skims, beam_local_output_folder, beam_asim_ridehail_measure_map)
         beam_post.rename_beam_output_directory(settings, year, replanning_iteration_number)
 
     return
@@ -847,6 +885,19 @@ if __name__ == '__main__':
         client = initialize_docker_client(settings)
     else:
         client = None
+
+    # # DELETE ME:
+    # skimFormat = "omx"
+    # asim_data_dir = settings['asim_local_input_folder']
+    # beam_local_output_folder = settings['beam_local_output_folder']
+    # previous_od_skims = beam_post.find_produced_od_skims(beam_local_output_folder, skimFormat)
+    # skims_path = os.path.join(asim_data_dir, 'skims.omx')
+    # previous_origin_skims = beam_post.find_produced_origin_skims(beam_local_output_folder)
+    # measure_map = settings['beam_asim_ridehail_measure_map']
+    # beam_post.merge_current_omx_origin_skims(
+    #     skims_path, previous_origin_skims, beam_local_output_folder, measure_map)
+    # current_od_skims = beam_post.merge_current_omx_od_skims(skims_path, previous_od_skims,
+    #                                                         beam_local_output_folder)
 
     #################################
     #  RUN THE SIMULATION WORKFLOW  #

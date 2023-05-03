@@ -107,3 +107,5 @@ tmp.py
 
 # Tin's notes
 pilates_conda_env_setup4hima.txt
+
+*.DS_Store
