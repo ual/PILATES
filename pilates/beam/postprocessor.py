@@ -337,7 +337,7 @@ def merge_current_omx_origin_skims(all_skims_path, previous_skims_path, beam_out
     skims = omx.open_file(all_skims_path, 'a')
     idx = pd.Index(np.array(list(skims.mapping("zone_id").keys()), dtype=str).copy())
     for (timePeriod, reservationType, serviceName), _df in cur_skims.groupby(level=[0, 1, 2]):
-        df = _df.loc[(timePeriod, reservationType)].reindex(idx, fill_value=0.0)
+        df = _df.loc[(timePeriod, reservationType, serviceName)].reindex(idx, fill_value=0.0)
 
         trips = "RH_{0}_{1}_{2}__{3}".format(serviceName.upper(), reservationType.upper(), 'TRIPS', timePeriod.upper())
         failures = "RH_{0}_{1}_{2}__{3}".format(serviceName.upper(), reservationType.upper(), 'FAILURES', timePeriod.upper())
@@ -405,7 +405,7 @@ def merge_current_origin_skims(all_skims_path, previous_skims_path, beam_output_
         all_skims.drop_duplicates(inplace=True)
     all_skims.to_csv(all_skims_path, index=True)
     cur_skims['totalWaitTimeInMinutes'] = cur_skims['waitTimeInMinutes'] * cur_skims['completedRequests']
-    totals = cur_skims.groupby(['timePeriod', 'reservationType']).sum()
+    totals = cur_skims.groupby(['timePeriod', 'reservationType', 'serviceName']).sum()
     totals['matchedPercent'] = totals['completedRequests'] / totals['observations']
     totals['meanWaitTimeInMinutes'] = totals['totalWaitTimeInMinutes'] / totals['completedRequests']
     logger.info("Ridehail matching summary: \n {0}".format(totals[['meanWaitTimeInMinutes', 'matchedPercent']]))

@@ -363,7 +363,7 @@ def _raw_beam_origin_skims_preprocess(settings, year, origin_skims_df):
     test_3 = len(set(order) - set(origin_taz))
     assert test_3 == 0, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
     return origin_skims_df.loc[origin_skims_df['origin'].isin(order)].set_index(['timePeriod',
-                                                                                 'reservationType', 'origin'])
+                                                                                 'reservationType', 'serviceName', 'origin'])
 
 
 def _create_skims_by_mode(settings, skims_df):
@@ -682,7 +682,7 @@ def _ridehail_skims(settings, ridehail_df, order, data_dir=None):
 
     for path, skimPath in ridehail_path_map.items():
         for period in periods:
-            df_ = df.loc[(period, skimPath), :].loc[order, :]
+            df_ = df.loc[(period, skimPath['reservationType'], skimPath['serviceName']), :].loc[order, :]
             for measure, skimMeasure in measure_map.items():
                 name = '{0}_{1}__{2}'.format(path, measure, period)
                 if measure == 'REJECTIONPROB':
