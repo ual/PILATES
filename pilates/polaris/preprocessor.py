@@ -10,7 +10,7 @@ import random
 import logging
 from sortedcontainers import SortedDict
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("polaris.pre")
 
 # ======================= Settings for the run =======================
 # usim_output = 'model_data_2011.h5'
@@ -22,22 +22,22 @@ logger = logging.getLogger(__name__)
 
 
 class Household:
+	hht_mapping = {1: 4, 2: 4, 3: 1, 4: 1, 5: 9, 6: 9, 7: 6, 8: 6}
+	hu_type_map = {'yes': 1, 'no': 3}
 	def __init__(self, id, hh, from_usim=True):
 		self.id = id
 		if from_usim:
-			self.hhold = hh['serialno']
-			self.block_id = hh['block_id']
+			self.hhold = hh.serialno
+			self.block_id = hh.block_id
 			self.location = -1
 			self.zone = -1
-			self.vehicles = hh['cars']
-			self.persons = hh['persons']
-			self.income = hh['income']
-			self.workers = hh['workers']
+			self.vehicles = hh.cars
+			self.persons = hh.persons
+			self.income = hh.income
+			self.workers = hh.workers
 			# 1= own_1p_<54, 2=own_1p_55+, 3=own_2p_<54, 4=own_2p_55+, 5= rent_1p_<54, 6=rent_1p_55+, 7=rent_2p_<54, 8=rent_2p_55+
-			hht_mapping = {1: 4, 2: 4, 3: 1, 4: 1, 5: 9, 6: 9, 7: 6, 8: 6} 
-			self.hhtype = hht_mapping[hh['hh_type']] 
-			hu_type_map = {'yes': 1, 'no': 3}
-			self.housing_unit_type = hu_type_map[hh['sf_detached']]				
+			self.hhtype = Household.hht_mapping[hh.hh_type]
+			self.housing_unit_type = Household.hu_type_map[hh.sf_detached]
 			self.person_list = {}
 			self.vehicle_list = {}
 			self.ecom = 0
@@ -56,13 +56,13 @@ class Household:
 			self.person_list = {}
 			self.vehicle_list ={}
 			self.location = hh['location']
-			
+
 			self.usim_record = None
 			# store the full record from the sqlite query as a data element, in case specification changes
 			self.data = hh
 
-			
-	
+
+
 	def push_to_db(self, dbCon):
 		try:
 			if self.usim_record is not None:
@@ -75,7 +75,7 @@ class Household:
 				dbCon.execute(query, [self.id, *list(self.data.values())])
 		except sqlite3.IntegrityError:
 			print(self.data)
-		
+
 	def set_marital_status_for_members(self):
 		married = False
 		ref_per = None
@@ -95,39 +95,40 @@ class Person:
 	def __init__(self, id, per, from_usim=True):
 		self.id = id
 		if from_usim:
-			self.per_id = per['member_id']-1
-			self.household = per['household_id']
-			self.age = per['age']
-			self.worker_class = per['worker']
-			self.education = per['edu']
+			self.per_id = per.member_id-1
+			self.household = per.household_id
+			self.age = per.age
+			self.worker_class = per.worker
+			self.education = per.edu
 			self.industry = 0
-			self.employment = per['worker']
-			self.gender = per['sex']
-			self.income = per['earning']
-			self.relate = per['relate']
+			self.employment = per.worker
+			self.gender = per.sex
+			self.income = per.earning
+			self.relate = per.relate
 			self.marital_status = 5  # never married in Polaris enum
-			self.race = per['race_id']
+			self.race = per.race_id
 			enrollment_map = {0: 0, 1: 2}
-			self.school_enrollment = enrollment_map[per['student']]
-			self.school_grade_level = max(min(per['student']*(self. age-3), 15), 0)  # use age to guess at grade level for those enrolled in school
-			self.work_hours = per['hours']
-			self.telecommute_level = per['work_at_home']*4
+			self.school_enrollment = enrollment_map[per.student]
+			self.school_grade_level = max(min(per.student*(self. age-3), 15), 0)  # use age to guess at grade level for those enrolled in school
+			self.work_hours = per.hours
+			self.telecommute_level = per.work_at_home*4
+			self.journey_to_work_mode = 1
 			# create and initialze the school and work zones if they don't exist - otherwise read them. Note - called 'zone' in the urbansim data, but in polaris refers to the activity location id
 			if 'work_zone_id' in per:
-				self.work_zone_id = per['work_zone_id']
-				if pd.isnull(per['work_zone_id']):
+				self.work_zone_id = per.work_zone_id
+				if pd.isnull(per.work_zone_id):
 					self.work_zone_id = -1
 			else:
 				self.work_zone_id = -1
 			if 'school_zone_id' in per:
-				self.school_zone_id = per['school_zone_id']
-				if pd.isnull(per['school_zone_id']): # if value exists but is null in urbansim data - replace with -1 due to not null constraint in polaris sqlite db
+				self.school_zone_id = per.school_zone_id
+				if pd.isnull(per.school_zone_id): # if value exists but is null in urbansim data - replace with -1 due to not null constraint in polaris sqlite db
 					self.school_zone_id = -1
 			else:
 				self.school_zone_id = -1
 			if 'time_in_job' in per:
-				self.time_in_job = per['time_in_job']
-				if pd.isnull(per['time_in_job']):
+				self.time_in_job = per.time_in_job
+				if pd.isnull(per.time_in_job):
 					self.time_in_job = -1
 			else:
 				self.time_in_job = -1
@@ -137,15 +138,15 @@ class Person:
 			self.household = per['household']
 			self.data = per
 			self.usim_record = None
-			
+
 	def push_to_db(self, dbCon):
 		if self.usim_record is not None:
 			try:
 				if not self.school_zone_id:
 					self.school_zone_id = -1
 				#query = 'insert into Person (person,household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
-				query = 'insert into Person (household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id, time_in_job) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
-				dbCon.execute(query, [self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.transit_pass, self.work_zone_id, self.school_zone_id, self.time_in_job])
+				query = 'insert into Person (household,id,age,worker_class,education,industry,employment,gender,income, marital_status, race,school_enrollment, school_grade_level,work_hours,telecommute_level, transit_pass, work_location_id, school_location_id, time_in_job, journey_to_work_mode) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);'
+				dbCon.execute(query, [self.household, self.per_id, self.age, self.worker_class, self.education, self.industry, self.employment, self.gender, self.income, self.marital_status, self.race, self.school_enrollment, self.school_grade_level, self.work_hours, self.telecommute_level, self.transit_pass, self.work_zone_id, self.school_zone_id, self.time_in_job, self.journey_to_work_mode])
 			except sqlite3.IntegrityError:
 				print('SQLITE3 integrity error: ')
 				print(self.usim_record)
@@ -158,15 +159,15 @@ class Person:
 			except sqlite3.IntegrityError:
 				print('SQLITE3 integrity error: ')
 				print(self.data)
-	
-	
+
+
 class Vehicle:
-	def __init__(self, veh):	
+	def __init__(self, veh):
 		self.id = veh['vehicle_id']
 		self.household = veh['hhold']
 		self.data = veh
 
-		
+
 	def push_to_db(self, dbCon):
 		try:
 			fields_list = ','.join(self.data.keys())
@@ -176,23 +177,23 @@ class Vehicle:
 		except sqlite3.IntegrityError:
 			print('SQLITE3 integrity error: ')
 			print(self.veh)
-	
+
 
 class Job:
+	job_mapping = {'11': 3, '21': 3, '22': 3, '23': 3, '42': 0, '51': 2, '52': 2, '53': 2, '54': 2, '55': 2, '56': 5, '61': 1, '62': 5, '71': 5, '72': 2, '81': 2, '92': 1, '31-33': 4, '44-45': 0, '48-49': 3}
 	def __init__(self, job):
-		self.block_id = job['block_id']
-		self.sector = job['sector_id']
-		job_mapping = {'11': 3, '21': 3, '22': 3, '23': 3, '42': 0, '51': 2, '52': 2, '53': 2, '54': 2, '55': 2, '56': 5, '61': 1, '62': 5, '71': 5, '72': 2, '81': 2, '92': 1, '31-33': 4, '44-45': 0, '48-49': 3}
-		self.sector_agg = job_mapping[self.sector]
+		self.block_id = job.block_id
+		self.sector = job.sector_id
+		self.sector_agg = Job.job_mapping[self.sector]
 		self.zone = None
 		self.usim_record = job
-		
+
 
 class Block:
 	def __init__(self, id, block):
 		self.id = id
-		self.county_id = block['county_id']
-		self.tract_id = block['tract_id']
+		self.county_id = block.county_id
+		self.tract_id = block.tract_id
 		self.zone = None
 
 
@@ -211,20 +212,20 @@ class Zone:
 		self.percent_white = 0
 		self.percent_black = 0
 		self.hh_inc_avg = 0
-	
+
 	def Add_HH(self, HH):
 		self.households += 1
 		self.hh_inc_avg += HH.income
 		for p in HH.person_list.values():
 			self.Add_Person(p)
-	
+
 	def Add_Person(self, P):
 		self.persons += 1
 		if P.race == 1:
 			self.percent_white += 1
-		if P.race == 1:
+		if P.race == 2:
 			self.percent_black += 1
-	
+
 	def Add_Job(self, J):
 		self.employment_total += 1
 		if J.sector_agg == 0:
@@ -239,43 +240,49 @@ class Zone:
 			self.employment_manufacturing += 1
 		if J.sector_agg == 5:
 			self.employment_other += 1
-			
+
 	def Normalize(self):
 		if self.persons > 0:
 			self.percent_white = self.percent_white / self.persons
 			self.percent_black = self.percent_black / self.persons
 		if self.households > 0:
 			self.hh_inc_avg = self.hh_inc_avg / self.households
-		
+
 	def Update_Zone_in_DB(self, DbCon):
-		Q = 'UPDATE zone SET pop_households = ?, pop_persons = ?, employment_total = ?, employment_retail = ?, employment_retail = ?, employment_retail = ?, employment_retail = ?, employment_retail = ?, employment_retail = ?, percent_white = ?, percent_black = ?, hh_inc_avg = ? WHERE zone = ?'
+		Q = 'UPDATE zone SET pop_households = ?, pop_persons = ?, employment_total = ?, employment_retail = ?, employment_government = ?, employment_manufacturing = ?, employment_services = ?, employment_industrial = ?, employment_other = ?, percent_white = ?, percent_black = ?, hh_inc_avg = ? WHERE zone = ?'
 		DbCon.execute(Q, [self.households,  self.persons,  self.employment_total,  self.employment_retail,  self.employment_government,  self.employment_manufacturing,  self.employment_services,  self.employment_industrial,  self.employment_other,  self.percent_white,  self.percent_black,  self.hh_inc_avg, self.id])
-		
+
 
 def clean_db(DbCon, clear_agents=True):
 	logger.info("Clean up the input database for writing...")
 
 	DbCon.execute('pragma foreign_keys=off;')
-	
+
 	if clear_agents:
 		DbCon.execute('delete from Household;')
 		DbCon.execute('delete from Person;')
 		DbCon.execute('delete from Vehicle;')
-	
+
 	DbCon.execute('delete from Activity;')
 	DbCon.execute('delete from EV_Charging;')
 	DbCon.execute('delete from Path;')
 	DbCon.execute('delete from Path_Multimodal;')
 	DbCon.execute('delete from Path_Multimodal_links;')
-	DbCon.execute('delete from Path_links;')	
+	DbCon.execute('delete from Path_links;')
 	DbCon.execute('delete from Person_Gaps;')
 	DbCon.execute('delete from Plan;')
 	DbCon.execute('delete from TNC_Trip;')
 	DbCon.execute('delete from Transit_Vehicle;')
 	DbCon.execute('delete from Transit_Vehicle_links;')
 	DbCon.execute('delete from Traveler;')
-	DbCon.execute('delete from Trip where person is not null;')
-	
+	DbCon.execute('delete from Trip where type <> 22;')
+
+	# Clean all FK references
+	DbCon.execute('update Trip set vehicle = NULL;')
+	DbCon.execute('update Trip set person = NULL;')
+	DbCon.execute('update Trip set path = NULL;')
+	DbCon.execute('update Trip set path_multimodal = NULL;')
+
 	DbCon.execute('drop table if exists act_wait_count;')
 	DbCon.execute('drop table if exists activity_Start_Distribution;')
 	DbCon.execute('drop table if exists activity_distribution;')
@@ -333,13 +340,13 @@ class Usim_Data:
 		self.per_dict = {}
 		self.job_dict = {}
 		self.block_dict = {}
-		
+
 		# verify filepaths
 		#usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
 		if not os.path.exists(usim_output):
 			logger.critical("Error: input urbansim data file path not found: " + usim_output)
 			sys.exit()
-			
+
 		# Connect to urbansim output and import data
 		if forecast_year:
 			self.households_data_lbl = '{0}/households'.format(forecast_year)
@@ -351,51 +358,53 @@ class Usim_Data:
 			self.persons_data_lbl = 'persons'
 			self.jobs_data_lbl = 'jobs'
 			self.blocks_data_lbl = 'blocks'
-		
+
 		self.usim_data = pd.HDFStore(usim_output)
-		
+
 		self.hh_data = self.usim_data[self.households_data_lbl]
 		self.hh_idx = self.hh_data.index
 		self.per_data = self.usim_data[self.persons_data_lbl]
 		self.per_idx = self.per_data.index
 		self.job_data = self.usim_data[self.jobs_data_lbl]
 		self.block_data = self.usim_data[self.blocks_data_lbl]
-		
+
 	def Fill_From_Usim_Output(self):
-		
+
 		#self.Get_Usim_Datastores()
 
 		# Iterate through households in the datastore and construct HH objects, as well as the household-block distribution pdf
 		logger.info('Reading households from Urbansim output...')
-		for idx, data in self.hh_data.iterrows():
-			hh = Household(idx, data)
-			self.hh_dict[hh.id] = hh		
+		for row in self.hh_data.itertuples(index=True):
+			self.hh_dict[row.Index] = Household(row.Index, row)
 
 		# Iterate through persons in the datastore and construct PER objects
 		logger.info('Reading persons from Urbansim output...')
-		for idx, data in self.per_data.iterrows():
-			p = Person(idx, data)
-			
+		for data in self.per_data.itertuples():
+			p = Person(data.Index, data)
+
 			# check that person is in a valid household
 			if p.household in self.hh_dict:
 				self.hh_dict[p.household].person_list[p.id] = p  # put person into the appropriate household member dictionary
 
 		for h in self.hh_dict.values():
 			h.set_marital_status_for_members()
-		
-		# Iterate through blocks in the datastore and construct Block objects		
+
+		# Iterate through blocks in the datastore and construct Block objects
 		logger.info('Reading blocks from Urbansim output...')
-		for id, data in self.block_data.iterrows():
-			b = Block(id, data)
-			self.block_dict[id] = b
-			
+		for data in self.block_data.itertuples():
+			self.block_dict[data.Index] = Block(data.Index, data)
+
 		logger.info('Reading jobs from Urbansim output...')
-		for id, data in self.job_data.iterrows():
-			j = Job(data)
-			self.job_dict[id] = j
+		for data in self.job_data.itertuples():
+			# ignore job if it is unplaced
+			try:
+				b_id = int(data.block_id)
+				self.job_dict[data.Index] = Job(data)
+			except ValueError:
+				pass
 
 	def Close(self):
-		self.usim_data[self.persons_data_lbl] = self.per_data 
+		self.usim_data[self.persons_data_lbl] = self.per_data
 		self.usim_data.close()
 		logger.info("Closing urbansim hdf5 file...")
 
@@ -406,11 +415,11 @@ class Polaris_Data:
 		self.per_dict = {}
 		self.veh_dict = {}
 		self.Fill_From_Polaris_Data(demand_db)
-		
+
 	def Fill_From_Polaris_Data(self, demand_db):
 		demand_db.row_factory = sqlite3.Row
 		cur = demand_db.cursor()
-	
+
 		for row in cur.execute('Select * from Household').fetchall():
 			data = dict(row)
 			id = data['household']
@@ -427,20 +436,20 @@ class Polaris_Data:
 			v = Vehicle(data)
 			if v.data['hhold'] in self.hh_dict:
 				self.hh_dict[v.household].vehicle_list[v.id] = v
-				
+
 		# clear the source demand db after reading
 		clean_db(demand_db)
 
 
 def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, db_supply, db_demand, population_scale_factor, usim_settings):
-	
+
 	logger.info('Starting polaris preprocessor for forecast year {0}'.format(forecast_year))
-	
+
 	random.seed()
-	
+
 	# verify filepaths
 	delete_agents = True # flag to indicate whether all hh, person, vehicles should be deleted and reimported from UrbanSim (True) or only updated from UrbanSim (False)
-	
+
 	if forecast_year:
 		usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
 		delete_agents = False
@@ -472,7 +481,7 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 	block_to_loc = {}
 	loc_to_zone = {}
 	block_to_zone = {}
-	
+
 	# Read in block to location correspondence
 	blk = pd.read_csv(block_loc_file, dtype='str')
 	for id, data in blk.iterrows():
@@ -481,7 +490,7 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 	# Read in location to zone correspondence from Supply
 	for row in DbSupply.execute('Select location, zone from location'):
 		loc_to_zone[row[0]] = row[1]
-	
+
 	# construct block to zone correspondence
 	for b, l in block_to_loc.items():
 		block_to_zone[b] = loc_to_zone[l]
@@ -489,14 +498,14 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 
 	# ==================== MODIFY THE INPUT DEMAND POPULATION in DEMAND.SQLITE =======================================
 	clean_db(DbCon, delete_agents)
-	
+
 	# Read the current demand database to find existing households/persons (will be empty if delete_agents=True)
 	polaris_data = Polaris_Data(DbCon)
 
 	logger.info('Reading urbansim data from {0}'.format(usim_output))
 	usim_data = Usim_Data(forecast_year, usim_output)
 	usim_data.Fill_From_Usim_Output()
-	
+
 	# Connect to urbansim output and import data
 	hh_unplaced = []
 	block_hh_count = {}
@@ -524,14 +533,14 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 				block_hh_count[hh.block_id] = 1.0
 		else:
 			hh_unplaced.append(hh)
-	
+
 	# create the block pdf
 	c_prob = 0.0
 	for id, count in block_hh_count.items():
 		c_prob += count/num_valid_HH
 		block_pdf[c_prob] = id
 	block_pdf[1.0] = block_pdf.values()[-1]
-	
+
 
 	# place the unplaced households
 	for hh in hh_unplaced:
@@ -570,15 +579,17 @@ def preprocess_usim_for_polaris(forecast_year, usim_output_dir, block_loc_file, 
 	# ==================== MODIFY THE ZONES in SUPPLY.SQLITE =======================================
 	logger.info('Reading jobs from Urbansim output...')
 	for id, j in usim_data.job_dict.items():
-		j.zone = block_to_zone[j.block_id]
+		if j.block_id in block_to_loc:
+			j.zone = block_to_zone[j.block_id]
 
 	for id, hh in usim_data.hh_dict.items():
 		hzone = zone_data[hh.zone]
 		hzone.Add_HH(hh)
 
 	for id, j in usim_data.job_dict.items():
-		jzone = zone_data[j.zone]
-		jzone.Add_Job(j)
+		if j.zone:
+			jzone = zone_data[j.zone]
+			jzone.Add_Job(j)
 
 	logger.info('Pushing zone data from Urbansim output...')
 	for id, z in zone_data.items():

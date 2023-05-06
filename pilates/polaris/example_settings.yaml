@@ -11,6 +11,7 @@ start_year: 2010
 end_year: 2040
 land_use_freq: 1
 travel_model_freq: 5
+restart_from_polaris: False
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
@@ -18,10 +19,11 @@ travel_model: polaris
 activity_demand_model: polaris
 
 # docker or singularity
-container_manager: docker
+container_manager: singularity
 #singularity settings
 singularity_images:
-  urbansim: block_model_v2_pb.sif
+  # urbansim: /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/block_model_v2_pb.sif
+  urbansim: docker://jdcaicedo/block_model_v2_pb:latest
   beam:
   activitysim:
   polaris:
@@ -29,7 +31,7 @@ singularity_images:
 # docker settings
 docker_images:
   urbansim: mxndrwgrdnr/block_model_v2_pb:latest
-  beam: 
+  beam:
   activitysim:
   activity_cemand_model:
   polaris:
@@ -42,7 +44,7 @@ skims_fname: campo_skims.hdf5
 skim_format: polaris
 skims_zone_type: taz  # one of [taz, block_group, block]
 region_zone_type:
-  austin: taz # one of [taz, block_groups, block]                                              
+  austin: taz # one of [taz, block_groups, block]
 
 #########################################################################################################
 
@@ -59,9 +61,10 @@ usim_client_data_folder: /base/block_model_probaflow/data/
 usim_formattable_input_file_name: "custom_mpo_{region_id}_model_data.h5"
 usim_formattable_output_file_name: "model_data_{year}.h5"
 usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
+warm_start_activities: True
 
 
-# BEAM 
+# BEAM
 beam_config: gemini/activitysim-base-from-60k-input.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
@@ -74,6 +77,7 @@ replan_after: trip_scheduling  # resume asim after this step
 final_asim_plans_folder:
 
 # POLARIS
+polaris_exe: /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/Integrated_Model_crossover/Integrated_Model
 polaris_local_data_folder: pilates/polaris/data
 polaris_skim_keys:
   base: 'auto_skims'
@@ -93,7 +97,7 @@ asim_validation_folder: pilates/activitysim/validation
 asim_formattable_command: "-h {0} -n {1} -c {2}"
 region_to_asim_subdir:
   austin: austin
-  detroit: detroit 
+  detroit: detroit
   sfbay: bay_area
 region_to_asim_bucket:
   austin: austin-activitysim
@@ -111,7 +115,7 @@ transit_paths:
   - DRV_LOC_WLK
   - DRV_LRF_WLK
   - DRV_EXP_WLK
-  - WLK_COM_DRV   
+  - WLK_COM_DRV
   - WLK_HVY_DRV
   - WLK_LOC_DRV
   - WLK_LRF_DRV

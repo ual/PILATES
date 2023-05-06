@@ -11,6 +11,7 @@ start_year: 2010
 end_year: 2020
 land_use_freq: 1
 travel_model_freq: 5
+restart_from_polaris: False
 
 # simulation platforms (leave blank to turn off)
 land_use_model: urbansim
@@ -21,7 +22,8 @@ activity_demand_model: activitysim
 container_manager: docker
 #singularity settings
 singularity_images:
-  urbansim: block_model_v2_pb.sif
+  # urbansim: /lcrc/project/POLARIS/bebop/SMART_FY22_LAND_USE/bin/block_model_v2_pb.sif
+  urbansim: docker://jdcaicedo/block_model_v2_pb:latest
   beam:
   activitysim:
   polaris:
@@ -60,7 +62,7 @@ usim_formattable_command: "-r {0} -i {1} -y {2} -f {3} -t {4}"
 warm_start_activities: False
 
 
-# BEAM 
+# BEAM
 beam_config: gemini/activitysim-base-from-60k-input.conf
 beam_local_input_folder: pilates/beam/production/
 beam_local_output_folder: pilates/beam/beam_output/
@@ -92,7 +94,7 @@ asim_validation_folder: pilates/activitysim/validation
 asim_formattable_command: "-h {0} -n {1} -c {2}"
 region_to_asim_subdir:
   austin: austin
-  detroit: detroit 
+  detroit: detroit
   sfbay: bay_area
 region_to_asim_bucket:
   austin: austin-activitysim
@@ -110,7 +112,7 @@ transit_paths:
   - DRV_LOC_WLK
   - DRV_LRF_WLK
   - DRV_EXP_WLK
-  - WLK_COM_DRV   
+  - WLK_COM_DRV
   - WLK_HVY_DRV
   - WLK_LOC_DRV
   - WLK_LRF_DRV

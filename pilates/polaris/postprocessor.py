@@ -3,61 +3,58 @@ import pandas as pd
 import sys
 import sqlite3
 import argparse
-import pilates.polaris.skim_file_reader as skim_reader
+import pilates.polaris.polarisruntime as PR
 from pilates.polaris.preprocessor import Usim_Data
 from pathlib import Path
 import shutil
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("polaris.post")
 
-def archive_polaris_output(database_name, forecast_year, output_dir, data_dir):
+def update_polaris_after_warmstart(new_db, source_db):
+	DbCon = sqlite3.connect ( new_db )
+	DbCon.execute ( "pragma foreign_keys = on;" )
+	DbCon.execute ( "attach database '" + str(source_db) + "' as a;" )
+	logger.info('Updating warm start DB with existing external trips...')
+	query =  "insert into trip select * from a.trip;"
+	DbCon.execute ( query )
+	DbCon.commit()
+
+def archive_polaris_output(database_name, forecast_year, output_dir, model_dir):
 	# build archive folder name
-	folder_name = '{0}-{1}'.format(database_name, forecast_year)
-	# Create archive Directory if don't exist
-	archive = Path(os.path.join(data_dir, folder_name))
-	# check if folder already exists
-	if not archive.exists():
-		os.mkdir(str(archive))
-		logger.info(f"Directory:  {archive} Created ")
-	else:
-		logger.info(f"Directory: {archive} already exists")
+	archive = Path(f'{model_dir}/archive/{database_name}-{forecast_year}')
+	archive.mkdir(parents=True, exist_ok=True)
 	# copy output folder to archive folder
 	tgt = os.path.join(archive, os.path.basename(output_dir))
 	shutil.copytree(output_dir, tgt)
 	return Path(tgt)
 
-def archive_and_generate_usim_skims(forecast_year, db_name, output_dir, vot_level):
+def archive_and_generate_usim_skims(pilates_data_dir, forecast_year, db_name, output_dir, vot_level):
 	logger.info('Archiving UrbanSim skims')
 
 	# rename existing h5 file
-	data_dir = 'pilates/polaris/data'
-	old_name = '{0}/{1}_skims.hdf5'.format(data_dir, db_name)
-	new_name = '{0}/{1}_{2}_skims.hdf5'.format(data_dir, db_name, forecast_year)
+	data_dir = pilates_data_dir / 'pilates/polaris/data'
+	old_name = data_dir / f'{db_name}_skims.omx'
+	new_name = data_dir / f'{db_name}_{forecast_year}_skims.omx'
 	os.rename(old_name,new_name)
 
 	# generate new h5 file
 	logger.info('Generating new UrbanSim skims')
-	NetworkDbPath = '{0}/{1}-Supply.sqlite'.format(output_dir, db_name)
-	DemandDbPath = '{0}/{1}-Demand.sqlite'.format(output_dir, db_name)
-	ResultDbPath = '{0}/{1}-Result.sqlite'.format(output_dir, db_name)
-	auto_skim_path = '{0}/highway_skim_file.bin'.format(output_dir)
-	transit_skim_path = '{0}/transit_skim_file.bin'.format(output_dir)
-	#vot_level = 2
-	generate_polaris_skims_for_usim(data_dir, db_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
+	files = PR.PolarisInputs.from_dir(output_dir, db_name)
+	generate_polaris_skims_for_usim(data_dir, db_name, files.supply_db, files.demand_db, files.result_db, files.highway_skim, files.transit_skim, vot_level)
 
 def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level):
 
-	skims = skim_reader.Skim_Results(silent=True)
-	skim_reader.Main(skims,auto_skim_path, transit_skim_path)
+	skims = PR.HighwaySkim()
+	skims.open(auto_skim_path)
+	#skim_transit = TransitSkim()
+	#skim_transit.open(transit_skim_path)
 
 	#******************************************************************************************************************************************************************
 	#standard db entry - do not modify
 	#------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	DbCon = sqlite3.connect ( DemandDbPath )
 	DbCon.execute ( "pragma foreign_keys = on;" )
-	ProcessDir = os.getcwd ()
-
 	DbCon.execute ( "attach database '" + NetworkDbPath + "' as a;" )
 	DbCon.execute ( "attach database '" + ResultDbPath + "' as b;" )
 
@@ -88,10 +85,10 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 			self.total += count
 
 		def set_congestion_and_highway_flags(self, skim):
-			o_idx = skim.zone_id_to_index_map[self.oid]
-			d_idx = skim.zone_id_to_index_map[self.did]
-			fft = skim.auto_ttime_skims[skim.intervals[0]][o_idx,d_idx]/60
-			dst = skim.auto_distance_skims[skim.intervals[0]][o_idx,d_idx]/1000
+			o_idx = skim.get_zone_idx(self.oid)
+			d_idx = skim.get_zone_idx(self.did)
+			fft = (skim.time[skim.intervals[0]][o_idx][d_idx])/60.0
+			dst = skim.distance[skim.intervals[0]][o_idx][d_idx]/1000.0
 			if fft == 0:
 				self.highway = 0
 			elif dst/fft > 80.0:
@@ -99,7 +96,7 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 
 			# get the congestion level for each timeperiod
 			for i in range(0,len(skim.intervals)):
-				tt = skim.auto_ttime_skims[skim.intervals[i]][o_idx,d_idx]/60
+				tt = skim.time[skim.intervals[i]][o_idx][d_idx]/60.0
 				if fft == 0:
 					self.congestion_level_by_time.append(0.0)
 				elif tt/fft > 1.5:
@@ -160,10 +157,10 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 							return 0.6
 
 		def calculate_gttime_factor(self, skim, wait_times):
-			
-			o_idx = skim.zone_id_to_index_map[self.oid]
-			d_idx = skim.zone_id_to_index_map[self.did]
-			
+
+			o_idx = skim.get_zone_idx(self.oid)
+			d_idx = skim.get_zone_idx(self.did)
+
 			if self.total > 0:
 				self.tnc = self.tnc/self.total
 				self.noAV = self.noAV/self.total
@@ -177,14 +174,14 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 				self.l5 = 0.0
 				wait = wait_times[self.o_idx]
 
-			
+
 
 			# determine if the OD pair is mostly highway or arterial
 			self.set_congestion_and_highway_flags(skim)
 
 			# for each skim_time period, calculate the gttime factor
 			for i in range(0,len(skim.intervals)):
-				tt = skim.auto_ttime_skims[skim.intervals[i]][o_idx,d_idx]
+				tt = skim.time[skim.intervals[i]][o_idx][d_idx]
 				l3_factor = self.get_factor(vot_level, self.congestion_level_by_time[i], 1,0,self.highway)
 				l5_factor = self.get_factor(vot_level, self.congestion_level_by_time[i], 0,1,self.highway)
 				tnc_factor = 1.0
@@ -235,9 +232,7 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 		query2 += "group by zone order by zone;"
 		ZoneRows = DbCon.execute ( query2 )
 
-		ZoneWaitTimes = {}
-		for zone, avg_wait in ZoneRows:
-			ZoneWaitTimes[zone] = avg_wait
+		ZoneWaitTimes = { zone:avg_wait for zone, avg_wait in ZoneRows }
 		print ('Done.')
 
 
@@ -266,10 +261,10 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 
 		#******************************************************************************************************************************************************************
 		# Add the missing OD pairs using the zonal average share values
-		for oid in skims.zone_id_to_index_map:
+		for oid in skims.index['zones'].tolist():
 			if oid in OD_info:
 				o_info = OD_info[oid]
-				for did in skims.zone_id_to_index_map:
+				for did in skims.index['zones'].tolist():
 					if did not in o_info.OD_records:
 						o_info.add_OD_record(oid, did, 0,0,0)
 						od_rec = o_info.OD_records[did]
@@ -286,31 +281,29 @@ def generate_polaris_skims_for_usim(output_dir, database_name, NetworkDbPath, De
 			#o.calculate_gttime_factor(skims)
 			for did, d in o.OD_records.items():
 				#print(oid, did, d.noAV, d.l3, d.l5, d.tnc, d.total)
-				o_idx = skims.zone_id_to_index_map[oid]
-				d_idx = skims.zone_id_to_index_map[did]
+				o_idx = skims.get_zone_idx(oid)
+				d_idx = skims.get_zone_idx(did)
 				# get the new factors
 				d.calculate_gttime_factor(skims, ZoneWaitTimes)
 				# update the skim values
 				for i in range(0,len(skims.intervals)):
-					tt = skims.auto_ttime_skims[skims.intervals[i]][o_idx,d_idx]
-					skims.auto_ttime_skims[skims.intervals[i]][o_idx,d_idx] = tt * d.gttime_factor[i]
+					tt = skims.time[skims.intervals[i]][o_idx][d_idx]
+					skims.time[skims.intervals[i]][o_idx,d_idx] = tt * d.gttime_factor[i]
 		print ('Done.')
 
 	#******************************************************************************************************************************************************************
 	# write the final updated skims to hdf5 and close...
 	#------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	print ('Writing HDF5 database...')
-	output_file = '{0}/{1}_skims.hdf5'.format(output_dir, database_name)
-	skim_reader.WriteSkimsHDF5(output_file, skims, False)
+	print ('Writing update skim omx file...')
+	output_file = '{0}/{1}_skims.omx'.format(output_dir, database_name)
+	skims.write(output_file)
 	print ('Done.')
 
 def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_settings):
-	
-	
 	if not os.path.exists(db_demand):
 		logger.critical("Error: input polaris demand db not found at: " + db_demand)
 		sys.exit()
-		
+
 	# verify filepaths
 	if forecast_year:
 		usim_output = "{0}/model_data_{1}.h5".format(usim_output_dir, forecast_year)
@@ -321,26 +314,26 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 		usim_base_fname = usim_settings['usim_formattable_input_file_name']
 		usim_base = usim_base_fname.format(region_id=region_id)
 		usim_output = "{0}/{1}".format(usim_output_dir, usim_base)
-		
-	logger.info(("Updating urbansim model, {0}, from polaris demand database...").format(usim_output))
-	
+
+	logger.info(f"Updating urbansim model, {usim_output}, from polaris demand database...")
+
 	# load the polaris person table into a data frame - should be updated with work and school locations
 	dbcon = sqlite3.connect(db_demand)
-	
+
 	# get the person table
 	per_df = pd.read_sql_query("SELECT * FROM person", dbcon, index_col=['person'])
 	per_df = per_df.reset_index()
-	
+
 	# change member id to one-indexed for consistency with urbansim
 	per_df['id'] = per_df['id'] + 1
 
-	# create common multi-index using household and member id 
+	# create common multi-index using household and member id
 	per_df = per_df.set_index(['household','id'],drop=False)
-	
+
 	# populate the urbansim object to update
 	usim = Usim_Data(forecast_year, usim_output)
 	p = usim.per_data
-	
+
 
 	# create a temp index
 	p_idx_name = p.index.name
@@ -349,20 +342,21 @@ def update_usim_after_polaris(forecast_year, usim_output_dir, db_demand, usim_se
 		p.index.name = p_idx_name
 	p = p.reset_index()
 	p = p.set_index(['household_id','member_id'],drop=False)
-	
+
 	p['work_zone_id'] = per_df['work_location_id'].reindex(p.index)
 	p['school_zone_id'] = per_df['school_location_id'].reindex(p.index)
 	p = p.set_index(p_idx_name)
-		
+
 	# update the person data table in the usim object
 	usim.per_data = p
-	
+
 	# close saves it back to original datastore and writes to file
 	usim.Close()
-	
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Process the skim data for UrbanSim')
+	parser.add_argument('-data_dir', default='', help='The directory to process')
 	parser.add_argument('-auto_skim_file', default='', help='An input auto mode skim file to read, in polaris .bin V0 or V1 format')
 	parser.add_argument('-transit_skim_file', default='', help='An input transit mode skim file to read, in polaris .bin V0 or V1 format')
 	parser.add_argument('-database_name', default='', help='Database name/filepath with no extension or schema indicator, i.e. "chicago", not "chicago-Supply" or chicago-Supply.sqlite')
@@ -379,4 +373,4 @@ if __name__ == '__main__':
 	transit_skim_path = args.transit_skim_file
 	vot_level = args.vot_level if args.vot_level != 0 else 0  # use 0 for VOTT low (from Scenario settings file - i.e. long run) and 1 for VOTT high (short run/less impact)
 
-	postprocess_polaris_for_usim(args.database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)
+	generate_polaris_skims_for_usim(args.data_dir, args.database_name, NetworkDbPath, DemandDbPath, ResultDbPath, auto_skim_path, transit_skim_path, vot_level)

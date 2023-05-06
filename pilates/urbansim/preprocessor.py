@@ -5,7 +5,7 @@ import h5py
 
 from pilates.utils.geog import geoid_to_zone_map
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("urbansim.pre")
 
 skim_dtypes = {
     'timePeriod': str,
@@ -49,11 +49,10 @@ def _load_raw_skims(settings, skim_format):
                 'destination': 'to_zone_id',
                 'TOTIVT_IVT_minutes': 'SOV_AM_IVT_mins'})
         elif skim_format == 'polaris':
-            path_to_skims = os.path.join(
-                settings['polaris_local_data_folder'], skims_fname)
+            path_to_skims = os.path.join(settings['polaris_local_data_folder'], skims_fname)
             f = h5py.File(path_to_skims, 'r')
-            ivtt_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['ivtt']))
-            cost_8_9 = pd.DataFrame(list(f['auto_skims']['t4']['cost']))
+            ivtt_8_9 = pd.DataFrame(list(f['data']['auto_480_time']))
+            cost_8_9 = pd.DataFrame(list(f['data']['auto_480_cost']))
             f.close()
             ivtt_8_9 = pd.DataFrame(
                 ivtt_8_9.stack(), columns=['auto_ivtt_8_9_am'])
@@ -64,7 +63,7 @@ def _load_raw_skims(settings, skim_format):
             skims = skims.reset_index()
     except KeyError:
         raise KeyError(
-            "Couldn't find input skims named {0}".format(skims_fname))
+            "Couldn't find input skims named {0} in local data folder {1}".format(skims_fname, settings['polaris_local_data_folder']))
 
     logger.info("Converting skims to UrbanSim data format.")
     skims['from_zone_id'] = skims['from_zone_id'].astype('str')
@@ -85,7 +84,7 @@ def usim_model_data_fname(region_id):
     return 'custom_mpo_{0}_model_data.h5'.format(region_id)
 
 
-def add_skims_to_model_data(settings, data_dir=None):
+def add_skims_to_model_data(settings):
 
     # load skims
     logger.info("Loading skims from disk")
@@ -96,12 +95,10 @@ def add_skims_to_model_data(settings, data_dir=None):
     # load datastore
     region_id = settings['region_to_region_id'][region]
     model_data_fname = usim_model_data_fname(region_id)
-    if not data_dir:
-        data_dir = settings['usim_local_data_folder']
-    model_data_fpath = os.path.join(data_dir, model_data_fname)
-    if not os.path.exists(model_data_fpath):
-        raise ValueError('No input data found at {0}'.format(
-            model_data_fpath))
+    data_dir = settings['data_folder'] / settings['usim_local_data_folder']
+    model_data_fpath = data_dir / model_data_fname
+    if not model_data_fpath.exists():
+        raise ValueError(f'No input data found at {model_data_fpath}')
     store = pd.HDFStore(model_data_fpath)
 
     # add skims
@@ -112,6 +109,7 @@ def add_skims_to_model_data(settings, data_dir=None):
     # note: should only have to be run the first time the
     # the base year urbansim data is touched by pilates
     zone_id_col = 'zone_id'
+    logger.debug(f"{model_data_fpath} has the following keys: {store.keys()}")
     if zone_id_col not in store['blocks'].columns:
 
         blocks = store['blocks'].copy()

@@ -4,7 +4,7 @@ import gzip
 import shutil
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("beam.pre")
 
 
 def copy_plans_from_asim(settings, year, replanning_iteration_number=0):

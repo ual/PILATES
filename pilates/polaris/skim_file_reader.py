@@ -12,78 +12,78 @@ from collections import OrderedDict
 
 ######################################################################################
 # Place code to work with Skims in this funcxtion
-######################################################################################	
+######################################################################################
 def Main(skims, highway_skim_file='', transit_skim_file='', write_bin=False, write_csv=False, write_tab=False, write_HDF5=False, origin_list=None, dest_list=None, limit_modes_list=None, limit_values_list=None):
 
 	do_highway = GetHighwaySkims(highway_skim_file, skims)
-	
+
 	if not skims.silent:
 		skims.print_header_info()
-	
+
 	do_transit = GetTransitSkims(transit_skim_file, do_highway, skims)
-	
+
 	if origin_list is not None: skims = ReduceTransitSkims(skims,origin_list)
 
 	if do_highway and write_bin: WriteHighwaySkimsV1(highway_skim_file, skims)
 	if do_transit and write_bin: WriteTransitSkimsV1(transit_skim_file, skims)
-	
+
 	if do_highway and write_csv: WriteHighwaySkimsV1_CSV(highway_skim_file, skims, origin_list, dest_list, limit_values_list)
 	if do_transit and write_csv: WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list, dest_list, limit_modes_list, limit_values_list)
-	
+
 	if do_highway and write_tab: WriteHighwaySkimsV1_TEXT(highway_skim_file, skims, origin_list, dest_list)
 	#if do_transit and write_tab: WriteTransitSkimsV1_TEXT(ransit_skim_file, skims, origin_list, dest_list)
-	
+
 	if write_HDF5: WriteSkimsHDF5('test.hdf5',skims, do_transit)
-	
+
 def MEP(skims, highway_skim_file, transit_skim_file,):
 
 	do_highway = GetHighwaySkims(highway_skim_file, skims)
-	
+
 	skims.print_header_info()
-	
+
 	do_transit = GetTransitSkims(transit_skim_file, do_highway, skims)
-	
+
 
 	t = skims.intervals[skims.get_interval_idx(540)]
 	a_cost = skims.auto_cost_skims[t]
 	t_cost = skims.transit_fare['BUS'][t]
 	t_ivtt = skims.transit_ttime['BUS'][t]
 	dist = skims.auto_distance_skims[t]
-	
+
 	mep_file = open('mep_cost_file.csv', 'w')
-	
+
 	# loop through all zones
 	mep_file.write('taz,auto_costpermile,tran_costpermile\n')
 	for kvp in skims.zone_id_to_index_map.items():
 		i = kvp[0]
 		idx = kvp[1]
-		
+
 		acost = 0.0
 		adist = 0.0
-		
+
 		tcost = 0.0
 		tdist = 0.0
-		
+
 		for kvp2 in skims.zone_id_to_index_map.items():
 			j = kvp2[0]
 			jdx = kvp2[1]
-			
+
 			acost += a_cost[idx,jdx]
 			adist += dist[idx,jdx]
-			
+
 			if t_ivtt[idx,jdx] < 86400 and t_ivtt[idx,jdx] > 0 and idx != jdx:
 				tcost += t_cost[idx,jdx]
-				tdist += dist[idx,jdx] 
-				
-		
+				tdist += dist[idx,jdx]
+
+
 		#print(tcost, tdist)
 		if tdist == 0:
 			tcost = 99999.0
 			tdist = 1.0
-			
-		mep_file.write(str(i) + "," + str(acost/adist) + "," + str(tcost/tdist) + '\n')	
-			
-	
+
+		mep_file.write(str(i) + "," + str(acost/adist) + "," + str(tcost/tdist) + '\n')
+
+
 
 ######################################################################################
 # Skim Functions - do not modify anything below this section
@@ -92,20 +92,20 @@ def GetHighwaySkims(highway_skim_file, skims):
 
 	if highway_skim_file == '':
 		return False
-		
+
 	infile = open(highway_skim_file, 'rb')
-	
+
 	version1 = True;
 	version2 = True;
 	version3 = True;
-	
+
 	# check version tag
 	if not Check_Tag(infile,"SKIM:V01"):
 		version1 = False
 		infile.seek(-8,1)
 	else:
 		skims.version = 1
-		
+
 	if not Check_Tag(infile,"SKIM:V02"):
 		version2 = False
 		infile.seek(-8,1)
@@ -113,7 +113,7 @@ def GetHighwaySkims(highway_skim_file, skims):
 		version1 = True
 		version2 = True
 		skims.version = 2
-	
+
 	if not Check_Tag(infile,"SKIM:V03"):
 		version3 = False
 		infile.seek(-8,1)
@@ -122,7 +122,7 @@ def GetHighwaySkims(highway_skim_file, skims):
 		version2 = True
 		version3 = True
 		skims.version = 3
-	
+
 	# check for the new MODES count tag.
 	if version3:
 		if not Check_Tag(infile,"MODE"):
@@ -132,7 +132,7 @@ def GetHighwaySkims(highway_skim_file, skims):
 			tmodes = struct.unpack("i",infile.read(4))[0]
 			skims.version = 3
 
-				
+
 	# check to see if <BZON> tag is in the file, if not read old version header information (modes,num_zones)
 	if not Check_Tag(infile,"BZON"):
 		infile.seek(-4,1)
@@ -149,7 +149,7 @@ def GetHighwaySkims(highway_skim_file, skims):
 			else:
 				print("Error, zone id was found more than once in zone map.")
 		Check_Tag(infile,"EZON",exit=True)
-		
+
 	# read intervals
 	if version1:
 		Check_Tag(infile,"BINT",True)
@@ -178,7 +178,7 @@ def GetHighwaySkims(highway_skim_file, skims):
 		else:
 			skims.auto_ttime_skims[skims.intervals[i]] = data.reshape(zones,zones)
 		if version1: Check_Tag(infile,"EMAT",True)
-		
+
 		# if reading a version 2 skim, also read in the distance and cost matrices for each interval
 		if version2:
 			Check_Tag(infile,"BMAT",True)
@@ -197,26 +197,26 @@ def GetHighwaySkims(highway_skim_file, skims):
 			else:
 				skims.auto_cost_skims[skims.intervals[i]] = data.reshape(zones,zones)
 			Check_Tag(infile,"EMAT",True)
-			
+
 	return True
 
 def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_list=None):
 	if transit_skim_file == '':
 		return False
-	
+
 	infile = open(transit_skim_file, 'rb')
-		
+
 	version1 = True;
 	version2 = True;
 	version3 = False;
-	
+
 	# check version tag
 	if not Check_Tag(infile,"SKIM:V01"):
 		version1 = False
 		infile.seek(-8,1)
 	else:
 		skims.version = 1
-		
+
 	if not Check_Tag(infile,"SKIM:V02"):
 		version2 = False
 		infile.seek(-8,1)
@@ -224,7 +224,7 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 		version1 = True
 		version2 = True
 		skims.version = 2
-	
+
 	if not Check_Tag(infile,"SKIM:V03"):
 		version3 = False
 		infile.seek(-8,1)
@@ -233,9 +233,9 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 		version2 = True
 		version3 = True
 		skims.version = 3
-		
+
 	# check for the new MODES count tag.
-	if version3:			
+	if version3:
 		if not Check_Tag(infile,"MODE"):
 			infile.seek(-4,1)
 		else:
@@ -246,7 +246,7 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 				skims.transit_modes.append('UNPNR')
 			else:
 				print("SOMETHING IS WRONG HERE...")
-			
+
 	# check to see if <BZON> tag is in the file, if not read old version header information (modes,num_zones)
 	if not Check_Tag(infile,"BZON"):
 		infile.seek(-4,1)
@@ -273,7 +273,7 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 					print( "Error, zone id was found more than once in zone map.")
 		#tag = struct.unpack("<4s",infile.read(4))[0]
 		Check_Tag(infile,"EZON",exit=True)
-		
+
 	# read intervals
 	if version2:
 		if not skims.silent:
@@ -285,10 +285,10 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 		for i in range(num_intervals):
 			skims.transit_intervals.append(struct.unpack("i",infile.read(4))[0])
 		Check_Tag(infile,"EINT",True)
-		
+
 	tsize = tzones*tzones
 	skims.num_tzones=tzones
-	
+
 	if not skims.silent: print( "Reading information for " + str(tzones) + " zones. Version 1=" + str(version1) + "....")
 
 	# for each interval, check tags and read in matrix
@@ -307,97 +307,97 @@ def GetTransitSkims(transit_skim_file, validate_against_highway, skims, zone_lis
 				if data.size < tsize: print( "Error: transit walk time matrix not read properly")
 				else: skims.transit_walk_access_time[mode][skims.transit_intervals[i]] = data.reshape(tzones,tzones)
 			if version1: Check_Tag(infile, "EMAT",True)
-			
+
 			if version1: Check_Tag(infile, "BMAT",True)
 			data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 			if (mode == 'BUS' and skims.bus_only) or not skims.bus_only:
 				if data.size < tsize: print( "Error: transit auto access time matrix not read properly")
 				else: skims.transit_auto_access_time[mode][skims.transit_intervals[i]] = data.reshape(tzones,tzones)
 			if version1: Check_Tag(infile, "EMAT",True)
-			
+
 			if version1: Check_Tag(infile, "BMAT",True)
 			data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 			if (mode == 'BUS' and skims.bus_only) or not skims.bus_only:
 				if data.size < tsize: print( "Error: transit_wait_time matrix not read properly")
 				else: skims.transit_wait_time[mode][skims.transit_intervals[i]] = data.reshape(tzones,tzones)
 			if version1: Check_Tag(infile, "EMAT",True)
-			
+
 			if version1: Check_Tag(infile, "BMAT",True)
 			data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 			if (mode == 'BUS' and skims.bus_only) or not skims.bus_only:
 				if data.size < tsize: print( "Error: transit_transfers matrix not read properly")
 				else: skims.transit_transfers[mode][skims.transit_intervals[i]] = data.reshape(tzones,tzones)
 			if version1: Check_Tag(infile, "EMAT",True)
-			
+
 			if version1: Check_Tag(infile, "BMAT",True)
 			data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 			if (mode == 'BUS' and skims.bus_only) or not skims.bus_only:
 				if data.size < tsize: print( "Error: transit_fare matrix not read properly")
 				else: skims.transit_fare[mode][skims.transit_intervals[i]] = data.reshape(tzones,tzones)
 			if version1: Check_Tag(infile, "EMAT",True)
-	
+
 	if not skims.silent: print( "Done.")
 	return True
-	
+
 def ReduceTransitSkims(skim, zone_list):
 	new_skim = Skim_Results()
-	
+
 	index = 0
 	for zoneid in zone_list:
 		if zoneid in skim.zone_id_to_index_map:
 			new_skim.zone_id_to_index_map[zoneid] = index
 			index += 1
 		else: print( "ERROR: " + str(zoneid) + " from reduced zone list is not in original list of zones.")
-	
+
 	new_skim.num_tzones = len(zone_list)
 	new_skim.resize_arrays(len(zone_list))
-			
+
 	for ozoneid in zone_list:
 		for dzoneid in zone_list:
 			if ozoneid not in skim.zone_id_to_index_map or dzoneid not in skim.zone_id_to_index_map or ozoneid not in new_skim.zone_id_to_index_map or dzoneid not in new_skim.zone_id_to_index_map:
 				print( "ERROR: " + str(zoneid) + " from reduced zone list is not in original list of zones.")
 				sys.exit()
-				
+
 			o_idx_orig = skim.zone_id_to_index_map[ozoneid]
 			d_idx_orig = skim.zone_id_to_index_map[dzoneid]
 			o_idx = new_skim.zone_id_to_index_map[ozoneid]
 			d_idx = new_skim.zone_id_to_index_map[dzoneid]
-			
+
 			new_skim.transit_ttime[o_idx,d_idx] = skim.transit_ttime[o_idx_orig,d_idx_orig]
 			new_skim.transit_walk_access_time[o_idx,d_idx] = skim.transit_walk_access_time[o_idx_orig,d_idx_orig]
 			new_skim.transit_wait_time[o_idx,d_idx] = skim.transit_wait_time[o_idx_orig,d_idx_orig]
 			new_skim.transit_fare[o_idx,d_idx] = skim.transit_fare[o_idx_orig,d_idx_orig]
 			new_skim.auto_distance[o_idx,d_idx] = skim.auto_distance[o_idx_orig,d_idx_orig]
-			
+
 	return new_skim
 
 def Check_Tag(file, check_val, exit=False):
 	size = len(check_val)
 	read_val = file.read(size)
-	
+
 	# check if at end of file
 	if len(read_val) != size: return False
-	
+
 	# if not, read in tag
 	tag = struct.unpack("<" + str(size) + "s",read_val)[0]
-	
+
 	# check against expected value and exit if requested
 	if tag.decode("utf-8") != check_val:
 		if exit:
 			print( "Error: " + check_val + " tag missing. Read as: " + tag.decode("utf-8"))
 			sys.exit()
 		else:
-			print( "Warning: tag '" + check_val + " was missing. Read as: " + tag.decode("utf-8"))
+			# print( "Warning: tag '" + check_val + " was missing. Read as: " + tag.decode("utf-8"))
 			return False
 	else:
 		return True
-		
+
 def WriteHighwaySkimsV1(highway_skim_file, skims):
 	outfile = open(highway_skim_file, 'wb')
-	
+
 	# Write version info
 	outfile.write(struct.pack("<8s","SKIM:V01"))
-	
+
 	# Write zone identification info if available, othwerise write old-style zone info
 	if len(skims.zone_id_to_index_map) > 0:
 		outfile.write(struct.pack("<4s","BZON"))
@@ -407,26 +407,26 @@ def WriteHighwaySkimsV1(highway_skim_file, skims):
 		outfile.write(struct.pack("<4s","EZON"))
 	else:
 		outfile.write(struct.pack("ii",1, skims.num_zones))
-	
+
 	# Write intervals
 	outfile.write(struct.pack("<4s","BINT"))
 	outfile.write(struct.pack("i",len(skims.auto_ttime_skims)))
 	for interval in sorted(skims.auto_ttime_skims.keys()):
-		outfile.write(struct.pack("i",interval))	
+		outfile.write(struct.pack("i",interval))
 	outfile.write(struct.pack("<4s","EINT"))
-	
+
 	# Write skim matrix for each interval
 	for interval in sorted(skims.auto_ttime_skims.keys()):
 		outfile.write(struct.pack("<4s","BMAT"))
 		skims.auto_ttime_skims[interval].tofile(outfile)
 		outfile.write(struct.pack("<4s","EMAT"))
-	
+
 def WriteTransitSkimsV1(transit_skim_file, skims):
 	outfile = open(transit_skim_file, 'wb')
-	
+
 	vtag = struct.pack("<8s","SKIM:V01")
 	outfile.write(vtag)
-	
+
 	# Write zone identification info if available, othwerise write old-style zone info
 	if len(skims.zone_id_to_index_map) > 0:
 		outfile.write(struct.pack("<4s","BZON"))
@@ -437,48 +437,48 @@ def WriteTransitSkimsV1(transit_skim_file, skims):
 		outfile.write(struct.pack("<4s","EZON"))
 	else:
 		outfile.write(struct.pack("ii",1, skims.num_tzones))
-	
+
 	btag = struct.pack("<4s","BMAT")
 	etag = struct.pack("<4s","EMAT")
-	
+
 	outfile.write(btag)
 	skims.transit_ttime.tofile(outfile)
 	outfile.write(etag)
-	
+
 	outfile.write(btag)
 	skims.transit_walk_access_time.tofile(outfile)
 	outfile.write(etag)
-	
+
 	outfile.write(btag)
 	skims.auto_distance.tofile(outfile)
 	outfile.write(etag)
-	
+
 	outfile.write(btag)
 	skims.transit_wait_time.tofile(outfile)
 	outfile.write(etag)
-	
+
 	outfile.write(btag)
 	skims.transit_fare.tofile(outfile)
 	outfile.write(etag)
 
 def WriteHighwaySkimsV1_CSV(highway_skim_file, skims, origin_list=None, dest_list=None, limit_values_list=None):
-	with open(highway_skim_file + '.csv', 'w') as outfile:	
-	
+	with open(highway_skim_file + '.csv', 'w') as outfile:
+
 		# Update the origin and destination lists
 		if origin_list is None: origin_list = sorted(skims.zone_id_to_index_map.keys())
 		if dest_list is None: dest_list = sorted(skims.zone_id_to_index_map.keys())
-		
+
 		# Write intervals
 		for interval in sorted(skims.auto_ttime_skims.keys()):
-			outfile.write("Auto TTime for interval" + str(interval) + '\n')	
+			outfile.write("Auto TTime for interval" + str(interval) + '\n')
 			# Write skim matrix for each interval
 			outfile.write(',')
-			
+
 			# write destination zone headers (if in dest list)
 			for i in dest_list:
-				outfile.write(str(i) + ',')			
+				outfile.write(str(i) + ',')
 			outfile.write('\n')
-			
+
 			for i in origin_list:
 				outfile.write(str(i) + ',')
 				for j in dest_list:
@@ -487,16 +487,16 @@ def WriteHighwaySkimsV1_CSV(highway_skim_file, skims, origin_list=None, dest_lis
 					outfile.write(str(skims.auto_ttime_skims[interval][i_id,j_id]) + ',')
 				outfile.write('\n')
 			outfile.write('\n')
-			
+
 			# output the distance and cost if it is version 2...
 			if skims.version == 2:
-				outfile.write("Auto Distance (m) for interval" + str(interval) + '\n')	
+				outfile.write("Auto Distance (m) for interval" + str(interval) + '\n')
 				outfile.write(',')
 				# write destination zone headers (if in dest list)
 				for i in dest_list:
-					outfile.write(str(i) + ',')			
+					outfile.write(str(i) + ',')
 				outfile.write('\n')
-				
+
 				for i in origin_list:
 					outfile.write(str(i) + ',')
 					for j in dest_list:
@@ -505,14 +505,14 @@ def WriteHighwaySkimsV1_CSV(highway_skim_file, skims, origin_list=None, dest_lis
 						outfile.write(str(skims.auto_distance_skims[interval][i_id,j_id]) + ',')
 					outfile.write('\n')
 				outfile.write('\n')
-				
-				outfile.write("Auto Cost ($) for interval" + str(interval) + '\n')	
-				outfile.write(',')		
+
+				outfile.write("Auto Cost ($) for interval" + str(interval) + '\n')
+				outfile.write(',')
 				# write destination zone headers (if in dest list)
 				for i in dest_list:
-					outfile.write(str(i) + ',')			
+					outfile.write(str(i) + ',')
 				outfile.write('\n')
-				
+
 				for i in origin_list:
 					outfile.write(str(i) + ',')
 					for j in dest_list:
@@ -522,22 +522,22 @@ def WriteHighwaySkimsV1_CSV(highway_skim_file, skims, origin_list=None, dest_lis
 					outfile.write('\n')
 				outfile.write('\n')
 		outfile.write('\n')
-		
+
 def WriteHighwaySkimsV1_TEXT(highway_skim_file, skims, origin_list=None, dest_list=None):
-	with open(highway_skim_file + '.csv', 'w') as outfile:	
-	
+	with open(highway_skim_file + '.csv', 'w') as outfile:
+
 		# Update the origin and destination lists
 		if origin_list is None: origin_list = sorted(skims.zone_id_to_index_map.keys())
 		if dest_list is None: dest_list = sorted(skims.zone_id_to_index_map.keys())
-		
+
 		# Write intervals
 		outfile.write('O,D,')
 		for interval in sorted(skims.auto_ttime_skims.keys()):
-			outfile.write(str(interval) + ',')	
+			outfile.write(str(interval) + ',')
 		# Write skim matrix for each interval
 		outfile.write('\n')
-			
-			
+
+
 		for i in origin_list:
 			for j in dest_list:
 				i_id = skims.zone_id_to_index_map[i]
@@ -550,21 +550,21 @@ def WriteHighwaySkimsV1_TEXT(highway_skim_file, skims, origin_list=None, dest_li
 def ConvertTransitToV1(transit_skim_file, skims,zone_id_to_index):
 	if transit_skim_file == '':
 		return False
-		
+
 	# get the zone map
 	with open(zone_id_to_index, 'r') as infile:
 		cr = csv.reader(infile,delimiter =',')
 		for row in cr:
 			skims.zone_id_to_index_map[int(row[0])] = int(row[1])
 			skims.zone_index_to_id_map[int(row[1])] = int(row[0])
-	
+
 	infile = open(transit_skim_file, 'rb')
-		
+
 	tzones = struct.unpack("i",infile.read(4))[0]
-	
+
 	tsize = tzones*tzones
 	skims.num_tzones=tzones
-	
+
 	if not skims.silent: print( "Reading information for " + str(tzones) + " zones....")
 
 	data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
@@ -574,44 +574,44 @@ def ConvertTransitToV1(transit_skim_file, skims,zone_id_to_index):
 	data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 	if data.size < tsize: print( "Error: transit walk time matrix not read properly")
 	else: skims.transit_walk_access_time = data.reshape(tzones,tzones)
-	
+
 	data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 	if data.size < tsize: print( "Error: auto distance matrix not read properly")
 	else: skims.auto_distance = data.reshape(tzones,tzones)
-	
+
 	data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 	if data.size < tsize: print( "Error: transit_wait_time matrix not read properly")
 	else: skims.transit_wait_time = data.reshape(tzones,tzones)
-	
+
 	data = numpy.matrix(numpy.fromfile(infile, dtype='f',count = tsize))
 	if data.size < tsize: print( "Error: transit_fare matrix not read properly")
 	else: skims.transit_fare = data.reshape(tzones,tzones)
-	
+
 	if not skims.silent: print( "Done.")
 	return True
 
 def WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list=None, dest_list=None, limit_modes_list=None, limit_values_list=None):
 	outfile = open(transit_skim_file + '.csv', 'w')
-	
+
 	# Update the origin and destination lists
 	if origin_list is None: origin_list = sorted(skims.zone_id_to_index_map.keys())
 	if dest_list is None: dest_list = sorted(skims.zone_id_to_index_map.keys())
-		
+
 	# Write intervals
 	for interval in sorted(skims.transit_intervals):
-		#outfile.write("Skim for interval" + str(interval) + '\n')	
-	
-		for mode in skims.transit_modes:	
+		#outfile.write("Skim for interval" + str(interval) + '\n')
+
+		for mode in skims.transit_modes:
 			if limit_modes_list and mode not in limit_modes_list : continue
-		
+
 			# Write TTime
 			if not limit_values_list or 'IVTT' in limit_values_list:
 				outfile.write(mode)
 				outfile.write(" Transit IVTTime Skim @")
-				outfile.write(str(interval) + '\n')	
+				outfile.write(str(interval) + '\n')
 				outfile.write(',')
 				for i in dest_list:
-					outfile.write(str(i) + ',')			
+					outfile.write(str(i) + ',')
 				outfile.write('\n')
 				for i in origin_list:
 					outfile.write(str(i) + ',')
@@ -621,13 +621,13 @@ def WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list=None, dest_lis
 						outfile.write(str(skims.transit_ttime[mode][interval][i_id,j_id]) + ',')
 					outfile.write('\n')
 				outfile.write('\n')
-			
+
 			# Write walk time
-			if not limit_values_list or 'WALK_OVTT' in limit_values_list: 
-				outfile.write(mode + " Transit Walk Access Time Skim @" + str(interval) + '\n')	
+			if not limit_values_list or 'WALK_OVTT' in limit_values_list:
+				outfile.write(mode + " Transit Walk Access Time Skim @" + str(interval) + '\n')
 				outfile.write(',')
 				for i in dest_list:
-					outfile.write(str(i) + ',')			
+					outfile.write(str(i) + ',')
 				outfile.write('\n')
 				for i in origin_list:
 					outfile.write(str(i) + ',')
@@ -637,13 +637,13 @@ def WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list=None, dest_lis
 						outfile.write(str(skims.transit_walk_access_time[mode][interval][i_id,j_id]) + ',')
 					outfile.write('\n')
 				outfile.write('\n')
-			
+
 			# Write auto access time
-			if not limit_values_list or 'AUTO_OVTT' in limit_values_list: 
-				outfile.write(mode + " Transit Auto Access Time Skim @" + str(interval) + '\n')	
+			if not limit_values_list or 'AUTO_OVTT' in limit_values_list:
+				outfile.write(mode + " Transit Auto Access Time Skim @" + str(interval) + '\n')
 				outfile.write(',')
 				for i in dest_list:
-					outfile.write(str(i) + ',')			
+					outfile.write(str(i) + ',')
 				outfile.write('\n')
 				for i in origin_list:
 					outfile.write(str(i) + ',')
@@ -653,13 +653,13 @@ def WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list=None, dest_lis
 						outfile.write(str(skims.transit_auto_access_time[mode][interval][i_id,j_id]) + ',')
 					outfile.write('\n')
 				outfile.write('\n')
-			
+
 			# Write wait time
-			if not limit_values_list or 'WAIT' in limit_values_list: 
-				outfile.write(mode + " Transit Wait Time Skim @" + str(interval) + '\n')		
+			if not limit_values_list or 'WAIT' in limit_values_list:
+				outfile.write(mode + " Transit Wait Time Skim @" + str(interval) + '\n')
 				outfile.write(',')
 				for i in dest_list:
-					outfile.write(str(i) + ',')			
+					outfile.write(str(i) + ',')
 				outfile.write('\n')
 				for i in origin_list:
 					outfile.write(str(i) + ',')
@@ -669,13 +669,13 @@ def WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list=None, dest_lis
 						outfile.write(str(skims.transit_wait_time[mode][interval][i_id,j_id]) + ',')
 					outfile.write('\n')
 				outfile.write('\n')
-				
+
 			# Write transfers
-			if not limit_values_list or 'TRANSFERS' in limit_values_list: 
-				outfile.write(mode + " Transit Transfers Skim @" + str(interval) + '\n')	
+			if not limit_values_list or 'TRANSFERS' in limit_values_list:
+				outfile.write(mode + " Transit Transfers Skim @" + str(interval) + '\n')
 				outfile.write(',')
 				for i in dest_list:
-					outfile.write(str(i) + ',')			
+					outfile.write(str(i) + ',')
 				outfile.write('\n')
 				for i in origin_list:
 					outfile.write(str(i) + ',')
@@ -685,13 +685,13 @@ def WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list=None, dest_lis
 						outfile.write(str(skims.transit_transfers[mode][interval][i_id,j_id]) + ',')
 					outfile.write('\n')
 				outfile.write('\n')
-			
+
 			# Write Fare
-			if not limit_values_list or 'COST' in limit_values_list: 
-				outfile.write(mode + " Transit Fare Skim @" + str(interval) + '\n')		
+			if not limit_values_list or 'COST' in limit_values_list:
+				outfile.write(mode + " Transit Fare Skim @" + str(interval) + '\n')
 				outfile.write(',')
 				for i in dest_list:
-					outfile.write(str(i) + ',')			
+					outfile.write(str(i) + ',')
 				outfile.write('\n')
 				for i in origin_list:
 					outfile.write(str(i) + ',')
@@ -701,22 +701,22 @@ def WriteTransitSkimsV1_CSV(transit_skim_file, skims, origin_list=None, dest_lis
 						outfile.write(str(skims.transit_fare[mode][interval][i_id,j_id]) + ',')
 					outfile.write('\n')
 				outfile.write('\n')
-		
+
 def WriteSkimsHDF5(filename, skims, do_transit):
 	f = h5.File(filename, 'w')
-	
+
 	# get zone ids in order and convert to numpy array
 	ids = numpy.array([])
 	for i in range(0,skims.num_zones-1):
 		ids = numpy.append(ids, skims.zone_index_to_id_map[i])
 	zones = f.create_dataset("zone_ids", data = ids)
-	
+
 	# get interval start times and convert to numpy array
 	ints = numpy.array([])
 	for i in sorted(skims.intervals):
 		ints = numpy.append(ints, i)
 	intervals = f.create_dataset("interval_end_minutes", data = ints)
-	
+
 	# create the auto and transit groups
 	auto_group = f.create_group('auto_skims')
 	transit_groups = {}
@@ -730,7 +730,7 @@ def WriteSkimsHDF5(filename, skims, do_transit):
 		aii = ai.create_dataset('ivtt',data=skims.auto_ttime_skims[i])
 		aic = ai.create_dataset('cost',data=skims.auto_cost_skims[i])
 		aid = ai.create_dataset('distance',data=skims.auto_distance_skims[i])
-		
+
 		if do_transit:
 			for m in skims.transit_modes:
 				ti = transit_groups[m].create_group('t' + str(j))
@@ -740,10 +740,10 @@ def WriteSkimsHDF5(filename, skims, do_transit):
 				tiw = ti.create_dataset('wait',data=skims.transit_wait_time[m][i])
 				tit = ti.create_dataset('transfers',data=skims.transit_transfers[m][i])
 				tif = ti.create_dataset('fare',data=skims.transit_fare[m][i])
-				
+
 		j += 1
-		
-	
+
+
 
 #note transit_walk_files and transit_wait_files are lists - as there may be multiple wait/walk input files which are aggregated to one value
 def ReadTransitSkims_CSV(transit_ttime_file, transit_walk_files, transit_wait_files, transit_fare_file, auto_distance_file, zone_id_to_index, skims):
@@ -753,20 +753,20 @@ def ReadTransitSkims_CSV(transit_ttime_file, transit_walk_files, transit_wait_fi
 		for row in cr:
 			skims.zone_id_to_index_map[int(row[0])] = int(row[1])
 			skims.zone_index_to_id_map[int(row[1])] = int(row[0])
-			
+
 	nzone = len(skims.zone_id_to_index_map)
 	skims.num_tzones = nzone
-	
+
 	# resize the matrices according to number of zones
 	skims.resize_arrays(nzone)
-	
+
 	ignored_zones = []
-	
+
 	# read in each individual matrix and store_const
 	delim = ','
 	if '.txt' in transit_ttime_file: delim = '\t'
 	else: delim = ','
-	
+
 	with open(transit_ttime_file, 'r') as infile:
 		cr = csv.reader(infile,delimiter =delim)
 		try:
@@ -782,7 +782,7 @@ def ReadTransitSkims_CSV(transit_ttime_file, transit_walk_files, transit_wait_fi
 						skims.transit_ttime[o,d] = float(row[2])
 		except ValueError:
 			print( row[2])
-	
+
 	for transit_walk_file in transit_walk_files:
 		if '.txt' in transit_walk_file: delim = '\t'
 		else: delim = ','
@@ -801,7 +801,7 @@ def ReadTransitSkims_CSV(transit_ttime_file, transit_walk_files, transit_wait_fi
 							skims.transit_walk_access_time[o,d] += float(row[2])
 			except ValueError:
 					print( row[2])
-	
+
 	for transit_wait_file in transit_wait_files:
 		if '.txt' in transit_wait_file: delim = '\t'
 		else: delim = ','
@@ -820,9 +820,9 @@ def ReadTransitSkims_CSV(transit_ttime_file, transit_walk_files, transit_wait_fi
 							skims.transit_wait_time[o,d] += float(row[2])
 			except ValueError:
 				print( row[2])
-				
+
 	if '.txt' in transit_wait_file: delim = '\t'
-	else: delim = ','		
+	else: delim = ','
 	with open(transit_fare_file, 'r') as infile:
 		cr = csv.reader(infile,delimiter =delim)
 		try:
@@ -838,7 +838,7 @@ def ReadTransitSkims_CSV(transit_ttime_file, transit_walk_files, transit_wait_fi
 						skims.transit_fare[o,d] = float(row[2])
 		except ValueError:
 				print( row[2])
-	
+
 	if '.txt' in transit_wait_file: delim = '\t'
 	else: delim = ','
 	with open(auto_distance_file, 'r') as infile:
@@ -859,7 +859,7 @@ def ReadTransitSkims_CSV(transit_ttime_file, transit_walk_files, transit_wait_fi
 
 	print( "Warning, the following tazs from skim .csv input were ignored as they are not in the skim_id_to_index_file:")
 	for id in ignored_zones: print( str(id))
-	
+
 #note highway travel time files and intervals are lists
 def ReadHighwaySkims_CSV(highway_ttime_files, intervals, zone_id_to_index, skims):
 	print( "Reading highway skims from csv files...")
@@ -870,21 +870,21 @@ def ReadHighwaySkims_CSV(highway_ttime_files, intervals, zone_id_to_index, skims
 		for row in cr:
 			skims.zone_id_to_index_map[int(row[0])] = int(row[1])
 			skims.zone_index_to_id_map[int(row[1])] = int(row[0])
-			
+
 	nzone = len(skims.zone_id_to_index_map)
 	skims.num_zones = nzone
 	skims.num_tzones = nzone
-	
+
 	# get the intervals
 	for interval in intervals: skims.intervals.append(interval)
 	print( "Time intervals: " + str(intervals))
-	
+
 	# resize the matrices according to number of zones and add for each interval
 	print( "Resizing matrice...")
 	skims.resize_arrays(nzone)
-	
+
 	ignored_zones = []
-	
+
 	interval_count = 0
 	for highway_ttime_file in highway_ttime_files:
 		interval = skims.intervals[interval_count]
@@ -945,16 +945,16 @@ class Skim_Results:
 		for i in self.intervals:
 			if time < i: return idx
 			else: idx += 1
-		return len(self.intervals) - 1		
+		return len(self.intervals) - 1
 	def get_transit_interval_idx(self, time):
 		idx = 0
 		for i in self.transit_intervals:
 			if time < i: return idx
 			else: idx += 1
-		return len(self.transit_intervals) - 1	
+		return len(self.transit_intervals) - 1
 	def print_header_info(self):
 		if self.silent:
-			return			
+			return
 		print( "Zone info (id, index):")
 		for kvp in self.zone_id_to_index_map.items():
 			print( kvp[0], kvp[1])
@@ -963,10 +963,10 @@ class Skim_Results:
 		for interval in sorted(self.auto_ttime_skims.keys()):
 			print( interval)
 		print( "\r\n")
-	def print_OD_info(self, o_idx, d_idx, time, do_auto, do_transit, header=True):	
+	def print_OD_info(self, o_idx, d_idx, time, do_auto, do_transit, header=True):
 		i = self.get_interval_idx(time)
 		j = self.get_transit_interval_idx(time)
-		
+
 		#print( i, o_idx, d_idx)
 		if o_idx < len(self.zone_id_to_index_map) and d_idx < len(self.zone_id_to_index_map):
 			if header: s = "Time, Mode, IVTT, Walk_OVTT, Auto_OVTT, Wait_Time, Transfer, Fare\r\n"
@@ -990,7 +990,7 @@ class Skim_Results:
 			print( 'Skim end=' + str(interval))
 			if len(self.auto_ttime_skims[interval])>0: print( self.auto_ttime_skims[interval])
 			print( '')
-		
+
 		print( 'transit_ttime')
 		if self.transit_ttime.size>0: print( self.transit_ttime)
 		print( '')
@@ -1019,7 +1019,7 @@ class Skim_Results:
 
 
 if __name__ == "__main__":
-			
+
 	skims = Skim_Results()
 
 	# parse the command line args
@@ -1079,7 +1079,7 @@ if __name__ == "__main__":
 			ReadTransitSkims_CSV(args.i1_transit_ttime_file,args.i2_transit_walk_files,args.i3_transit_wait_files,args.i4_transit_fare_file,args.i5_auto_distance_file, args.zone_id_to_index_file,skims)
 			WriteTransitSkimsV1(args.transit_skim_file,skims)
 			WriteTransitSkimsV1_CSV(args.transit_skim_file,skims)
-			
+
 	elif (args.convert_to_v1):
 		write_bin = True
 		write_csv = True
@@ -1087,16 +1087,16 @@ if __name__ == "__main__":
 		if args.auto_skim_file != '': raise NameError("Error: v0 to v1 converter not implemented for auto skims")
 		if args.transit_skim_file != '':
 			do_transit = ConvertTransitToV1(args.transit_skim_file,skims, args.zone_id_to_index_file)
-			if do_transit: WriteTransitSkimsV1(args.transit_skim_file+"_v1", skims)	
+			if do_transit: WriteTransitSkimsV1(args.transit_skim_file+"_v1", skims)
 			if do_transit: WriteTransitSkimsV1_CSV(args.transit_skim_file+"_v1", skims)
-			
+
 	elif (args.interactive):
 
 		Main(skims, args.auto_skim_file, args.transit_skim_file, False, False, False, False, None, None)
-		
+
 		do_auto = args.auto_skim_file != ''
 		do_transit = args.transit_skim_file != ''
-		
+
 		s = ''
 		while (s != 'q'):
 			multiple_times = False
@@ -1131,7 +1131,7 @@ if __name__ == "__main__":
 			D_idx = skims.zone_id_to_index_map[int(D)]
 			if O_idx is None: raise NameError("Error: Origin zone id '" + O + "' not found.")
 			if D_idx is None: raise NameError("Error: Destination zone id '" + D + "' not found.")
-			
+
 			if multiple_times:
 				for t in skims.intervals:
 					print( skims.print_OD_info(O_idx, D_idx, t, do_auto, do_transit,False))
@@ -1139,11 +1139,11 @@ if __name__ == "__main__":
 				print( skims.print_OD_info(O_idx, D_idx, T, do_auto, do_transit))
 
 	elif (args.batch):
-		Main(skims, args.auto_skim_file, args.transit_skim_file, False, False, False, False, None, None)	
+		Main(skims, args.auto_skim_file, args.transit_skim_file, False, False, False, False, None, None)
 		do_auto = args.auto_skim_file != ''
 		do_transit = args.transit_skim_file != ''
-		
-		with open(args.trip_file[:-4] + '_out.csv', 'wb') as outfile:		
+
+		with open(args.trip_file[:-4] + '_out.csv', 'wb') as outfile:
 			outfile.write('ID,O,D,Time,AutoTime,TransitTime,walk_time,wait_time,fare,dist\r\n')
 			with open(args.trip_file, 'r') as infile:
 					cr = csv.reader(infile,delimiter =',')
@@ -1163,7 +1163,7 @@ if __name__ == "__main__":
 								O = int(row[0+id_offset])
 								D = int(row[1+id_offset])
 								T = int(row[2+id_offset])
-							
+
 								if O not in skims.zone_id_to_index_map:
 									print( "Origin ID '" + str(O) + "' not found.")
 									continue
@@ -1178,7 +1178,7 @@ if __name__ == "__main__":
 							except ValueError:
 								print( "Error: enter a valid OD pair seperated by a comma: " + str(row))
 								continue
-								
+
 					except ValueError:
 							print( row)
 
