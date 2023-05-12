@@ -363,7 +363,8 @@ def _raw_beam_origin_skims_preprocess(settings, year, origin_skims_df):
     test_3 = len(set(order) - set(origin_taz))
     assert test_3 == 0, 'There are {} missing origin zone ids in BEAM skims'.format(test_3)
     return origin_skims_df.loc[origin_skims_df['origin'].isin(order)].set_index(['timePeriod',
-                                                                                 'reservationType', 'serviceName', 'origin'])
+                                                                                 'reservationType', 'serviceName',
+                                                                                 'origin'])
 
 
 def _create_skims_by_mode(settings, skims_df):
@@ -1021,8 +1022,8 @@ def create_skims_from_beam(settings, year,
     new, convertFromCsv, blankSkims = _create_skim_object(settings, overwrite, output_dir=output_dir)
     validation = settings.get('asim_validation', False)
 
+    order = zone_order(settings, year)
     if new:
-        order = zone_order(settings, year)
         tempSkims = _load_raw_beam_skims(settings, convertFromCsv, blankSkims)
         if isinstance(tempSkims, pd.DataFrame):
             skims = tempSkims.loc[skims.origin.isin(order) & tempSkims.destination.isin(order), :]
@@ -1053,6 +1054,8 @@ def create_skims_from_beam(settings, year,
             beam_output_dir = settings['beam_local_output_folder']
             mutable_skims_location = os.path.join(beam_output_dir, skims_fname)
             shutil.copyfile(mutable_skims_location, final_skims_path)
+    else:
+        _create_offset(settings, order, data_dir=output_dir)
 
     if validation:
         order = zone_order(settings, year)
